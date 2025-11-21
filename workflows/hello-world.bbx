@@ -1,0 +1,29 @@
+bbx_version: "5.0"
+type: workflow
+
+workflow:
+  id: "hello_world"
+  name: "Hello World"
+  version: "1.0.0"
+  description: "Simple Hello World workflow"
+  
+  mcp_servers:
+    http: "http-client"
+  
+  steps:
+    - id: "fetch_zen"
+      mcp: "http"
+      method: "get"
+      inputs:
+        url: "https://api.github.com/zen"
+      outputs: "zen_msg"
+      retry: 3
+
+    - id: "log_result"
+      mcp: "http"
+      method: "post"
+      inputs:
+        url: "https://httpbin.org/post"
+        json:
+          message: "GitHub Zen: ${step.fetch_zen.zen_msg}"
+      when: "${step.fetch_zen.status} == 'success'"

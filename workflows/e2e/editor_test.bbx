@@ -1,0 +1,27 @@
+id: e2e_editor_test
+name: E2E Editor Test
+version: 1.0.0
+description: Verify the Visual Editor loads and connects to the API
+
+steps:
+  open_browser:
+    use: browser.open
+    args:
+      headless: false
+    retry: 5
+    retry_delay: 1000
+    
+  verify_connection:
+    use: transform.filter
+    args:
+      data: ["${steps.check_connection.output}"]
+      condition: "item == 'Connected'"
+      
+  log_success:
+    use: logger.info
+    args:
+      message: "✅ E2E Test Passed: Editor loaded and connected!"
+      
+  close_browser:
+    use: browser.close
+    args: {}

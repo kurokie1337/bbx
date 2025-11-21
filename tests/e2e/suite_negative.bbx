@@ -1,0 +1,22 @@
+id: suite_negative
+name: E2E Negative Testing Suite
+steps:
+  run_failing_cli:
+    use: system.shell
+    args:
+      # Run the failing workflow in a subprocess. 
+      # We expect it to fail (exit code 1).
+      # We append '|| echo success' so this step itself doesn't fail if the command fails.
+      # Actually, we want to capture the exit code.
+      # A simple way: try to run it, if it fails, we log success.
+      # But system.shell fails if command fails.
+      # So we wrap it: python cli.py run ... && exit 1 || exit 0
+      # If cli.py fails (good), then '&& exit 1' is skipped, '|| exit 0' runs -> Success.
+      # If cli.py succeeds (bad), then '&& exit 1' runs -> Failure.
+      command: "python cli.py run tests/e2e/failing.bbx && exit 1 || exit 0"
+    outputs: output
+
+  verify_failure:
+    use: logger.info
+    args:
+      message: "✅ Negative Test Passed: Workflow failed as expected."

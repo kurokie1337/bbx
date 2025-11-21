@@ -1,0 +1,31 @@
+id: suite_dag
+name: E2E Concurrency Suite
+steps:
+  log_start:
+    use: logger.info
+    args:
+      message: "⏱️ Starting Parallel Execution Test (Expect ~2s total)"
+
+  task_1:
+    use: system.shell
+    args:
+      command: "powershell -c Start-Sleep -Seconds 2"
+    needs: []
+
+  task_2:
+    use: system.shell
+    args:
+      command: "powershell -c Start-Sleep -Seconds 2"
+    needs: []
+
+  task_3:
+    use: system.shell
+    args:
+      command: "powershell -c Start-Sleep -Seconds 2"
+    needs: []
+
+  log_end:
+    use: logger.info
+    args:
+      message: "✅ Parallel Tasks Completed"
+    needs: [task_1, task_2, task_3]

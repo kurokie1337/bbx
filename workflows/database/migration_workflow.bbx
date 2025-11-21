@@ -1,0 +1,56 @@
+id: database_migration_workflow
+description: Complete database migration workflow - create, migrate, seed
+
+workflow:
+  steps:
+    # Step 1: Get migration status
+    - id: check_status
+      mcp: db
+      method: status
+      inputs:
+        database: "postgresql"
+        connection: "postgresql://user:pass@localhost/mydb"
+        migrations_dir: "./migrations"
+    
+    # Step 2: Create new migration
+    - id: create_migration
+      mcp: db
+      method: create_migration
+      inputs:
+        name: "add_users_table"
+        migrations_dir: "./migrations"
+    
+    # Step 3: Run migrations
+    - id: migrate_database
+      mcp: db
+      method: migrate
+      inputs:
+        database: "postgresql"
+        connection: "postgresql://user:pass@localhost/mydb"
+        migrations_dir: "./migrations"
+    
+    # Step 4: Seed database 
+    - id: seed_data
+      mcp: db
+      method: seed
+      inputs:
+        database: "postgresql"
+        connection: "postgresql://user:pass@localhost/mydb"
+        seed_file: "./seeds/initial_data.sql"
+    
+    # Step 5: Get final status
+    - id: final_status
+      mcp: db
+      method: status
+      inputs:
+        database: "postgresql"
+        connection: "postgresql://user:pass@localhost/mydb"
+        migrations_dir: "./migrations"
+
+  output:
+    migration_summary:
+      initial_status: "${check_status}"
+      new_migration: "${create_migration.migration}"
+      migrations_applied: "${migrate_database.count}"
+      seeded: "${seed_data.status}"
+      final_status: "${final_status}"

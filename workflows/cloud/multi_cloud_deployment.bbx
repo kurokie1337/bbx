@@ -1,0 +1,129 @@
+id: multi_cloud_deployment
+description: Deploy same application across AWS, GCP, and Azure simultaneously!
+
+workflow:
+  parallel_steps:
+    # AWS Deployment Path
+    - id: aws_deployment
+      steps:
+        - id: aws_create_bucket
+          mcp: aws
+          method: s3_create_bucket
+          inputs:
+            bucket_name: "myapp-aws-${timestamp}"
+            region: "us-east-1"
+        
+        - id: aws_launch_vm
+          mcp: aws
+          method: ec2_launch
+          inputs:
+            image_id: "ami-0c55b159cbfafe1f0"
+            instance_type: "t3.micro"
+        
+        - id: aws_deploy_lambda
+          mcp: aws
+          method: lambda_deploy
+          inputs:
+            function_name: "myapp-handler"
+            runtime: "python3.11"
+            role: "${env.AWS_LAMBDA_ROLE}"
+            code: "./lambda/app.zip"
+    
+    # GCP Deployment Path
+    - id: gcp_deployment
+      steps:
+        - id: gcp_create_bucket
+          mcp: gcp
+          method: storage_create_bucket
+          inputs:
+            bucket_name: "myapp-gcp-${timestamp}"
+            location: "US"
+        
+        - id: gcp_create_vm
+          mcp: gcp
+          method: compute_create
+          inputs:
+            name: "myapp-vm"
+            zone: "us-central1-a"
+            machine_type: "e2-micro"
+        
+        - id: gcp_deploy_function
+          mcp: gcp
+          method: function_deploy
+          inputs:
+            name: "myapp-handler"
+            runtime: "python311"
+            source: "./functions"
+    
+    # Azure Deployment Path
+    - id: azure_deployment
+      steps:
+        - id: azure_create_rg
+          mcp: azure
+          method: group_create
+          inputs:
+            name: "myapp-rg"
+            location: "eastus"
+        
+        - id: azure_create_storage
+          mcp: azure
+          method: storage_create_account
+          inputs:
+            name: "myappazure${timestamp}"
+            resource_group: "${azure_create_rg.resource_group}"
+        
+        - id: azure_create_vm
+          mcp: azure
+          method: vm_create
+          inputs:
+            name: "myapp-vm"
+            resource_group: "${azure_create_rg.resource_group}"
+            image: "UbuntuLTS"
+
+  # Sequential post-deployment steps
+  steps:
+    # Kubernetes deployment (can use any cloud's K8s)
+    - id: deploy_to_kubernetes
+      mcp: k8s
+      method: apply
+      inputs:
+        file: "./k8s/deployment.yaml"
+        namespace: "production"
+    
+    # Database migration
+    - id: migrate_database
+      mcp: db
+      method: migrate
+      inputs:
+        database: "postgresql"
+        connection: "${env.DB_CONNECTION}"
+        migrations_dir: "./migrations"
+    
+    # Final validation
+    - id: validate_deployments
+      mcp: http
+      method: serve
+      inputs:
+        directory: "./monitoring-dashboard"
+        port: 9000
+
+  output:
+    multi_cloud_summary:
+      aws:
+        bucket: "${aws_create_bucket.bucket}"
+        vm: "${aws_launch_vm.instance_id}"
+        function: "${aws_deploy_lambda.function_name}"
+      gcp:
+        bucket: "${gcp_create_bucket.bucket}"
+        vm: "${gcp_create_vm.instance}"
+        function: "${gcp_deploy_function.function}"
+      azure:
+        resource_group: "${azure_create_rg.resource_group}"
+        storage: "${azure_create_storage.account}"
+        vm: "${azure_create_vm.vm}"
+      kubernetes:
+        deployment: "success"
+      database:
+        migrations_applied: "${migrate_database.count}"
+      monitoring:
+        dashboard_url: "http://localhost:9000"

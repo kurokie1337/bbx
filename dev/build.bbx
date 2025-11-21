@@ -1,0 +1,77 @@
+id: build_bbx
+name: Build Blackbox from Source
+version: 1.0.0
+description: BBX builds itself! Uses BBX workflows to compile and package BBX.
+
+workflow:
+  steps:
+    # 1. Get platform info
+    - id: platform_check
+      mcp: bbx.os
+      method: platform_info
+      
+    # 2. Check if Python is available
+    - id: check_python
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "python --version"
+      depends_on: [platform_check]
+      
+    # 3. Install dependencies
+    - id: install_deps
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "pip install -r requirements.txt"
+      depends_on: [check_python]
+      
+    # 4. Run linter (parallel with tests)
+    - id: lint_code
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "ruff check . --fix"
+      depends_on: [install_deps]
+      parallel: true
+      
+    # 5. Run tests (parallel with linter)
+    - id: run_tests
+      mcp: flow
+      method: run
+      inputs:
+        path: dev/test.bbx
+      depends_on: [install_deps]
+      parallel: true
+      
+    # 6. Build Python wheel
+    - id: build_wheel
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "python -m build"
+      depends_on: [lint_code, run_tests]
+      
+    # 7. Check build output
+    - id: check_dist
+      mcp: bbx.os
+      method: list
+      inputs:
+        path: ./dist
+        pattern: "*.whl"
+      depends_on: [build_wheel]
+      
+    # 8. Success message
+    - id: success
+      mcp: logger
+      method: info
+      inputs:
+        message: |
+          ✅ BBX Built Successfully!
+          
+          Platform: ${step.platform_check.output.system}
+          Python: ${step.check_python.output.stdout}
+          Wheel: ${step.check_dist.output.files}
+          
+          BBX can build itself! 🚀
+      depends_on: [check_dist]

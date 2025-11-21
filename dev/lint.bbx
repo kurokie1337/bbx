@@ -1,0 +1,73 @@
+id: lint_bbx
+name: Lint Blackbox Codebase
+version: 1.0.0
+description: Run code quality checks on BBX using BBX workflows
+
+workflow:
+  steps:
+    # 1. Check Python version
+    - id: check_python
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "python --version"
+      
+    # 2. Install linting tools
+    - id: install_tools
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "pip install ruff black isort mypy --quiet"
+      depends_on: [check_python]
+      
+    # 3. Run Ruff (fast linter)
+    - id: run_ruff_check
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "ruff check . --fix"
+      depends_on: [install_tools]
+      parallel: true
+      
+    # 4. Run Black (code formatter check)
+    - id: run_black_check
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "black --check ."
+      depends_on: [install_tools]
+      parallel: true
+      
+    # 5. Run isort (import sorting check)
+    - id: run_isort_check
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "isort --check-only ."
+      depends_on: [install_tools]
+      parallel: true
+      
+    # 6. Run mypy (type checking)
+    - id: run_mypy
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "mypy blackbox --ignore-missing-imports"
+      depends_on: [install_tools]
+      parallel: true
+      
+    # 7. Collect results
+    - id: summary
+      mcp: logger
+      method: info
+      inputs:
+        message: |
+          ✅ Linting Complete!
+          
+          Ruff: ${step.run_ruff_check.output.exit_code == 0 ? '✅ PASS' : '❌ FAIL'}
+          Black: ${step.run_black_check.output.exit_code == 0 ? '✅ PASS' : '❌ FAIL'}
+          isort: ${step.run_isort_check.output.exit_code == 0 ? '✅ PASS' : '❌ FAIL'}
+          mypy: ${step.run_mypy.output.exit_code == 0 ? '✅ PASS' : '❌ FAIL'}
+          
+          Code quality maintained! 🎯
+      depends_on: [run_ruff_check, run_black_check, run_isort_check, run_mypy]

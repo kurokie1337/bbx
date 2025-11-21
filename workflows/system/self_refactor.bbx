@@ -1,0 +1,119 @@
+version: "6.0"
+name: "BBX Self-Refactoring Workflow"
+description: "BBX refactors itself using its own capabilities"
+
+config:
+  observability:
+    enabled: true
+    metrics: true
+    tracing: true
+
+inputs:
+  target_dir:
+    type: string
+    default: "./blackbox/core"
+    description: "Directory to refactor"
+
+  backup:
+    type: boolean
+    default: true
+    description: "Create backup before refactoring"
+
+nodes:
+  # Step 1: Analyze codebase
+  analyze_codebase:
+    adapter: codegen.fs
+    action: scan_directory
+    params:
+      path: "${inputs.target_dir}"
+      pattern: "**/*.py"
+      recursive: true
+
+  # Step 2: Find all print() statements
+  find_print_statements:
+    adapter: system
+    action: exec
+    params:
+      command: "grep -r 'print(' ${inputs.target_dir} --include='*.py' || true"
+    depends_on:
+      - analyze_codebase
+
+  # Step 3: Find bare except clauses
+  find_bare_excepts:
+    adapter: system
+    action: exec
+    params:
+      command: "grep -r 'except:' ${inputs.target_dir} --include='*.py' || true"
+    depends_on:
+      - analyze_codebase
+
+  # Step 4: Find TODO/FIXME comments
+  find_todos:
+    adapter: system
+    action: exec
+    params:
+      command: "grep -r 'TODO\\|FIXME\\|XXX' ${inputs.target_dir} --include='*.py' || true"
+    depends_on:
+      - analyze_codebase
+
+  # Step 5: Create refactoring report
+  generate_report:
+    adapter: codegen.template
+    action: render
+    params:
+      template: |
+        # BBX Self-Refactoring Report
+
+        Generated: {{timestamp}}
+        Target: {{target_dir}}
+
+        ## Issues Found
+
+        ### Print Statements
+        {{print_count}} print() statements found
+
+        ### Bare Except Clauses
+        {{except_count}} bare except: clauses found
+
+        ### TODOs
+        {{todo_count}} TODO/FIXME/XXX comments found
+
+        ## Actions Required
+
+        1. Replace print() with logging
+        2. Fix bare except clauses
+        3. Address TODO items
+        4. Standardize error handling
+        5. Add type hints where missing
+
+        ## Next Steps
+
+        Run individual refactoring workflows for each issue type.
+      context:
+        timestamp: "{{now}}"
+        target_dir: "${inputs.target_dir}"
+        print_count: "${find_print_statements.output.count}"
+        except_count: "${find_bare_excepts.output.count}"
+        todo_count: "${find_todos.output.count}"
+    depends_on:
+      - find_print_statements
+      - find_bare_excepts
+      - find_todos
+
+  # Step 6: Save report
+  save_report:
+    adapter: codegen.fs
+    action: create_file
+    params:
+      path: "./REFACTORING_REPORT.md"
+      content: "${generate_report.output}"
+    depends_on:
+      - generate_report
+
+outputs:
+  report_path: "${save_report.output.path}"
+  issues_found:
+    prints: "${find_print_statements.output.count}"
+    excepts: "${find_bare_excepts.output.count}"
+    todos: "${find_todos.output.count}"
+  status: "Analysis complete - review REFACTORING_REPORT.md"

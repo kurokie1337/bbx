@@ -1,0 +1,16 @@
+id: simple_demo
+name: "Simple Demo Workflow"
+version: 1.0.0
+
+steps:
+  fetch_github:
+    use: http.get
+    timeout: 5s
+    args:
+      url: https://api.github.com/zen
+    save: zen
+  
+  log_message:
+    use: logger.info
+    args:
+      message: "✨ GitHub Zen wisdom received successfully!"

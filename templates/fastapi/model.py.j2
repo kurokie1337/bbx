@@ -1,0 +1,15 @@
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean
+from sqlalchemy.ext.declarative import declarative_base
+from datetime import datetime
+
+Base = declarative_base()
+
+class {{model_name}}(Base):
+    __tablename__ = "{{table_name}}"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    {% for field in fields %}
+    {{field.name}} = Column({{field.type}}{% if field.nullable %}, nullable=True{% endif %}{% if field.unique %}, unique=True{% endif %}{% if field.index %}, index=True{% endif %})
+    {% endfor %}
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

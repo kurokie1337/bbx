@@ -1,0 +1,65 @@
+# BBX v6.0 Example Workflow
+
+id: crypto_price_monitor
+name: "Crypto Price Monitor v6"
+version: 1.0.0
+description: "Monitor Bitcoin price with v6.0 syntax"
+
+steps:
+  # Fetch current BTC price (parallel)
+  fetch_price:
+    use: http.get
+    parallel: true
+    timeout: 10s
+    retry: 3
+    retry_delay: 1s
+    args:
+      url: https://api.coingecko.com/api/v3/simple/price
+      params:
+        ids: bitcoin
+        vs_currencies: usd
+    save: price_data
+  
+  # Fetch historical data (parallel with fetch_price)
+  fetch_history:
+    use: http.get
+    parallel: true
+    timeout: 10s
+    args:
+      url: https://api.coingecko.com/api/v3/coins/bitcoin/market_chart
+      params:
+        vs_currency: usd
+        days: 7
+    save: history_data
+  
+  # Log current price (depends on fetch_price)
+  log_price:
+    use: logger.info
+    depends_on: [fetch_price]
+    when: "${step.fetch_price.status} == 'success'"
+    args:
+      message: "Current BTC: $${step.fetch_price.price_data.bitcoin.usd}"
+  
+  # Send alert if threshold exceeded
+  send_alert:
+    use: telegram.send_message
+    depends_on: [fetch_price]
+    when: "${step.fetch_price.price_data.bitcoin.usd} > 50000"
+    timeout: 5s
+    retry: 2
+    args:
+      chat_id: "${env.TELEGRAM_CHAT_ID}"
+      text: "🚀 Bitcoin alert! Price: $${step.fetch_price.price_data.bitcoin.usd}"
+  
+  # Generate report (depends on both fetch operations)
+  generate_report:
+    use: transform.merge
+    depends_on: [fetch_price, fetch_history]
+    cache:
+      enabled: true
+      ttl: 1h
+      key: "report:${input.symbol}"
+    args:
+      current: "${step.fetch_price.price_data}"
+      history: "${step.fetch_history.history_data}"
+    save: report

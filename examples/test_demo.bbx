@@ -1,0 +1,26 @@
+id: test_workflow
+name: "Test Workflow Demo"
+version: 1.0.0
+
+steps:
+  fetch_github_zen:
+    use: http.get
+    timeout: 10s
+    retry: 2
+    args:
+      url: https://api.github.com/zen
+    save: zen_message
+  
+  fetch_random_user:
+    use: http.get
+    parallel: true
+    timeout: 10s
+    args:
+      url: https://randomuser.me/api/
+    save: user_data
+  
+  log_results:
+    use: logger.info
+    depends_on: [fetch_github_zen, fetch_random_user]
+    args:
+      message: "Workflow completed successfully!"

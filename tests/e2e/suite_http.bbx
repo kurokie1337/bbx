@@ -1,0 +1,14 @@
+id: suite_http
+name: E2E HTTP Suite
+steps:
+  ping_google:
+    use: http.get
+    args:
+      url: "https://www.google.com"
+    outputs: result
+
+  verify_status:
+    use: logger.info
+    args:
+      message: "Google is up!"
+    when: "${ping_google.output.status_code} == 200"

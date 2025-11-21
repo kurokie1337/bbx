@@ -1,0 +1,43 @@
+id: suite_http_adv
+name: E2E Advanced HTTP Suite
+steps:
+  test_get_params:
+    use: http.get
+    args:
+      url: "https://postman-echo.com/get?foo=bar"
+    outputs: result
+  
+  verify_get:
+    use: logger.info
+    args:
+      message: "GET Params Verified"
+    when: "'bar' in '${test_get_params.output.body}'"
+
+  test_post_json:
+    use: http.post
+    args:
+      url: "https://postman-echo.com/post"
+      json:
+        user: "tester"
+        id: 123
+    outputs: result
+
+  verify_post:
+    use: logger.info
+    args:
+      message: "POST JSON Verified"
+    when: "'tester' in '${test_post_json.output.body}'"
+
+  test_headers:
+    use: http.get
+    args:
+      url: "https://postman-echo.com/headers"
+      headers:
+        x-test-header: "Blackbox-E2E"
+    outputs: result
+
+  verify_headers:
+    use: logger.info
+    args:
+      message: "Headers Verified"
+    when: "'Blackbox-E2E' in '${test_headers.output.body}'"

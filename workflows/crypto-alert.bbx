@@ -1,0 +1,45 @@
+bbx_version: "5.0"
+type: workflow
+
+workflow:
+  id: "crypto_alert"
+  name: "Crypto Price Alert"
+  version: "1.0.0"
+  description: "Monitor BTC/ETH prices and alert via Telegram"
+  
+  mcp_servers:
+    http: "http-client"
+    telegram: "telegram_bot"
+  
+  steps:
+    - id: "fetch_prices"
+      mcp: "http"
+      method: "get"
+      inputs:
+        url: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd"
+      outputs: "prices"
+      retry: 3
+      timeout: 30000
+
+    - id: "check_threshold"
+      mcp: "http"
+      method: "expression"
+      inputs:
+        expr: "${step.fetch_prices.prices.bitcoin.usd} > 50000 || ${step.fetch_prices.prices.ethereum.usd} > 3000"
+      outputs: "alert_needed"
+      when: "${step.fetch_prices.status} == 'success'"
+
+    - id: "send_telegram"
+      mcp: "telegram"
+      method: "sendMessage"
+      inputs:
+        chat_id: "${env.TELEGRAM_CHAT_ID}"
+        text: "🚀 Crypto Alert!\nBTC: $${step.fetch_prices.prices.bitcoin.usd}\nETH: $${step.fetch_prices.prices.ethereum.usd}"
+      when: "${step.check_threshold.alert_needed} == true"
+
+    - id: "log_console"
+      mcp: "http"
+      method: "log"
+      inputs:
+        message: "Prices normal: BTC ${step.fetch_prices.prices.bitcoin.usd}, ETH ${step.fetch_prices.prices.ethereum.usd}"
+      when: "${step.check_threshold.alert_needed} == false"

@@ -1,0 +1,164 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: blackbox-system
+
+---
+
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: workflows.blackbox.dev
+spec:
+  group: blackbox.dev
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                schedule:
+                  type: string
+                  description: "Cron schedule for workflow execution"
+                workflowRef:
+                  type: string
+                  description: "Reference to BBX workflow file"
+                inputs:
+                  type: object
+                  description: "Workflow input parameters"
+                  x-kubernetes-preserve-unknown-fields: true
+                resources:
+                  type: object
+                  properties:
+                    limits:
+                      type: object
+                      properties:
+                        memory:
+                          type: string
+                        cpu:
+                          type: string
+                    requests:
+                      type: object
+                      properties:
+                        memory:
+                          type: string
+                        cpu:
+                          type: string
+            status:
+              type: object
+              properties:
+                lastExecution:
+                  type: string
+                  format: date-time
+                status:
+                  type: string
+                  enum: [Pending, Running, Succeeded, Failed]
+  scope: Namespaced
+  names:
+    plural: workflows
+    singular: workflow
+    kind: Workflow
+    shortNames:
+    - wf
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blackbox-operator
+  namespace: blackbox-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: blackbox-operator
+  template:
+    metadata:
+      labels:
+        app: blackbox-operator
+    spec:
+      serviceAccountName: blackbox-operator
+      containers:
+      - name: operator
+        image: blackbox/operator:latest
+        imagePullPolicy: IfNotPresent
+        command:
+        - /manager
+        env:
+        - name: BLACKBOX_API_URL
+          value: "http://blackbox-api:8000"
+        resources:
+          limits:
+            memory: 256Mi
+            cpu: 100m
+          requests:
+            memory: 128Mi
+            cpu: 50m
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: blackbox-operator
+  namespace: blackbox-system
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: blackbox-operator
+rules:
+- apiGroups: ["blackbox.dev"]
+  resources: ["workflows"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: blackbox-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: blackbox-operator
+subjects:
+- kind: ServiceAccount
+  name: blackbox-operator
+  namespace: blackbox-system
+
+---
+
+# Example Workflow CRD usage:
+#
+# apiVersion: blackbox.dev/v1
+# kind: Workflow
+# metadata:
+#   name: crypto-price-monitor
+#   namespace: default
+# spec:
+#   schedule: "*/5 * * * *"  # Every 5 minutes
+#   workflowRef: crypto-monitor-v6
+#   inputs:
+#     threshold: 50000
+#   resources:
+#     limits:
+#       memory: 256Mi
+#       cpu: 100m
+#     requests:
+#       memory: 128Mi
+#       cpu: 50m

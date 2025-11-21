@@ -1,0 +1,76 @@
+version: "6.0"
+name: "Observability Demo"
+description: "Demonstrates monitoring, tracing, and logging capabilities"
+
+config:
+  observability:
+    enabled: true
+    metrics: true
+    tracing: true
+    logging: true
+    exporters:
+      - type: prometheus
+        port: 9090
+      - type: file
+        output_dir: "./telemetry"
+
+nodes:
+  start:
+    adapter: system
+    action: exec
+    params:
+      command: echo "Starting monitored workflow"
+
+  cpu_intensive:
+    adapter: system
+    action: exec
+    params:
+      command: python -c "import time; [x**2 for x in range(1000000)]; time.sleep(1)"
+    depends_on:
+      - start
+
+  io_intensive:
+    adapter: system
+    action: exec
+    params:
+      command: python -c "import time; open('test.txt', 'w').write('test' * 10000); time.sleep(0.5)"
+    depends_on:
+      - start
+
+  parallel_task_1:
+    adapter: system
+    action: exec
+    params:
+      command: echo "Task 1"
+    depends_on:
+      - cpu_intensive
+
+  parallel_task_2:
+    adapter: system
+    action: exec
+    params:
+      command: echo "Task 2"
+    depends_on:
+      - io_intensive
+
+  aggregation:
+    adapter: system
+    action: exec
+    params:
+      command: echo "Aggregating results"
+    depends_on:
+      - parallel_task_1
+      - parallel_task_2
+
+  metrics_report:
+    adapter: system
+    action: exec
+    params:
+      command: echo "Generating metrics report"
+    depends_on:
+      - aggregation
+
+outputs:
+  status: "completed"
+  total_nodes: 7
+  message: "Check telemetry/ directory for exported metrics, traces, and logs"

@@ -1,0 +1,7 @@
+id: failing_workflow
+name: Intentionally Failing Workflow
+steps:
+  bad_step:
+    use: system.shell
+    args:
+      command: "exit 1"

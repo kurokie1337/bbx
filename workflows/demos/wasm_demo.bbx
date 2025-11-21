@@ -1,0 +1,75 @@
+version: "6.0"
+name: "WebAssembly Advanced Demo"
+description: "Demonstrates WASM compilation, optimization, and execution"
+
+inputs:
+  source_lang:
+    type: string
+    default: "c"
+    description: "Source language (c/cpp/rust)"
+
+nodes:
+  compile:
+    adapter: wasm
+    action: "compile.${source_lang}"
+    params:
+      source: "./example.c"
+      output: "example.wasm"
+      flags:
+        - "-O3"
+        - "-s WASM=1"
+
+  validate:
+    adapter: wasm
+    action: validate
+    params:
+      wasm_file: "${compile.output_file}"
+    depends_on:
+      - compile
+
+  info:
+    adapter: wasm
+    action: info
+    params:
+      wasm_file: "${compile.output_file}"
+    depends_on:
+      - validate
+
+  optimize:
+    adapter: wasm
+    action: optimize
+    params:
+      input: "${compile.output_file}"
+      output: "example_optimized.wasm"
+      level: "3"
+      strip_debug: true
+    depends_on:
+      - compile
+
+  run:
+    adapter: wasm
+    action: run
+    params:
+      wasm_file: "${optimize.output_file}"
+      function: "main"
+    depends_on:
+      - optimize
+
+  benchmark:
+    adapter: wasm
+    action: benchmark
+    params:
+      wasm_file: "${optimize.output_file}"
+      iterations: 50
+      function: "main"
+    depends_on:
+      - run
+
+outputs:
+  compilation_status: "${compile.status}"
+  original_size: "${compile.size}"
+  optimized_size: "${optimize.optimized_size}"
+  reduction: "${optimize.reduction}"
+  validation: "${validate.valid}"
+  execution_output: "${run.stdout}"
+  benchmark_avg_ms: "${benchmark.avg_time_ms}"

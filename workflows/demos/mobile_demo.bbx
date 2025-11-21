@@ -1,0 +1,102 @@
+version: "6.0"
+name: "Mobile Emulator Demo"
+description: "Demonstrates Android and iOS emulator capabilities"
+
+inputs:
+  platform:
+    type: string
+    default: "android"
+    description: "Platform to test (android/ios)"
+
+nodes:
+  # Android Demo
+  android_list:
+    adapter: mobile
+    action: android.list
+    when: "platform == 'android'"
+
+  android_launch:
+    adapter: mobile
+    action: android.launch
+    params:
+      emulator: "Pixel_5_API_31"
+      headless: false
+      wait_boot: true
+    depends_on:
+      - android_list
+    when: "platform == 'android'"
+
+  android_install:
+    adapter: mobile
+    action: android.install
+    params:
+      apk_path: "./app-debug.apk"
+    depends_on:
+      - android_launch
+    when: "platform == 'android'"
+
+  android_screenshot:
+    adapter: mobile
+    action: android.screenshot
+    params:
+      output: "android_screenshot.png"
+    depends_on:
+      - android_install
+    when: "platform == 'android'"
+
+  android_exec:
+    adapter: mobile
+    action: android.exec
+    params:
+      command: "pm list packages"
+    depends_on:
+      - android_install
+    when: "platform == 'android'"
+
+  android_stop:
+    adapter: mobile
+    action: android.stop
+    depends_on:
+      - android_screenshot
+      - android_exec
+    when: "platform == 'android'"
+
+  # iOS Demo
+  ios_list:
+    adapter: mobile
+    action: ios.list
+    when: "platform == 'ios'"
+
+  ios_launch:
+    adapter: mobile
+    action: ios.launch
+    params:
+      device: "iPhone 14"
+    depends_on:
+      - ios_list
+    when: "platform == 'ios'"
+
+  ios_screenshot:
+    adapter: mobile
+    action: ios.screenshot
+    params:
+      device_udid: "${ios_launch.udid}"
+      output: "ios_screenshot.png"
+    depends_on:
+      - ios_launch
+    when: "platform == 'ios'"
+
+  ios_stop:
+    adapter: mobile
+    action: ios.stop
+    params:
+      device_udid: "${ios_launch.udid}"
+    depends_on:
+      - ios_screenshot
+    when: "platform == 'ios'"
+
+outputs:
+  platform: "${platform}"
+  android_devices: "${android_list.devices}"
+  ios_devices: "${ios_list.devices}"
+  status: "Demo completed"

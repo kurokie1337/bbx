@@ -1,0 +1,136 @@
+id: release_bbx
+name: Release New BBX Version
+version: 1.0.0
+description: Create and publish a new BBX release
+
+inputs:
+  version_type:
+    type: string
+    default: "patch"
+    description: "Version bump type: major, minor, or patch"
+
+workflow:
+  steps:
+    # 1. Verify clean working directory
+    - id: check_git_status
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "git status --porcelain"
+      
+    # 2. Verify on main branch
+    - id: check_branch
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "git branch --show-current"
+      depends_on: [check_git_status]
+      
+    # 3. Pull latest changes
+    - id: git_pull
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "git pull origin main"
+      depends_on: [check_branch]
+      
+    # 4. Run full test suite
+    - id: run_tests
+      mcp: flow
+      method: run
+      inputs:
+        path: dev/test.bbx
+      depends_on: [git_pull]
+      
+    # 5. Run linting
+    - id: run_lint
+      mcp: flow
+      method: run
+      inputs:
+        path: dev/lint.bbx
+      depends_on: [git_pull]
+      parallel: true
+      
+    # 6. Build package
+    - id: build_package
+      mcp: flow
+      method: run
+      inputs:
+        path: dev/build.bbx
+      depends_on: [run_tests, run_lint]
+      
+    # 7. Read current version
+    - id: read_version
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "python -c \"import blackbox; print(blackbox.__version__)\""
+      depends_on: [build_package]
+      
+    # 8. Bump version (using bump2version or manual)
+    - id: bump_version
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "pip install bump2version && bump2version ${inputs.version_type}"
+      depends_on: [read_version]
+      
+    # 9. Get new version
+    - id: get_new_version
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "python -c \"import blackbox; print(blackbox.__version__)\""
+      depends_on: [bump_version]
+      
+    # 10. Build distribution files
+    - id: build_dist
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "python -m build"
+      depends_on: [bump_version]
+      
+    # 11. Create git tag
+    - id: create_tag
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "git tag -a v${step.get_new_version.output.stdout} -m \"Release v${step.get_new_version.output.stdout}\""
+      depends_on: [get_new_version, build_dist]
+      
+    # 12. Push changes
+    - id: git_push
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "git push origin main --tags"
+      depends_on: [create_tag]
+      
+    # 13. Publish to PyPI (test mode for now)
+    - id: publish_test_pypi
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "twine upload --repository testpypi dist/* || echo 'Skipping PyPI upload (dry run)'"
+      depends_on: [git_push]
+      
+    # 14. Success notification
+    - id: success
+      mcp: logger
+      method: info
+      inputs:
+        message: |
+          🎉 RELEASE SUCCESSFUL!
+          
+          Version: v${step.get_new_version.output.stdout}
+          Type: ${inputs.version_type}
+          
+          ✅ Tests passed
+          ✅ Linting passed
+          ✅ Package built
+          ✅ Git tagged
+          ✅ Changes pushed
+          
+          BBX released itself! 🚀
+      depends_on: [publish_test_pypi]

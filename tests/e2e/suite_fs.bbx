@@ -1,0 +1,24 @@
+id: suite_fs
+name: E2E Filesystem Suite
+steps:
+  write_file:
+    use: system.shell
+    args:
+      command: "echo 'test_content' > test_file.txt"
+
+  read_file:
+    use: system.shell
+    args:
+      command: "type test_file.txt"
+    outputs: output
+
+  verify_content:
+    use: logger.info
+    args:
+      message: "Content verified"
+    when: "'test_content' in '${read_file.output}'"
+
+  cleanup:
+    use: system.shell
+    args:
+      command: "del test_file.txt"

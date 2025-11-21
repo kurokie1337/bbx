@@ -1,0 +1,53 @@
+id: test_bbx
+name: Test Blackbox Engine
+version: 1.0.0
+description: BBX tests itself using pytest
+
+workflow:
+  steps:
+    # 1. Run unit tests
+    - id: unit_tests
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "pytest tests/ -v --cov=blackbox --cov-report=term-missing"
+      
+    # 2. Run E2E tests
+    - id: e2e_tests
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "pytest tests/e2e/ -v"
+      depends_on: [unit_tests]
+      
+    # 3. Check coverage threshold
+    - id: coverage_check
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "coverage report --fail-under=80"
+      depends_on: [e2e_tests]
+      
+    # 4. Test OS abstraction specifically (important!)
+    - id: test_os_abstraction
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "pytest tests/test_os_abstraction.py -v"
+      depends_on: [coverage_check]
+      
+    # 5. Success message
+    - id: success
+      mcp: logger
+      method: info
+      inputs:
+        message: |
+          ✅ All Tests Passed!
+          
+          Unit Tests: ${step.unit_tests.output.exit_code == 0}
+          E2E Tests: ${step.e2e_tests.output.exit_code == 0}
+          Coverage: ${step.coverage_check.output.exit_code == 0}
+          OS Abstraction: ${step.test_os_abstraction.output.exit_code == 0}
+          
+          BBX is production-ready! 🚀
+      depends_on: [test_os_abstraction]

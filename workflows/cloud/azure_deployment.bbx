@@ -1,0 +1,97 @@
+id: azure_full_deployment
+description: Complete Azure deployment - VMs, Storage, Functions, AKS
+
+workflow:
+  steps:
+    # Step 1: Create resource group
+    - id: create_resource_group
+      mcp: azure
+      method: group_create
+      inputs:
+        name: "my-app-rg"
+        location: "eastus"
+    
+    # Step 2: Create storage account
+    - id: create_storage
+      mcp: azure
+      method: storage_create_account
+      inputs:
+        name: "myappstorage${timestamp}"
+        resource_group: "${create_resource_group.resource_group}"
+        location: "eastus"
+    
+    # Step 3: Create Virtual Machine
+    - id: create_vm
+      mcp: azure
+      method: vm_create
+      inputs:
+        name: "my-app-vm"
+        resource_group: "${create_resource_group.resource_group}"
+        image: "UbuntuLTS"
+        size: "Standard_B1s"
+        admin_username: "azureuser"
+    
+    # Step 4: Create Function App
+    - id: create_function_app
+      mcp: azure
+      method: function_create_app
+      inputs:
+        name: "my-app-functions"
+        resource_group: "${create_resource_group.resource_group}"
+        storage_account: "${create_storage.account}"
+        runtime: "python"
+        location: "eastus"
+    
+    # Step 5: Deploy Function App
+    - id: deploy_function
+      mcp: azure
+      method: function_deploy
+      inputs:
+        name: "${create_function_app.function_app}"
+        resource_group: "${create_resource_group.resource_group}"
+        source: "./functions.zip"
+    
+    # Step 6: Create AKS cluster
+    - id: create_aks
+      mcp: azure
+      method: aks_create
+      inputs:
+        name: "my-app-aks"
+        resource_group: "${create_resource_group.resource_group}"
+        node_count: 3
+        vm_size: "Standard_B2s"
+    
+    # Step 7: Get AKS credentials
+    - id: get_aks_credentials
+      mcp: azure
+      method: aks_get_credentials
+      inputs:
+        name: "${create_aks.cluster}"
+       resource_group: "${create_resource_group.resource_group}"
+    
+    # Step 8: Upload blob to storage
+    - id: upload_blob
+      mcp: azure
+      method: storage_upload_blob
+      inputs:
+        account_name: "${create_storage.account}"
+        container: "deployments"
+        file: "./app/release.zip"
+        blob_name: "release-${timestamp}.zip"
+    
+    # Step 9: List VMs
+    - id: list_vms
+      mcp: azure
+      method: vm_list
+      inputs:
+        resource_group: "${create_resource_group.resource_group}"
+
+  output:
+    deployment_summary:
+      resource_group: "${create_resource_group.resource_group}"
+      vm: "${create_vm.vm}"
+      storage_account: "${create_storage.account}"
+      function_app: "${create_function_app.function_app}"
+      aks_cluster: "${create_aks.cluster}"
+      deployment_blob: "${upload_blob.blob_name}"
+      total_vms: "${list_vms.count}"

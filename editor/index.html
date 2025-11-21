@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blackbox Dashboard</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --success: #22c55e;
+            --error: #ef4444;
+            --border: #334155;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 300px;
+            background-color: var(--bg-card);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .workflow-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .workflow-item {
+            padding: 12px 15px;
+            margin-bottom: 5px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .workflow-item:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .workflow-item.active {
+            background-color: rgba(99, 102, 241, 0.1);
+            border-color: var(--accent);
+        }
+
+        .wf-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .wf-path {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-dark);
+        }
+
+        .top-bar {
+            height: 60px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            background-color: var(--bg-card);
+        }
+
+        .wf-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background-color: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Dashboard Grid */
+        .dashboard-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            overflow: hidden;
+        }
+
+        /* Logs Panel */
+        .logs-panel {
+            padding: 20px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            line-height: 1.5;
+            display: flex;
+            gap: 10px;
+        }
+
+        .log-time {
+            color: var(--text-secondary);
+            min-width: 80px;
+        }
+
+        .log-msg {
+            color: var(--text-primary);
+        }
+
+        .log-info {
+            color: #60a5fa;
+        }
+
+        .log-success {
+            color: var(--success);
+        }
+
+        .log-error {
+            color: var(--error);
+        }
+
+        .log-warn {
+            color: #fbbf24;
+        }
+
+        /* Results Panel */
+        .results-panel {
+            background-color: rgba(0, 0, 0, 0.2);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        .results-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .step-result {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+
+        .step-header {
+            padding: 10px 15px;
+            background-color: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .step-id {
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .step-status {
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .status-success {
+            background-color: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+        }
+
+        .status-error {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--error);
+        }
+
+        .step-body {
+            padding: 10px 15px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            color: var(--text-secondary);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">🚀 Blackbox</div>
+        </div>
+        <div class="workflow-list" id="workflow-list">
+            <!-- Workflows will be loaded here -->
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="top-bar">
+            <div class="wf-title" id="wf-title">Select a Workflow</div>
+            <div class="actions">
+                <button class="btn btn-primary" id="run-btn" disabled onclick="runCurrentWorkflow()">
+                    ▶ Run Workflow
+                </button>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="logs-panel" id="logs-panel">
+                <div class="empty-state">
+                    <div class="empty-icon">📊</div>
+                    <h3>Ready to Run</h3>
+                    <p>Select a workflow from the sidebar to view details and execute.</p>
+                </div>
+            </div>
+            <div class="results-panel">
+                <div class="panel-header">Step Results</div>
+                <div class="results-content" id="results-content">
+                    <!-- Results will appear here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentWorkflow = null;
+        let workflows = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchWorkflows();
+        });
+
+        async function fetchWorkflows() {
+            try {
+                const res = await fetch('/api/workflows');
+                const data = await res.json();
+                workflows = data.workflows;
+                renderWorkflowList();
+            } catch (err) {
+                console.error("Failed to fetch workflows", err);
+                addLog('Failed to fetch workflows. Is the server running?', 'error');
+            }
+        }
+
+        function renderWorkflowList() {
+            const list = document.getElementById('workflow-list');
+            list.innerHTML = '';
+
+            workflows.forEach(wf => {
+                const item = document.createElement('div');
+                item.className = `workflow-item ${currentWorkflow && currentWorkflow.path === wf.path ? 'active' : ''}`;
+                item.onclick = () => selectWorkflow(wf);
+                item.innerHTML = `
+                    <div class="wf-name">${wf.name || wf.id}</div>
+                    <div class="wf-path">${wf.path}</div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function selectWorkflow(wf) {
+            currentWorkflow = wf;
+            renderWorkflowList();
+
+            document.getElementById('wf-title').textContent = wf.name || wf.id;
+            document.getElementById('run-btn').disabled = false;
+
+            // Clear logs and results
+            document.getElementById('logs-panel').innerHTML = `
+                <div class="log-entry"><span class="log-time">${new Date().toLocaleTimeString()}</span><span class="log-msg log-info">Loaded workflow: ${wf.path}</span></div>
+                <div class="log-entry"><span class="log-time"></span><span class="log-msg" style="opacity: 0.7">${wf.description || 'No description'}</span></div>
+            `;
+            document.getElementById('results-content').innerHTML = '';
+        }
+
+        async function runCurrentWorkflow() {
+            if (!currentWorkflow || !currentWorkflow.content) {
+                addLog('Error: No workflow content available. Please restart API server.', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('run-btn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Running...';
+
+            addLog(`Starting execution of ${currentWorkflow.id}...`, 'info');
+            document.getElementById('results-content').innerHTML = '';
+
+            try {
+                const response = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ workflow: currentWorkflow.content })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    addLog('Execution completed successfully', 'success');
+                    renderResults(data.results);
+                } else {
+                    addLog(`Execution failed: ${JSON.stringify(data.detail || data.errors)}`, 'error');
+                }
+
+            } catch (err) {
+                addLog(`Network error: ${err.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '▶ Run Workflow';
+            }
+        }
+
+        function renderResults(results) {
+            const container = document.getElementById('results-content');
+            container.innerHTML = '';
+
+            for (const [stepId, result] of Object.entries(results)) {
+                const statusClass = result.status === 'success' ? 'status-success' : 'status-error';
+                const icon = result.status === 'success' ? '✅' : result.status === 'error' ? '❌' : '⏭️';
+
+                const div = document.createElement('div');
+                div.className = 'step-result';
+                div.innerHTML = `
+                    <div class="step-header">
+                        <div class="step-id">${icon} ${stepId}</div>
+                        <div class="step-status ${statusClass}">${result.status}</div>
+                    </div>
+                    <div class="step-body">${result.error ? result.error : (typeof result.output === 'object' ? JSON.stringify(result.output, null, 2) : result.output)}</div>
+                `;
+                container.appendChild(div);
+            }
+        }
+
+        function addLog(msg, type = 'info') {
+            const panel = document.getElementById('logs-panel');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="log-time">${new Date().toLocaleTimeString()}</span>
+                <span class="log-msg log-${type}">${msg}</span>
+            `;
+            panel.appendChild(entry);
+            panel.scrollTop = panel.scrollHeight;
+        }
+    </script>
+</body>
+
+</html>

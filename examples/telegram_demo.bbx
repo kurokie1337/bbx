@@ -1,0 +1,31 @@
+id: telegram_demo
+name: "Telegram Live Demo"
+version: 1.0.0
+
+steps:
+  send_notification:
+    use: telegram.send_message
+    timeout: 10s
+    retry: 2
+    args:
+      bot_token: "${env.TELEGRAM_BOT_TOKEN}"
+      chat_id: "${env.TELEGRAM_CHAT_ID}"
+      text: |
+        🎉 <b>Blackbox Workflow Engine - Live Demo!</b>
+        
+        ✅ Это сообщение отправлено автоматически через BBX workflow!
+        
+        <b>Функции:</b>
+        • BBX v6.0 формат
+        • Telegram adapter
+        • Timeout & Retry
+        • DAG execution
+        • Workflow caching
+        
+        🚀 Полностью рабочая платформа автоматизации!
+      parse_mode: "HTML"
+  
+  log_success:
+    use: logger.info
+    args:
+      message: "✅ Telegram сообщение успешно отправлено!"

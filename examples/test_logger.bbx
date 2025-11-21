@@ -1,0 +1,15 @@
+
+id: test_logger
+name: "Test Logger"
+version: 1.0.0
+
+steps:
+  log_hello:
+    use: logger.info
+    args:
+      message: "✨ Hello from Blackbox workflow!"
+  
+  log_success:
+    use: logger.info
+    args:
+      message: "🎉 Workflow executed successfully!"

@@ -1,0 +1,66 @@
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from typing import List
+from {{module}}.database import get_db
+from {{module}}.models import {{model}}
+from {{module}}.schemas import {{model}}Create, {{model}}Response
+
+router = APIRouter(prefix="/{{prefix}}", tags=["{{tags}}"])
+
+@router.get("/", response_model=List[{{model}}Response])
+async def list_{{plural}}(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """List all {{plural}}"""
+    items = db.query({{model}}).offset(skip).limit(limit).all()
+    return items
+
+@router.get("/{id}", response_model={{model}}Response)
+async def get_{{singular}}(id: int, db: Session = Depends(get_db)):
+    """Get {{singular}} by ID"""
+    item = db.query({{model}}).filter({{model}}.id == id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="{{model}} not found")
+    return item
+
+@router.post("/", response_model={{model}}Response, status_code=201)
+async def create_{{singular}}(
+    data: {{model}}Create,
+    db: Session = Depends(get_db)
+):
+    """Create new {{singular}}"""
+    item = {{model}}(**data.dict())
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+@router.put("/{id}", response_model={{model}}Response)
+async def update_{{singular}}(
+    id: int,
+    data: {{model}}Create,
+    db: Session = Depends(get_db)
+):
+    """Update {{singular}}"""
+    item = db.query({{model}}).filter({{model}}.id == id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="{{model}} not found")
+    
+    for key, value in data.dict().items():
+        setattr(item, key, value)
+    
+    db.commit()
+    db.refresh(item)
+    return item
+
+@router.delete("/{id}", status_code=204)
+async def delete_{{singular}}(id: int, db: Session = Depends(get_db)):
+    """Delete {{singular}}"""
+    item = db.query({{model}}).filter({{model}}.id == id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="{{model}} not found")
+    
+    db.delete(item)
+    db.commit()

@@ -1,0 +1,30 @@
+workflow:
+  id: "create_workflow"
+  name: "System: Create Workflow"
+  description: "Internal workflow to register a new workflow in the system"
+  
+  steps:
+    - id: "validate_input"
+      mcp: "logic"
+      method: "validate"
+      inputs:
+        schema: 
+          name: "string"
+          bbx_yaml: "string"
+        data: "${input}"
+        
+    - id: "save_to_db"
+      mcp: "sql"
+      method: "execute"
+      inputs:
+        query: "INSERT INTO workflows (name, yaml) VALUES (:name, :yaml) RETURNING id"
+        params:
+          name: "${input.name}"
+          yaml: "${input.bbx_yaml}"
+      when: "${step.validate_input.valid} == true"
+      
+    - id: "log_creation"
+      mcp: "logger"
+      method: "info"
+      inputs:
+        message: "Created workflow ${step.save_to_db.rows[0].id}"

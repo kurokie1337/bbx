@@ -1,0 +1,57 @@
+id: suite_queue
+name: E2E Queue Suite
+steps:
+  # 1. Producer: Push a job
+  push_job:
+    use: queue.push
+    args:
+      queue: "test_queue"
+      payload:
+        action: "process_image"
+        url: "http://example.com/img.png"
+    outputs: result
+
+  verify_push:
+    use: logger.info
+    args:
+      message: "Job queued with ID: ${push_job.output.job_id}"
+    when: "'queued' == '${push_job.output.status}'"
+
+  # 2. Inspector: Check count
+  check_queue:
+    use: queue.peek
+    args:
+      queue: "test_queue"
+    outputs: stats
+
+  verify_count:
+    use: logger.info
+    args:
+      message: "Queue has pending jobs"
+    when: "${check_queue.output.pending_count} > 0"
+
+  # 3. Consumer: Pop the job
+  pop_job:
+    use: queue.pop
+    args:
+      queue: "test_queue"
+    outputs: job
+
+  verify_pop:
+    use: logger.info
+    args:
+      message: "Popped job: ${pop_job.output.payload.action}"
+    when: "'process_image' == '${pop_job.output.payload.action}'"
+
+  # 4. Verify Empty
+  pop_empty:
+    use: queue.pop
+    args:
+      queue: "test_queue"
+    outputs: result
+
+  verify_empty:
+    use: logger.info
+    args:
+      message: "Queue is empty now"
+    when: "'empty' == '${pop_empty.output.status}'"

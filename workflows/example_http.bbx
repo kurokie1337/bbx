@@ -1,0 +1,20 @@
+bbx_version: "5.0"
+type: workflow
+
+workflow:
+  id: "test_http_integration"
+  name: "Test HTTP Integration"
+  version: "1.0.0"
+  description: "A simple workflow to test the integration client"
+  
+  mcp_servers:
+    http: "http-client"
+  
+  steps:
+    - id: "fetch_github"
+      mcp: "http"
+      method: "get"
+      inputs:
+        url: "https://api.github.com/zen"
+      outputs: "zen_msg"
+      retry: 3

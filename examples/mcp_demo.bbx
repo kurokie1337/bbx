@@ -1,0 +1,66 @@
+id: mcp_integration_demo
+name: "MCP Servers Integration Demo"
+version: 1.0.0
+description: "Demonstrates integration with multiple MCP servers"
+
+steps:
+  # Firebase
+  get_firebase_project:
+    use: firebase.get_project
+    timeout: 5s
+    args:
+      project_id: "my-firebase-app"
+      mcp_server: "firebase"
+    save: firebase_data
+  
+  # GitHub
+  list_github_repos:
+    use: github.list_repositories
+    parallel: true
+    args:
+      mcp_server: "github"
+    save: github_repos
+  
+  # Stripe
+  check_stripe_customers:
+    use: stripe.list_customers
+    parallel: true
+    timeout: 10s
+    args:
+      mcp_server: "stripe"
+      limit: 10
+    save: stripe_data
+  
+  # Notion
+  list_notion_pages:
+    use: notion.list_pages
+    depends_on: [get_firebase_project]
+    args:
+      mcp_server: "notion"
+    save: notion_pages
+  
+  # Linear
+  get_linear_issues:
+    use: linear.list_issues
+    parallel: true
+    args:
+      mcp_server: "linear"
+      project_id: "blackbox"
+    save: linear_issues
+  
+  # MongoDB
+  query_mongodb:
+    use: mongodb.query
+    depends_on: [list_notion_pages]
+    args:
+      mcp_server: "mongodb"
+      collection: "users"
+      filter: {"active": true}
+    save: mongo_data
+  
+  # Final log
+  log_summary:
+    use: logger.info
+    depends_on: [query_mongodb, get_linear_issues]
+    args:
+      message: "✅ All MCP server integrations tested successfully!"

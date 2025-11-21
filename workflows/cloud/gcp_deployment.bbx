@@ -1,0 +1,105 @@
+id: gcp_full_deployment
+description: Complete GCP deployment - Compute Engine, Cloud Storage, Cloud Functions, GKE
+
+workflow:
+  steps:
+    # Step 1: Create Cloud Storage bucket
+    - id: create_bucket
+      mcp: gcp
+      method: storage_create_bucket
+      inputs:
+        bucket_name: "my-app-deploy-${timestamp}"
+        location: "US"
+    
+    # Step 2: Upload application code
+    - id: upload_code
+      mcp: gcp
+      method: storage_upload
+      inputs:
+        bucket: "${create_bucket.bucket}"
+        source: "./app/dist.tar.gz"
+        destination: "releases/latest.tar.gz"
+    
+    # Step 3: Create Compute Engine VM
+    - id: create_vm
+      mcp: gcp
+      method: compute_create
+      inputs:
+        name: "my-app-vm"
+        zone: "us-central1-a"
+        machine_type: "e2-micro"
+        image_family: "debian-11"
+        image_project: "debian-cloud"
+    
+    # Step 4: Deploy Cloud Function
+    - id: deploy_function
+      mcp: gcp
+      method: function_deploy
+      inputs:
+        name: "my-app-function"
+        runtime: "python311"
+        entry_point: "main"
+        source: "./functions"
+        region: "us-central1"
+    
+    # Step 5: Create GKE cluster
+    - id: create_gke
+      mcp: gcp
+      method: gke_create
+      inputs:
+        cluster_name: "my-app-cluster"
+        zone: "us-central1-a"
+        num_nodes: 3
+        machine_type: "e2-medium"
+    
+    # Step 6: Get GKE credentials
+    - id: get_credentials
+      mcp: gcp
+      method: gke_get_credentials
+      inputs:
+        cluster_name: "${create_gke.cluster}"
+        zone: "us-central1-a"
+    
+    # Step 7: Deploy to Cloud Run
+    - id: deploy_cloud_run
+      mcp: gcp
+      method: run_deploy
+      inputs:
+        service: "my-app-service"
+        image: "gcr.io/my-project/my-app:latest"
+        region: "us-central1"
+        port: 8080
+    
+    # Step 8: Call Cloud Function
+    - id: test_function
+      mcp: gcp
+      method: function_call
+      inputs:
+        name: "my-app-function"
+        data:
+          test: true
+          message: "Hello from BBX!"
+    
+    # Step 9: List compute instances
+    - id: list_vms
+      mcp: gcp
+      method: compute_list
+      inputs:
+        zone: "us-central1-a"
+    
+    # Step 10: List storage objects
+    - id: list_objects
+      mcp: gcp
+      method: storage_list
+      inputs:
+        bucket: "${create_bucket.bucket}"
+
+  output:
+    deployment_summary:
+      compute_vm: "${create_vm.instance}"
+      storage_bucket: "${create_bucket.bucket}"
+      cloud_function: "${deploy_function.function}"
+      gke_cluster: "${create_gke.cluster}"
+      cloud_run_service: "${deploy_cloud_run.service}"
+      function_test_result: "${test_function.output}"
+      total_vms: "${list_vms.count}"

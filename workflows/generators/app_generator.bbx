@@ -1,0 +1,281 @@
+id: app_generator
+name: BBX Application Generator
+version: 1.0.0
+description: Generate complete full-stack applications with BBX
+
+inputs:
+  project_name:
+    type: string
+    description: "Project name (e.g., AnimeBlog)"
+  
+  project_type:
+    type: string
+    default: "fullstack-blog"
+    description: "Project template type"
+  
+  include_docker:
+    type: boolean
+    default: true
+    description: "Include Docker configuration"
+  
+  include_k8s:
+    type: boolean
+    default: true
+    description: "Include Kubernetes manifests"
+
+workflow:
+  steps:
+    # ========== Phase 1: Project Structure ==========
+    
+    - id: create_structure
+      mcp: codegen.fs
+      method: create_structure
+      inputs:
+        base_path: ./${inputs.project_name}
+        structure:
+          frontend:
+            src:
+              components: {}
+              pages: {}
+              hooks: {}
+              utils: {}
+              styles: {}
+            public: {}
+          backend:
+            app:
+              api: {}
+              models: {}
+              schemas: {}
+              core: {}
+            tests: {}
+            alembic:
+              versions: {}
+          docker: {}
+          k8s: {}
+          blackbox: {}
+          docs: {}
+    
+    # ========== Phase 2: Frontend Generation ==========
+    
+    - id: generate_anime_card
+      mcp: codegen.template
+      method: render_to_file
+      inputs:
+        template_path: react/component.tsx.j2
+        output_path: ./${inputs.project_name}/frontend/src/components/AnimeCard.tsx
+        variables:
+          component_name: "AnimeCard"
+          class_name: "anime-card"
+          props:
+            - {name: "title", type: "string"}
+            - {name: "imageUrl", type: "string"}
+            - {name: "rating", type: "number"}
+            - {name: "onLike", type: "() => void"}
+          content: |
+            <img src={imageUrl} alt={title} />
+            <h3>{title}</h3>
+            <div className="rating">⭐ {rating}/10</div>
+            <button onClick={onLike}>❤️ Like</button>
+      depends_on: [create_structure]
+      parallel: true
+    
+    - id: generate_frontend_package_json
+      mcp: codegen.fs
+      method: write_json
+      inputs:
+        path: ./${inputs.project_name}/frontend/package.json
+        data:
+          name: ${inputs.project_name.toLowerCase()}-frontend
+          version: "1.0.0"
+          scripts:
+            dev: "vite"
+            build: "vite build"
+            preview: "vite preview"
+            test: "jest"
+          dependencies:
+            react: "^18.2.0"
+            react-dom: "^18.2.0"
+            axios: "^1.6.0"
+          devDependencies:
+            "@vitejs/plugin-react": "^4.2.0"
+            vite: "^5.0.0"
+            typescript: "^5.3.0"
+            "@types/react": "^18.2.0"
+            "@types/react-dom": "^18.2.0"
+      depends_on: [create_structure]
+      parallel: true
+    
+    # ========== Phase 3: Backend Generation ==========
+    
+    - id: generate_anime_model
+      mcp: codegen.template
+      method: render_to_file
+      inputs:
+        template_path: fastapi/model.py.j2
+        output_path: ./${inputs.project_name}/backend/app/models/anime.py
+        variables:
+          model_name: "Anime"
+          table_name: "anime"
+          fields:
+            - {name: "title", type: "String", nullable: false, unique: false, index: true}
+            - {name: "description", type: "Text", nullable: true, unique: false, index: false}
+            - {name: "image_url", type: "String", nullable: true, unique: false, index: false}
+            - {name: "rating", type: "Integer", nullable: true, unique: false, index: false}
+            - {name: "genre", type: "String", nullable: true, unique: false, index: true}
+      depends_on: [create_structure]
+      parallel: true
+    
+    - id: generate_anime_endpoint
+      mcp: codegen.template
+      method: render_to_file
+      inputs:
+        template_path: fastapi/endpoint.py.j2
+        output_path: ./${inputs.project_name}/backend/app/api/anime.py
+        variables:
+          module: "app"
+          model: "Anime"
+          singular: "anime"
+          plural: "anime"
+          prefix: "/api/anime"
+          tags: "anime"
+      depends_on: [create_structure]
+      parallel: true
+    
+    - id: generate_backend_requirements
+      mcp: codegen.fs
+      method: create_file
+      inputs:
+        path: ./${inputs.project_name}/backend/requirements.txt
+        content: |
+          fastapi==0.109.0
+          uvicorn[standard]==0.27.0
+          sqlalchemy==2.0.25
+          psycopg2-binary==2.9.9
+          alembic==1.13.1
+          pydantic==2.5.3
+          python-dotenv==1.0.0
+          redis==5.0.1
+      depends_on: [create_structure]
+      parallel: true
+    
+    # ========== Phase 4: Docker Configuration ==========
+    
+    - id: generate_docker_compose
+      mcp: codegen.fs
+      method: write_yaml
+      inputs:
+        path: ./${inputs.project_name}/docker/docker-compose.yml
+        data:
+          version: "3.8"
+          services:
+            frontend:
+              build: ../frontend
+              ports: ["3000:3000"]
+              environment:
+                VITE_API_URL: "http://localhost:8000"
+            backend:
+              build: ../backend
+              ports: ["8000:8000"]
+              environment:
+                DATABASE_URL: "postgresql://postgres:secret@postgres:5432/anime_db"
+                REDIS_URL: "redis://redis:6379"
+              depends_on: ["postgres", "redis"]
+            postgres:
+              image: "postgres:15"
+              environment:
+                POSTGRES_PASSWORD: "secret"
+                POSTGRES_DB: "anime_db"
+              volumes: ["postgres_data:/var/lib/postgresql/data"]
+            redis:
+              image: "redis:7"
+          volumes:
+            postgres_data: {}
+      depends_on: [create_structure]
+      parallel: true
+    
+    # ========== Phase 5: BBX Orchestration Workflows ==========
+    
+    - id: generate_dev_setup_workflow
+      mcp: codegen.template
+      method: render_to_file
+      inputs:
+        template_path: workflows/dev_setup.bbx.j2
+        output_path: ./${inputs.project_name}/blackbox/dev_setup.bbx
+        variables:
+          project_name: ${inputs.project_name}
+      depends_on: [generate_docker_compose]
+    
+    # ========== Phase 6: Documentation ==========
+    
+    - id: generate_readme
+      mcp: codegen.template
+      method: render_to_file
+      inputs:
+        template: |
+          # {{project_name}}
+          
+          Generated by BBX Application Generator! 🚀
+          
+          ## Quick Start
+          
+          ```bash
+          # Start development environment
+          bbx run blackbox/dev_setup.bbx
+          ```
+          
+          ## Architecture
+          
+          - **Frontend**: React 18 + TypeScript + Vite
+          - **Backend**: FastAPI + SQLAlchemy
+          - **Database**: PostgreSQL 15
+          - **Cache**: Redis 7
+          
+          ## Project Structure
+          
+          ```
+          {{project_name}}/
+          ├── frontend/       # React frontend
+          ├── backend/        # FastAPI backend
+          ├── docker/         # Docker configuration
+          ├── k8s/            # Kubernetes manifests
+          └── blackbox/       # BBX orchestration workflows
+          ```
+          
+          ## Development
+          
+          See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for details.
+          
+          ---
+          
+          **This entire project was generated in seconds!**
+        output_path: ./${inputs.project_name}/README.md
+        variables:
+          project_name: ${inputs.project_name}
+      depends_on: [create_structure]
+    
+    # ========== Final: Success Message ==========
+    
+    - id: success
+      mcp: logger
+      method: info
+      inputs:
+        message: |
+          🎉 APPLICATION GENERATED SUCCESSFULLY!
+          
+          Project: {{project_name}}
+          Type: {{project_type}}
+          
+          📁 Structure:
+          - Frontend: React + TypeScript ✅
+          - Backend: FastAPI + SQLAlchemy ✅
+          - Database: PostgreSQL + Redis ✅
+          - Docker: docker-compose.yml ✅
+          - BBX: Orchestration workflows ✅
+          
+          🚀 Next Steps:
+          1. cd {{project_name}}
+          2. bbx run blackbox/dev_setup.bbx
+          3. Open http://localhost:3000
+          
+          From zero to running app in < 3 minutes! 🔥
+      depends_on: [generate_readme, generate_dev_setup_workflow]

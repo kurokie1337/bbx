@@ -1,0 +1,27 @@
+id: system_cleanup
+name: System Cleanup
+version: 1.0.0
+description: Clean up temporary files and directories
+
+steps:
+  clean_pycache:
+    use: system.fs.delete
+    args:
+      pattern: "**/__pycache__"
+      recursive: true
+      
+  clean_pytest_cache:
+    use: system.fs.delete
+    args:
+      pattern: ".pytest_cache"
+      recursive: true
+      
+  clean_logs:
+    use: system.fs.delete
+    args:
+      pattern: "*.log"
+      
+  log_result:
+    use: logger.info
+    args:
+      message: "Cleanup complete. Deleted pycache and logs."

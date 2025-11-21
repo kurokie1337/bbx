@@ -1,0 +1,19 @@
+import React from 'react';
+
+interface {{component_name}}Props {
+  {% for prop in props %}
+  {{prop.name}}: {{prop.type}};
+  {% endfor %}
+}
+
+export const {{component_name}}: React.FC<{{component_name}}Props> = ({
+  {% for prop in props %}
+  {{prop.name}},
+  {% endfor %}
+}) => {
+  return (
+    <div className="{{class_name}}">
+      {{content}}
+    </div>
+  );
+};

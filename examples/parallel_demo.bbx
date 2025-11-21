@@ -1,0 +1,44 @@
+id: parallel_demo
+name: "Parallel Execution Demo"
+version: 1.0.0
+description: "Demonstrates DAG parallel execution with multiple API calls"
+
+steps:
+  # Level 1: Three parallel API calls
+  fetch_joke:
+    use: http.get
+    parallel: true
+    timeout: 10s
+    args:
+      url: "https://official-joke-api.appspot.com/random_joke"
+    save: joke
+  
+  fetch_quote:
+    use: http.get
+    parallel: true
+    timeout: 10s
+    args:
+      url: "https://api.quotable.io/random"
+    save: quote
+  
+  fetch_fact:
+    use: http.get
+    parallel: true
+    timeout: 10s
+    args:
+      url: "https://uselessfacts.jsph.pl/random.json?language=en"
+    save: fact
+  
+  # Level 2: Wait for all and display results
+  log_results:
+    use: logger.info
+    depends_on: [fetch_joke, fetch_quote, fetch_fact]
+    args:
+      message: |
+        📊 Parallel Execution Results:
+        
+        🎭 Joke: ${step.fetch_joke.joke.setup}
+        💭 Quote: ${step.fetch_quote.quote.content}
+        📖 Fact: ${step.fetch_fact.fact.text}
+        
+        ⚡ All fetched in parallel!

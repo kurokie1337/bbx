@@ -1,0 +1,111 @@
+id: os_demo
+name: OS Abstraction Demo
+version: 1.0.0
+description: Demonstrate cross-platform OS operations with bbx.os
+
+workflow:
+  steps:
+    # 1. Get platform info
+    - id: platform_info
+      mcp: bbx.os
+      method: platform_info
+      
+    # 2. Create test directory structure
+    - id: create_dirs
+      mcp: bbx.os
+      method: mkdir
+      inputs:
+        path: ./test_bbx_os/subdir
+        parents: true
+      depends_on: [platform_info]
+      
+    # 3. Write test file
+    - id: write_file
+      mcp: bbx.os
+      method: write
+      inputs:
+        path: ./test_bbx_os/test.txt
+        content: |
+          BBX OS Abstraction Test
+          Platform: ${step.platform_info.output.system}
+          Date: ${env.DATE}
+      depends_on: [create_dirs]
+      
+    # 4. Copy file
+    - id: copy_file
+      mcp: bbx.os
+      method: copy
+      inputs:
+        src: ./test_bbx_os/test.txt
+        dst: ./test_bbx_os/subdir/copied.txt
+      depends_on: [write_file]
+      
+    # 5. List files with Unix-style command (auto-translated on Windows)
+    - id: list_files_cmd
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "ls -la test_bbx_os"
+        auto_translate: true
+      depends_on: [copy_file]
+      
+    # 6. List files with platform-agnostic API
+    - id: list_files_api
+      mcp: bbx.os
+      method: list
+      inputs:
+        path: ./test_bbx_os
+        pattern: "*.txt"
+        recursive: true
+      depends_on: [list_files_cmd]
+      
+    # 7. Read file
+    - id: read_file
+      mcp: bbx.os
+      method: read
+      inputs:
+        path: ./test_bbx_os/test.txt
+      depends_on: [list_files_api]
+      
+    # 8. Check if file exists
+    - id: check_exists
+      mcp: bbx.os
+      method: exists
+      inputs:
+        path: ./test_bbx_os/subdir/copied.txt
+      depends_on: [read_file]
+      
+    # 9. Move file
+    - id: move_file
+      mcp: bbx.os
+      method: move
+      inputs:
+        src: ./test_bbx_os/subdir/copied.txt
+        dst: ./test_bbx_os/moved.txt
+      depends_on: [check_exists]
+      
+    # 10. Cleanup - remove all test files
+    - id: cleanup
+      mcp: bbx.os
+      method: remove
+      inputs:
+        path: ./test_bbx_os
+        recursive: true
+      depends_on: [move_file]
+      
+    # 11. Success message
+    - id: success
+      mcp: logger
+      method: info
+      inputs:
+        message: |
+          ✅ OS Abstraction Demo Complete!
+          
+          Platform: ${step.platform_info.output.system}
+          Files created: 3
+          Files copied: 1
+          Files moved: 1
+          Files removed: All cleaned up
+          
+          This workflow works on Windows, Linux, and macOS! 🚀
+      depends_on: [cleanup]

@@ -1,0 +1,19 @@
+id: suite_logic
+name: E2E Logic Suite
+steps:
+  should_run:
+    use: logger.info
+    args:
+      message: "Logic check 1: Passed"
+    when: "1 == 1"
+
+  should_skip:
+    use: logger.error
+    args:
+      message: "Logic check 2: FAILED (Should be skipped)"
+    when: "1 == 2"
+
+  log_success:
+    use: logger.info
+    args:
+      message: "✅ Logic Suite Passed"

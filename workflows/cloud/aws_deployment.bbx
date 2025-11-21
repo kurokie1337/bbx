@@ -1,0 +1,98 @@
+id: aws_full_deployment
+description: Complete AWS deployment - EC2, S3, Lambda, RDS
+
+workflow:
+  steps:
+    # Step 1: Create S3 bucket for deployment artifacts
+    - id: create_s3_bucket
+      mcp: aws
+      method: s3_create_bucket
+      inputs:
+        bucket_name: "my-app-deploy-${timestamp}"
+        region: "us-east-1"
+    
+    # Step 2: Upload Lambda code
+    - id: upload_lambda_code
+      mcp: aws
+      method: s3_upload
+      inputs:
+        bucket: "${create_s3_bucket.bucket}"
+        key: "lambda/app.zip"
+        file: "./lambda/app.zip"
+    
+    # Step 3: Launch EC2 instance
+    - id: launch_ec2
+      mcp: aws
+      method: ec2_launch
+      inputs:
+        image_id: "ami-0c55b159cbfafe1f0"  # Amazon Linux 2
+        instance_type: "t3.micro"
+        key_name: "my-keypair"
+        security_groups:
+          - "default"
+    
+    # Step 4: Deploy Lambda function
+    - id: deploy_lambda
+      mcp: aws
+      method: lambda_deploy
+      inputs:
+        function_name: "my-app-function"
+        runtime: "python3.11"
+        role: "arn:aws:iam::123456789012:role/lambda-role"
+        code: "./lambda/app.zip"
+    
+    # Step 5: Create RDS database
+    - id: create_rds
+      mcp: aws
+      method: rds_create
+      inputs:
+        db_instance_id: "my-app-db"
+        db_instance_class: "db.t3.micro"
+        engine: "postgres"
+        storage: 20
+        master_username: "admin"
+        master_password: "${env.DB_PASSWORD}"
+    
+    # Step 6: Deploy CloudFormation stack
+    - id: deploy_cfn
+      mcp: aws
+      method: cfn_deploy
+      inputs:
+        stack_name: "my-app-infrastructure"
+        template: "./cloudformation/template.yaml"
+        parameters:
+          InstanceId: "${launch_ec2.instance_id}"
+          BucketName: "${create_s3_bucket.bucket}"
+    
+    # Step 7: Get EC2 instance details
+    - id: describe_instances
+      mcp: aws
+      method: ec2_describe
+      inputs:
+        instance_ids: "${launch_ec2.instance_id}"
+    
+    # Step 8: Invoke Lambda for testing
+    - id: test_lambda
+      mcp: aws
+      method: lambda_invoke
+      inputs:
+        function_name: "my-app-function"
+        payload:
+          test: true
+          message: "Hello from BBX!"
+    
+    # Step 9: List S3 objects
+    - id: list_s3_objects
+      mcp: aws
+      method: s3_list
+      inputs:
+        bucket: "${create_s3_bucket.bucket}"
+
+  output:
+    deployment_summary:
+      ec2_instance: "${launch_ec2.instance_id}"
+      s3_bucket: "${create_s3_bucket.bucket}"
+      lambda_function: "${deploy_lambda.function_name}"
+      rds_instance: "${create_rds.db_instance_id}"
+      cloudformation_stack: "${deploy_cfn.stack_name}"
+      lambda_test_result: "${test_lambda.output}"

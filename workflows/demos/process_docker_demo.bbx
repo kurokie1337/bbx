@@ -1,0 +1,166 @@
+id: process_docker_demo
+description: |
+  BBX Process & Docker Demo
+  
+  Demonstrates advanced BBX capabilities:
+  - Process management
+  - Docker containers
+  - Health monitoring
+  - Orchestration
+
+workflow:
+  steps:
+    # ========== Process Management Demo ==========
+    
+    - id: start_info
+      mcp: bbx.os
+      method: echo
+      inputs:
+        message: |
+          🚀 BBX Process & Docker Demo
+          ================================
+          
+          This workflow demonstrates:
+          1. Process management (start/stop/status)
+          2. Docker container orchestration
+          3. Health monitoring
+          4. Cross-platform operations
+    
+    - id: check_platform
+      mcp: bbx.os
+      method: platform_info
+      inputs: {}
+    
+    # Start a simple HTTP server process
+    - id: start_web_server
+      mcp: bbx.process
+      method: start
+      inputs:
+        name: "demo_server"
+        command: "python -m http.server 8001"
+        auto_restart: false
+      depends_on: [check_platform]
+    
+    - id: wait_for_server
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: "timeout /t 2 /nobreak > nul"  # Windows
+        # On Linux: sleep 2
+      depends_on: [start_web_server]
+    
+    - id: check_server_status
+      mcp: bbx.process
+      method: status
+      inputs:
+        name: "demo_server"
+      depends_on: [wait_for_server]
+    
+    - id: server_health
+      mcp: bbx.process
+      method: health_check
+      inputs:
+        name: "demo_server"
+      depends_on: [check_server_status]
+    
+    # ========== Docker Demo (if available) ==========
+    
+    - id: docker_info
+      mcp: bbx.os
+      method: echo
+      inputs:
+        message: |
+          
+          🐳 Docker Container Demo
+          ========================
+      depends_on: [server_health]
+    
+    - id: list_containers
+      mcp: bbx.docker
+      method: ps
+      inputs:
+        all: true
+      depends_on: [docker_info]
+      on_error: continue
+    
+    - id: pull_nginx
+      mcp: bbx.docker
+      method: pull
+      inputs:
+        image: "nginx:alpine"
+      depends_on: [list_containers]
+      on_error: continue
+    
+    - id: run_nginx
+      mcp: bbx.docker
+      method: run
+      inputs:
+        image: "nginx:alpine"
+        name: "bbx_demo_nginx"
+        ports:
+          - "8888:80"
+        detach: true
+      depends_on: [pull_nginx]
+      on_error: continue
+    
+    - id: nginx_status
+      mcp: bbx.docker
+      method: inspect
+      inputs:
+        name: "bbx_demo_nginx"
+      depends_on: [run_nginx]
+      on_error: continue
+    
+    # ========== Cleanup ==========
+    
+    - id: cleanup_info
+      mcp: bbx.os
+      method: echo
+      inputs:
+        message: |
+          
+          🧹 Cleanup
+          ==========
+      depends_on: [nginx_status]
+    
+    - id: stop_server
+      mcp: bbx.process
+      method: stop
+      inputs:
+        name: "demo_server"
+        force: true
+      depends_on: [cleanup_info]
+    
+    - id: stop_nginx
+      mcp: bbx.docker
+      method: stop
+      inputs:
+        name: "bbx_demo_nginx"
+      depends_on: [stop_server]
+      on_error: continue
+    
+    - id: remove_nginx
+      mcp: bbx.docker
+      method: remove
+      inputs:
+        name: "bbx_demo_nginx"
+        force: true
+      depends_on: [stop_nginx]
+      on_error: continue
+    
+    - id: final_message
+      mcp: bbx.os
+      method: echo
+      inputs:
+        message: |
+          
+          ✅ Demo Complete!
+          
+          Summary:
+          - Process management ✅
+          - Docker orchestration ✅
+          - Health monitoring ✅
+          - Cross-platform ops ✅
+          
+          BBX: Workflow automation reimagined! 🚀
+      depends_on: [remove_nginx]

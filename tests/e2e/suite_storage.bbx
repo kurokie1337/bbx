@@ -1,0 +1,40 @@
+id: suite_storage
+name: E2E Storage Suite
+steps:
+  set_value:
+    use: storage.kv.set
+    args:
+      key: "e2e_test_key"
+      value: "Hello Persistence"
+    outputs: result
+
+  get_value:
+    use: storage.kv.get
+    args:
+      key: "e2e_test_key"
+    outputs: result
+
+  verify_value:
+    use: logger.info
+    args:
+      message: "Got value: ${get_value.output}"
+    when: "'Hello Persistence' == '${get_value.output}'"
+
+  delete_value:
+    use: storage.kv.delete
+    args:
+      key: "e2e_test_key"
+    outputs: result
+
+  get_deleted:
+    use: storage.kv.get
+    args:
+      key: "e2e_test_key"
+      default: "NOT_FOUND"
+    outputs: result
+
+  verify_deleted:
+    use: logger.info
+    args:
+      message: "Deletion verified"
+    when: "'NOT_FOUND' == '${get_deleted.output}'"

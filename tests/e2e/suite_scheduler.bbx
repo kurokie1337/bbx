@@ -1,0 +1,12 @@
+id: suite_scheduler
+name: E2E Scheduler Test
+triggers:
+  - type: cron
+    schedule: "0 9 * * *"
+  - type: webhook
+    path: "/webhooks/test"
+steps:
+  log:
+    use: logger.info
+    args:
+      message: "I am scheduled!"

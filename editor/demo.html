@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blackbox - Live Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .demo-container {
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 90%;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .workflow-preview {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .step {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .step-title {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results {
+            margin-top: 20px;
+            padding: 20px;
+            background: #e7f3ff;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .result-item {
+            padding: 10px;
+            margin: 10px 0;
+            background: white;
+            border-radius: 6px;
+        }
+
+        .success {
+            border-left: 4px solid #2ecc71;
+        }
+
+        .error {
+            border-left: 4px solid #e74c3c;
+        }
+
+        .logs {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+
+        .log-line {
+            margin: 3px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="demo-container">
+        <h1>🚀 Blackbox Workflow Engine</h1>
+        <p class="subtitle">Live Demo - Execute Workflows in Real-Time</p>
+
+        <div class="workflow-preview">
+            <strong>📋 Demo Workflow:</strong>
+
+            <div class="step">
+                <div class="step-title">Step 1: log_start</div>
+                <div>Action: Log "Workflow started!"</div>
+            </div>
+
+            <div class="step">
+                <div class="step-title">Step 2: log_processing</div>
+                <div>Action: Log "Processing data..."</div>
+            </div>
+
+            <div class="step">
+                <div class="step-title">Step 3: log_complete</div>
+                <div>Action: Log "✅ Workflow complete!"</div>
+            </div>
+        </div>
+
+        <button onclick="runWorkflow()" id="runBtn">
+            ▶️ Run Workflow Now
+        </button>
+
+        <div id="results" class="results"></div>
+
+        <div style="margin-top: 20px; font-size: 12px; color: #999;">
+            <strong>Features Demonstrated:</strong><br>
+            ✅ BBX v6.0 Format<br>
+            ✅ Sequential Execution<br>
+            ✅ Logger Adapter<br>
+            ✅ Real-time Results<br>
+            ✅ Error Handling
+        </div>
+    </div>
+
+    <script>
+        const workflow = {
+            id: "demo_workflow",
+            name: "Demo Workflow",
+            version: "1.0.0",
+            steps: {
+                log_start: {
+                    use: "logger.info",
+                    args: {
+                        message: "🚀 Workflow started!"
+                    }
+                },
+                log_processing: {
+                    use: "logger.info",
+                    args: {
+                        message: "⚙️ Processing data..."
+                    }
+                },
+                log_complete: {
+                    use: "logger.info",
+                    args: {
+                        message: "✅ Workflow complete!"
+                    }
+                }
+            }
+        };
+
+        async function runWorkflow() {
+            const btn = document.getElementById('runBtn');
+            const resultsDiv = document.getElementById('results');
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Executing...';
+
+            resultsDiv.innerHTML = '<div class="logs" id="logs"></div>';
+            resultsDiv.className = 'results show';
+
+            const logsDiv = document.getElementById('logs');
+
+            function addLog(message) {
+                const line = document.createElement('div');
+                line.className = 'log-line';
+                line.textContent = message;
+                logsDiv.appendChild(line);
+                logsDiv.scrollTop = logsDiv.scrollHeight;
+            }
+
+            addLog('📡 Connecting to Blackbox API...');
+
+            try {
+                addLog('📤 Sending workflow...');
+
+                const response = await fetch('http://localhost:8000/api/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ workflow })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API returned ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                addLog('✅ Workflow executed!');
+                addLog('');
+                addLog('📊 Results:');
+
+                data.results.forEach(result => {
+                    const icon = result.status === 'success' ? '✅' : '❌';
+                    addLog(`${icon} ${result.step_id}: ${result.status}`);
+                });
+
+                addLog('');
+                addLog('🎉 Demo completed successfully!');
+
+                btn.textContent = '✅ Execution Complete!';
+
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.textContent = '▶️ Run Again';
+                }, 2000);
+
+            } catch (error) {
+                addLog('');
+                addLog('❌ Error: ' + error.message);
+                addLog('');
+                addLog('💡 Make sure API server is running:');
+                addLog('   python api_server.py');
+
+                btn.disabled = false;
+                btn.textContent = '🔄 Try Again';
+            }
+        }
+    </script>
+</body>
+
+</html>

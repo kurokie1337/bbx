@@ -1,0 +1,27 @@
+id: system_test
+name: Run Tests
+version: 1.0.0
+description: Run the Blackbox test suite using pytest
+
+steps:
+  run_pytest:
+    use: system.shell
+    args:
+      command: "pytest tests/ -v --tb=short --no-header"
+      
+  log_result:
+    use: logger.info
+    args:
+      message: "Tests completed with exit code: ${steps.run_pytest.output.exit_code}"
+      
+  check_failure:
+    use: transform.filter
+    args:
+      data: ["${steps.run_pytest.output.exit_code}"]
+      condition: "item != 0"
+      
+  notify_failure:
+    use: logger.error
+    args:
+      message: "❌ Tests failed!\n${steps.run_pytest.output.stdout}"
+    depends_on: [check_failure]

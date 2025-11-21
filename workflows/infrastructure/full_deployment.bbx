@@ -1,0 +1,227 @@
+id: full_deployment_pipeline
+description: |
+  Complete deployment pipeline using BBX infrastructure adapters
+  
+  Demonstrates:
+  - Terraform infrastructure provisioning
+  - Ansible configuration management
+  - Docker image building
+  - Kubernetes deployment
+  - Full prod deployment automation
+
+workflow:
+  steps:
+    # ========== Phase 1: Infrastructure Provisioning (Terraform) ==========
+    
+    - id: intro
+      mcp: bbx.os
+      method: echo
+      inputs:
+        message: |
+          🚀 BBX Full Deployment Pipeline
+          ===============================
+          
+          Phase 1: Terraform (Infrastructure)
+          Phase 2: Ansible (Configuration)
+          Phase 3: Docker (Build Images)
+          Phase 4: Kubernetes (Deployment)
+    
+    - id: terraform_init
+      mcp: bbx.terraform
+      method: init
+      inputs:
+        working_dir: "./infrastructure/terraform"
+        upgrade: true
+      depends_on: [intro]
+    
+    - id: terraform_plan
+      mcp: bbx.terraform
+      method: plan
+      inputs:
+        working_dir: "./infrastructure/terraform"
+        var_file: "prod.tfvars"
+        out: "tfplan"
+      depends_on: [terraform_init]
+    
+    - id: terraform_apply
+      mcp: bbx.terraform
+      method: apply
+      inputs:
+        working_dir: "./infrastructure/terraform"
+        plan_file: "tfplan"
+        auto_approve: true
+      depends_on: [terraform_plan]
+    
+    - id: get_terraform_outputs
+      mcp: bbx.terraform
+      method: output
+      inputs:
+        working_dir: "./infrastructure/terraform"
+        json: true
+      depends_on: [terraform_apply]
+    
+    # ========== Phase 2: Configuration Management (Ansible) ==========
+    
+    - id: ansible_install_roles
+      mcp: bbx.ansible
+      method: galaxy_install
+      inputs:
+        name: "requirements.yml"
+        type: "role"
+      depends_on: [get_terraform_outputs]
+    
+    - id: ansible_configure_servers
+      mcp: bbx.ansible
+      method: playbook
+      inputs:
+        playbook: "infrastructure/ansible/configure.yml"
+        inventory: "infrastructure/ansible/inventory/prod.ini"
+        extra_vars:
+          app_version: "1.0.0"
+          environment: "production"
+      depends_on: [ansible_install_roles]
+    
+    # ========== Phase 3: Build & Push Docker Images ==========
+    
+    - id: build_backend_image
+      mcp: bbx.docker
+      method: build
+      inputs:
+        path: "./backend"
+        tag: "myapp/backend:latest"
+        build_args:
+          ENV: "production"
+      depends_on: [ansible_configure_servers]
+    
+    - id: build_frontend_image
+      mcp: bbx.docker
+      method: build
+      inputs:
+        path: "./frontend"
+        tag: "myapp/frontend:latest"
+      depends_on: [ansible_configure_servers]
+      parallel: true
+    
+    - id: push_backend_image
+      mcp: bbx.docker
+      method: push
+      inputs:
+        image: "myapp/backend:latest"
+      depends_on: [build_backend_image]
+    
+    - id: push_frontend_image
+      mcp: bbx.docker
+      method: push
+      inputs:
+        image: "myapp/frontend:latest"
+      depends_on: [build_frontend_image]
+    
+    # ========== Phase 4: Kubernetes Deployment ==========
+    
+    - id: create_k8s_namespace
+      mcp: bbx.k8s
+      method: create_namespace
+      inputs:
+        namespace: "production"
+      depends_on: [push_backend_image, push_frontend_image]
+    
+    - id: apply_k8s_secrets
+      mcp: bbx.k8s
+      method: apply
+      inputs:
+        file: "k8s/secrets.yaml"
+        namespace: "production"
+      depends_on: [create_k8s_namespace]
+    
+    - id: apply_k8s_configmap
+      mcp: bbx.k8s
+      method: apply
+      inputs:
+        file: "k8s/configmap.yaml"
+        namespace: "production"
+      depends_on: [create_k8s_namespace]
+      parallel: true
+    
+    - id: deploy_backend
+      mcp: bbx.k8s
+      method: apply
+      inputs:
+        file: "k8s/backend-deployment.yaml"
+        namespace: "production"
+      depends_on: [apply_k8s_secrets, apply_k8s_configmap]
+    
+    - id: deploy_frontend
+      mcp: bbx.k8s
+      method: apply
+      inputs:
+        file: "k8s/frontend-deployment.yaml"
+        namespace: "production"
+      depends_on: [apply_k8s_secrets, apply_k8s_configmap]
+      parallel: true
+    
+    - id: apply_services
+      mcp: bbx.k8s
+      method: apply
+      inputs:
+        file: "k8s/services.yaml"
+        namespace: "production"
+      depends_on: [deploy_backend, deploy_frontend]
+    
+    - id: apply_ingress
+      mcp: bbx.k8s
+      method: apply
+      inputs:
+        file: "k8s/ingress.yaml"
+        namespace: "production"
+      depends_on: [apply_services]
+    
+    # ========== Phase 5: Verification ==========
+    
+    - id: wait_for_rollout
+      mcp: bbx.k8s
+      method: rollout
+      inputs:
+        action: "status"
+        resource: "deployment/backend"
+        namespace: "production"
+      depends_on: [deploy_backend]
+    
+    - id: get_pods
+      mcp: bbx.k8s
+      method: get
+      inputs:
+        resource: "pods"
+        namespace: "production"
+      depends_on: [wait_for_rollout]
+    
+    - id: scale_deployment
+      mcp: bbx.k8s
+      method: scale
+      inputs:
+        deployment: "backend"
+        replicas: 3
+        namespace: "production"
+      depends_on: [wait_for_rollout]
+    
+    # ========== Success Message ==========
+    
+    - id: deployment_complete
+      mcp: bbx.os
+      method: echo
+      inputs:
+        message: |
+          
+          ✅ DEPLOYMENT COMPLETE!
+          ======================
+          
+          Infrastructure: Provisioned with Terraform
+          Configuration: Applied with Ansible
+          Images: Built and pushed to registry
+          Kubernetes: Deployed to production
+          Scaling: 3 backend replicas
+          
+          Access your app:
+          https://myapp.example.com
+          
+          BBX: Infrastructure automation reimagined! 🚀
+      depends_on: [scale_deployment, get_pods]

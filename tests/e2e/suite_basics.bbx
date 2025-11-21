@@ -1,0 +1,26 @@
+id: suite_basics
+name: E2E Basics Suite
+steps:
+  log_start:
+    use: logger.info
+    args:
+      message: "🧪 Starting Basics Suite"
+
+  test_vars:
+    use: transform.format
+    args:
+      template: "Hello ${inputs.name}"
+      data:
+        name: "Blackbox"
+    outputs: result
+
+  verify_vars:
+    use: logger.info
+    args:
+      message: "Variable check: ${test_vars.output}"
+    when: "${test_vars.output} == 'Hello Blackbox'"
+
+  log_end:
+    use: logger.info
+    args:
+      message: "✅ Basics Suite Passed"

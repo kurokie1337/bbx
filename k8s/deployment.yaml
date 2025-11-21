@@ -1,0 +1,171 @@
+# Kubernetes Deployment for Blackbox
+
+## Deployment
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blackbox-api
+  labels:
+    app: blackbox
+    component: api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: blackbox
+      component: api
+  template:
+    metadata:
+      labels:
+        app: blackbox
+        component: api
+    spec:
+      containers:
+      - name: blackbox-api
+        image: blackbox/api:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: LOG_LEVEL
+          value: "info"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: workflows
+          mountPath: /app/workflows
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: workflows
+        persistentVolumeClaim:
+          claimName: blackbox-workflows-pvc
+      - name: logs
+        persistentVolumeClaim:
+          claimName: blackbox-logs-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: blackbox-api
+  labels:
+    app: blackbox
+    component: api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: blackbox
+    component: api
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: blackbox-workflows-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: blackbox-logs-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: blackbox-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - blackbox.example.com
+    secretName: blackbox-tls
+  rules:
+  - host: blackbox.example.com
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: blackbox-api
+            port:
+              number: 8000
+      - path: /editor
+        pathType: Prefix
+        backend:
+          service:
+            name: blackbox-nginx
+            port:
+              number: 80
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: blackbox-api-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: blackbox-api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
