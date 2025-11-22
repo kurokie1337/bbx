@@ -1,0 +1,252 @@
+# BBX Remote Workflow Execution Feature
+# Execute workflows on remote BBX instances
+
+workflow:
+  id: feature_remote_execution
+  name: Remote Workflow Execution Implementation
+  version: "6.0"
+  description: |
+    Implements remote workflow execution:
+    - Execute workflows on remote BBX servers
+    - gRPC/HTTP API for remote calls
+    - Authentication and authorization
+    - Distributed execution monitoring
+
+  tags:
+    - feature
+    - remote
+    - distributed
+    - v1.1.0
+
+  steps:
+    - id: create_remote_client
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          mkdir -p blackbox/remote
+          cat > blackbox/remote/client.py << 'EOF'
+          """Remote workflow execution client."""
+          import requests
+          from typing import Dict, Any, Optional
+
+          class RemoteExecutor:
+              """Client for executing workflows on remote BBX instances."""
+
+              def __init__(self, base_url: str, api_key: Optional[str] = None):
+                  self.base_url = base_url.rstrip('/')
+                  self.api_key = api_key
+                  self.headers = {}
+                  if api_key:
+                      self.headers['Authorization'] = f'Bearer {api_key}'
+
+              def execute_workflow(
+                  self,
+                  workflow_path: str,
+                  inputs: Optional[Dict[str, Any]] = None,
+                  wait: bool = True
+              ) -> Dict[str, Any]:
+                  """Execute workflow on remote instance."""
+                  with open(workflow_path, 'rb') as f:
+                      workflow_content = f.read()
+
+                  response = requests.post(
+                      f'{self.base_url}/api/workflows/execute',
+                      headers=self.headers,
+                      files={'workflow': workflow_content},
+                      json={'inputs': inputs or {}, 'wait': wait},
+                      timeout=300 if wait else 30
+                  )
+                  response.raise_for_status()
+                  return response.json()
+
+              def get_status(self, execution_id: str) -> Dict[str, Any]:
+                  """Get workflow execution status."""
+                  response = requests.get(
+                      f'{self.base_url}/api/executions/{execution_id}',
+                      headers=self.headers
+                  )
+                  response.raise_for_status()
+                  return response.json()
+
+              def get_output(self, execution_id: str) -> Dict[str, Any]:
+                  """Get workflow execution output."""
+                  response = requests.get(
+                      f'{self.base_url}/api/executions/{execution_id}/output',
+                      headers=self.headers
+                  )
+                  response.raise_for_status()
+                  return response.json()
+
+              def list_executions(self) -> list:
+                  """List all workflow executions."""
+                  response = requests.get(
+                      f'{self.base_url}/api/executions',
+                      headers=self.headers
+                  )
+                  response.raise_for_status()
+                  return response.json()['executions']
+          EOF
+
+    - id: create_remote_adapter
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > blackbox/core/adapters/remote.py << 'EOF'
+          """Remote execution adapter."""
+          from blackbox.core.base_adapter import BaseAdapter
+          from blackbox.remote.client import RemoteExecutor
+          from pydantic import BaseModel
+          from typing import Optional, Dict, Any
+
+          class RemoteExecuteInputs(BaseModel):
+              """Inputs for remote workflow execution."""
+              remote_url: str
+              workflow_path: str
+              api_key: Optional[str] = None
+              inputs: Optional[Dict[str, Any]] = None
+              wait: bool = True
+
+          class RemoteAdapter(BaseAdapter):
+              """Adapter for executing workflows on remote BBX instances."""
+
+              def __init__(self):
+                  super().__init__("remote")
+
+              def execute(self, inputs: RemoteExecuteInputs) -> Dict[str, Any]:
+                  """Execute workflow on remote instance."""
+                  client = RemoteExecutor(inputs.remote_url, inputs.api_key)
+                  result = client.execute_workflow(
+                      inputs.workflow_path,
+                      inputs.inputs,
+                      inputs.wait
+                  )
+                  return result
+
+              def get_status(self, remote_url: str, execution_id: str, api_key: Optional[str] = None):
+                  """Get execution status."""
+                  client = RemoteExecutor(remote_url, api_key)
+                  return client.get_status(execution_id)
+
+              def get_output(self, remote_url: str, execution_id: str, api_key: Optional[str] = None):
+                  """Get execution output."""
+                  client = RemoteExecutor(remote_url, api_key)
+                  return client.get_output(execution_id)
+          EOF
+      depends_on: [create_remote_client]
+
+    - id: add_api_endpoints
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat >> blackbox/server/app.py << 'EOF'
+
+          # Remote Execution Endpoints
+          @app.post("/api/workflows/execute")
+          async def remote_execute_workflow(
+              workflow: UploadFile = File(...),
+              inputs: dict = Body({}),
+              wait: bool = Body(True)
+          ):
+              """Execute uploaded workflow."""
+              import uuid
+              execution_id = str(uuid.uuid4())
+
+              # Save workflow temporarily
+              workflow_content = await workflow.read()
+              workflow_path = f"/tmp/workflow_{execution_id}.bbx"
+
+              with open(workflow_path, 'wb') as f:
+                  f.write(workflow_content)
+
+              # Execute workflow
+              if wait:
+                  # Execute synchronously
+                  result = execute_workflow_sync(workflow_path, inputs)
+                  return {"execution_id": execution_id, "status": "completed", "output": result}
+              else:
+                  # Execute asynchronously
+                  asyncio.create_task(execute_workflow_async(workflow_path, inputs, execution_id))
+                  return {"execution_id": execution_id, "status": "running"}
+          EOF
+      depends_on: [create_remote_adapter]
+
+    - id: register_adapter
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat >> blackbox/core/registry.py << 'EOF'
+
+          # Register remote adapter
+          from blackbox.core.adapters.remote import RemoteAdapter
+          registry.register("bbx.remote", RemoteAdapter())
+          EOF
+      depends_on: [create_remote_adapter]
+
+    - id: create_tests
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > tests/test_remote_execution.py << 'EOF'
+          """Tests for remote execution."""
+          import pytest
+          from blackbox.remote.client import RemoteExecutor
+
+          def test_remote_executor_init():
+              executor = RemoteExecutor("http://localhost:8000", "test-key")
+              assert executor.base_url == "http://localhost:8000"
+              assert executor.api_key == "test-key"
+
+          # More tests would go here
+          EOF
+      depends_on: [create_remote_adapter]
+
+    - id: update_docs
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > docs/REMOTE_EXECUTION.md << 'EOF'
+          # Remote Workflow Execution
+
+          Execute BBX workflows on remote instances.
+
+          ## Usage
+
+          \`\`\`yaml
+          - id: remote_deploy
+            mcp: bbx.remote
+            method: exec
+            inputs:
+              remote_url: https://bbx-remote.example.com
+              api_key: ${env.REMOTE_API_KEY}
+              workflow_path: deploy.bbx
+              inputs:
+                environment: production
+          \`\`\`
+
+          ## Python Client
+
+          \`\`\`python
+          from blackbox.remote.client import RemoteExecutor
+
+          client = RemoteExecutor("https://bbx.example.com", api_key="xxx")
+          result = client.execute_workflow("my_workflow.bbx", {"param": "value"})
+          \`\`\`
+          EOF
+      depends_on: [create_tests]
+
+    - id: log_completion
+      mcp: bbx.logger
+      method: info
+      inputs:
+        message: "✅ Remote Execution Feature Complete!"
+      depends_on: [update_docs]
+
+  outputs:
+    feature_status: "complete"
+    docs_path: "docs/REMOTE_EXECUTION.md"

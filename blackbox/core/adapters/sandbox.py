@@ -53,11 +53,7 @@ class SandboxAdapter(MCPAdapter):
     def _check_command(self, cmd: str) -> bool:
         """Check if command is available"""
         try:
-            subprocess.run(
-                [cmd, "--version"],
-                capture_output=True,
-                check=True
-            )
+            subprocess.run([cmd, "--version"], capture_output=True, check=True)
             return True
         except (subprocess.CalledProcessError, FileNotFoundError):
             return False
@@ -109,7 +105,7 @@ class SandboxAdapter(MCPAdapter):
                 text=True,
                 timeout=timeout,
                 env={**os.environ, **env},
-                shell=True  # Allow shell commands
+                shell=True,  # Allow shell commands
             )
 
             return {
@@ -117,18 +113,12 @@ class SandboxAdapter(MCPAdapter):
                 "exit_code": result.returncode,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "isolation": "process"
+                "isolation": "process",
             }
         except subprocess.TimeoutExpired:
-            return {
-                "status": "timeout",
-                "error": f"Command timed out after {timeout}s"
-            }
+            return {"status": "timeout", "error": f"Command timed out after {timeout}s"}
         except Exception as e:
-            return {
-                "status": "error",
-                "error": str(e)
-            }
+            return {"status": "error", "error": str(e)}
 
     async def _run_container(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Run in Docker container (strong isolation)"""
@@ -137,27 +127,27 @@ class SandboxAdapter(MCPAdapter):
         timeout = inputs.get("timeout", 30)
 
         if not self.has_docker:
-            return {
-                "status": "error",
-                "error": "Docker not available"
-            }
+            return {"status": "error", "error": "Docker not available"}
 
         docker_cmd = [
-            "docker", "run",
+            "docker",
+            "run",
             "--rm",
-            "--network", "none",  # No network access
-            "--memory", "512m",   # Memory limit
-            "--cpus", "1",        # CPU limit
+            "--network",
+            "none",  # No network access
+            "--memory",
+            "512m",  # Memory limit
+            "--cpus",
+            "1",  # CPU limit
             image,
-            "sh", "-c", command
+            "sh",
+            "-c",
+            command,
         ]
 
         try:
             result = subprocess.run(
-                docker_cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout
+                docker_cmd, capture_output=True, text=True, timeout=timeout
             )
 
             return {
@@ -166,18 +156,15 @@ class SandboxAdapter(MCPAdapter):
                 "stdout": result.stdout,
                 "stderr": result.stderr,
                 "isolation": "container",
-                "image": image
+                "image": image,
             }
         except subprocess.TimeoutExpired:
             return {
                 "status": "timeout",
-                "error": f"Container timed out after {timeout}s"
+                "error": f"Container timed out after {timeout}s",
             }
         except Exception as e:
-            return {
-                "status": "error",
-                "error": str(e)
-            }
+            return {"status": "error", "error": str(e)}
 
     async def _wasm(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -192,7 +179,7 @@ class SandboxAdapter(MCPAdapter):
             return {
                 "status": "error",
                 "error": "WebAssembly runtime (wasmtime) not available",
-                "note": "Install: curl https://wasmtime.dev/install.sh -sSf | bash"
+                "note": "Install: curl https://wasmtime.dev/install.sh -sSf | bash",
             }
 
         module = inputs["module"]
@@ -202,25 +189,17 @@ class SandboxAdapter(MCPAdapter):
         cmd = ["wasmtime", "run", module, "--invoke", function] + args
 
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
             return {
                 "status": "completed",
                 "exit_code": result.returncode,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "runtime": "wasmtime"
+                "runtime": "wasmtime",
             }
         except Exception as e:
-            return {
-                "status": "error",
-                "error": str(e)
-            }
+            return {"status": "error", "error": str(e)}
 
     async def _status(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Get sandbox capabilities"""
@@ -229,7 +208,9 @@ class SandboxAdapter(MCPAdapter):
             "capabilities": {
                 "docker": self.has_docker,
                 "wasmtime": self.has_wasmtime,
-                "isolation_levels": ["process", "container"] if self.has_docker else ["process"]
+                "isolation_levels": (
+                    ["process", "container"] if self.has_docker else ["process"]
+                ),
             },
-            "note": "Phase 7 features (Android/iOS/full WebAssembly) coming soon!"
+            "note": "Phase 7 features (Android/iOS/full WebAssembly) coming soon!",
         }

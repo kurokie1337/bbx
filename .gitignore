@@ -241,3 +241,8 @@ Icon
 !.env.example
 !config.example.yaml
 !.vscode/settings.json.example
+# SDK node_modules
+sdks/nodejs/node_modules/
+
+# Claude Code directory
+.claude/

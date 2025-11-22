@@ -1,0 +1,43 @@
+# BBX Standard Library: Kubernetes Rollout
+# Manage Kubernetes deployments
+
+id: kubectl_rollout
+description: Manage deployment rollout
+uses: docker://bitnami/kubectl:latest
+
+cmd:
+  - kubectl
+  - rollout
+  - "{{ action }}"
+  - "{{ resource }}"
+  - "{% if namespace %}-n{{ namespace }}{% endif %}"
+
+inputs:
+  action:
+    type: string
+    description: "Rollout action (status, undo, restart, etc.)"
+    required: true
+
+  resource:
+    type: string
+    description: "Resource to rollout (deployment/name)"
+    required: true
+
+  namespace:
+    type: string
+    description: "Kubernetes namespace"
+    required: false
+
+# Example usage:
+# - id: rollout_status
+#   mcp: universal
+#   method: run
+#   inputs:
+#     uses: docker://bitnami/kubectl:latest
+#     cmd:
+#       - kubectl
+#       - rollout
+#       - status
+#       - deployment/backend
+#       - -n
+#       - production

@@ -1,0 +1,38 @@
+# BBX Standard Library: Kubernetes Apply
+# Apply Kubernetes manifest
+
+id: kubectl_apply
+description: Apply Kubernetes configuration from file
+uses: docker://bitnami/kubectl:latest
+
+cmd:
+  - kubectl
+  - apply
+  - -f
+  - "{{ file }}"
+  - "{% if namespace %}-n{{ namespace }}{% endif %}"
+
+inputs:
+  file:
+    type: string
+    description: "Path to Kubernetes manifest file"
+    required: true
+
+  namespace:
+    type: string
+    description: "Kubernetes namespace"
+    required: false
+
+# Example usage:
+# - id: deploy_app
+#   mcp: universal
+#   method: run
+#   inputs:
+#     uses: docker://bitnami/kubectl:latest
+#     cmd:
+#       - kubectl
+#       - apply
+#       - -f
+#       - k8s/deployment.yaml
+#       - -n
+#       - production

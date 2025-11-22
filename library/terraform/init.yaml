@@ -1,0 +1,37 @@
+# BBX Standard Library: Terraform Init
+# Initialize Terraform working directory
+
+id: terraform_init
+description: Initialize Terraform configuration
+uses: docker://hashicorp/terraform:latest
+
+# Default command template
+cmd:
+  - terraform
+  - init
+  - -input=false
+  - "{% if upgrade %}-upgrade{% endif %}"
+
+# Inputs
+inputs:
+  working_dir:
+    type: string
+    description: "Terraform working directory"
+    default: "."
+
+  upgrade:
+    type: boolean
+    description: "Upgrade modules and providers"
+    default: false
+
+# Example usage:
+# - id: init_terraform
+#   mcp: universal
+#   method: run
+#   inputs:
+#     uses: docker://hashicorp/terraform:latest
+#     working_dir: "./infrastructure"
+#     cmd:
+#       - terraform
+#       - init
+#       - -upgrade

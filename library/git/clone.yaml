@@ -1,0 +1,51 @@
+# BBX Standard Library: Git Clone
+# Clone a Git repository
+
+id: git_clone
+description: Clone a Git repository
+uses: docker://alpine/git:latest
+
+cmd:
+  - git
+  - clone
+  - "{{ repo_url }}"
+  - "{% if branch %}--branch{{ branch }}{% endif %}"
+  - "{% if depth %}--depth{{ depth }}{% endif %}"
+  - "{{ target_dir }}"
+
+inputs:
+  repo_url:
+    type: string
+    description: "Git repository URL"
+    required: true
+
+  target_dir:
+    type: string
+    description: "Target directory for clone"
+    default: "."
+
+  branch:
+    type: string
+    description: "Branch to clone"
+    required: false
+
+  depth:
+    type: integer
+    description: "Clone depth (shallow clone)"
+    required: false
+
+# Example usage:
+# - id: clone_repo
+#   mcp: universal
+#   method: run
+#   inputs:
+#     uses: docker://alpine/git:latest
+#     cmd:
+#       - git
+#       - clone
+#       - https://github.com/user/repo.git
+#       - --branch
+#       - main
+#       - --depth
+#       - "1"
+#       - ./repo

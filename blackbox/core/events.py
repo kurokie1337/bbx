@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, List, Any, Dict
-from enum import Enum
 import asyncio
+from enum import Enum
+from typing import Any, Callable, Dict, List
+
 
 class EventType(Enum):
     WORKFLOW_START = "workflow_start"
@@ -23,10 +24,12 @@ class EventType(Enum):
     STEP_END = "step_end"
     STEP_ERROR = "step_error"
 
+
 class Event:
     def __init__(self, type: EventType, data: Dict[str, Any]):
         self.type = type
         self.data = data
+
 
 class EventBus:
     def __init__(self):

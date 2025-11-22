@@ -16,18 +16,16 @@
 Advanced Monitoring & Observability System for BBX
 Provides comprehensive monitoring, tracing, and observability features
 """
-import logging
-
-
 import asyncio
 import json
+import logging
+import threading
 import time
+from collections import defaultdict, deque
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Callable
-from collections import defaultdict, deque
-from dataclasses import dataclass, field, asdict
-import threading
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger("bbx.observability")
 
@@ -35,6 +33,7 @@ logger = logging.getLogger("bbx.observability")
 @dataclass
 class Span:
     """Distributed tracing span"""
+
     trace_id: str
     span_id: str
     parent_span_id: Optional[str]
@@ -51,6 +50,7 @@ class Span:
 @dataclass
 class Metric:
     """Time-series metric data point"""
+
     name: str
     value: float
     timestamp: float
@@ -61,6 +61,7 @@ class Metric:
 @dataclass
 class LogEntry:
     """Structured log entry"""
+
     timestamp: float
     level: str
     message: str
@@ -87,46 +88,56 @@ class MetricsCollector:
         self.histograms: Dict[str, List[float]] = defaultdict(list)
         self._lock = threading.Lock()
 
-    def counter(self, name: str, value: float = 1, tags: Optional[Dict[str, str]] = None):
+    def counter(
+        self, name: str, value: float = 1, tags: Optional[Dict[str, str]] = None
+    ):
         """Increment counter"""
         with self._lock:
             key = self._make_key(name, tags or {})
             self.counters[key] += value
-            self.metrics.append(Metric(
-                name=name,
-                value=value,
-                timestamp=time.time(),
-                tags=tags or {},
-                type="counter"
-            ))
+            self.metrics.append(
+                Metric(
+                    name=name,
+                    value=value,
+                    timestamp=time.time(),
+                    tags=tags or {},
+                    type="counter",
+                )
+            )
 
     def gauge(self, name: str, value: float, tags: Optional[Dict[str, str]] = None):
         """Set gauge value"""
         with self._lock:
             key = self._make_key(name, tags or {})
             self.gauges[key] = value
-            self.metrics.append(Metric(
-                name=name,
-                value=value,
-                timestamp=time.time(),
-                tags=tags or {},
-                type="gauge"
-            ))
+            self.metrics.append(
+                Metric(
+                    name=name,
+                    value=value,
+                    timestamp=time.time(),
+                    tags=tags or {},
+                    type="gauge",
+                )
+            )
 
     def histogram(self, name: str, value: float, tags: Optional[Dict[str, str]] = None):
         """Record histogram value"""
         with self._lock:
             key = self._make_key(name, tags or {})
             self.histograms[key].append(value)
-            self.metrics.append(Metric(
-                name=name,
-                value=value,
-                timestamp=time.time(),
-                tags=tags or {},
-                type="histogram"
-            ))
+            self.metrics.append(
+                Metric(
+                    name=name,
+                    value=value,
+                    timestamp=time.time(),
+                    tags=tags or {},
+                    type="histogram",
+                )
+            )
 
-    def timing(self, name: str, duration_ms: float, tags: Optional[Dict[str, str]] = None):
+    def timing(
+        self, name: str, duration_ms: float, tags: Optional[Dict[str, str]] = None
+    ):
         """Record timing metric"""
         self.histogram(name, duration_ms, tags)
 
@@ -141,7 +152,7 @@ class MetricsCollector:
             summary = {
                 "counters": dict(self.counters),
                 "gauges": dict(self.gauges),
-                "histograms": {}
+                "histograms": {},
             }
 
             for key, values in self.histograms.items():
@@ -187,7 +198,7 @@ class Tracer:
         self,
         name: str,
         parent_span_id: Optional[str] = None,
-        attributes: Optional[Dict[str, Any]] = None
+        attributes: Optional[Dict[str, Any]] = None,
     ) -> Span:
         """Start a new span"""
         import uuid
@@ -201,7 +212,7 @@ class Tracer:
             parent_span_id=parent_span_id or self._get_active_span_id(),
             name=name,
             start_time=time.time(),
-            attributes=attributes or {}
+            attributes=attributes or {},
         )
 
         with self._lock:
@@ -210,7 +221,9 @@ class Tracer:
 
         return span
 
-    def end_span(self, span: Span, status: str = "success", error: Optional[str] = None):
+    def end_span(
+        self, span: Span, status: str = "success", error: Optional[str] = None
+    ):
         """End a span"""
         span.end_time = time.time()
         span.duration_ms = (span.end_time - span.start_time) * 1000
@@ -221,17 +234,18 @@ class Tracer:
             if self._get_active_span_id() == span.span_id:
                 self._set_active_span(span.parent_span_id)
 
-    def add_event(self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None):
+    def add_event(
+        self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None
+    ):
         """Add event to span"""
-        span.events.append({
-            "name": name,
-            "timestamp": time.time(),
-            "attributes": attributes or {}
-        })
+        span.events.append(
+            {"name": name, "timestamp": time.time(), "attributes": attributes or {}}
+        )
 
     def _get_or_create_trace_id(self) -> str:
         """Get or create trace ID for current context"""
         import uuid
+
         thread_id = threading.get_ident()
 
         with self._lock:
@@ -275,35 +289,46 @@ class Tracer:
     def _to_jaeger_format(self, traces: List[Dict]) -> str:
         """Convert to Jaeger JSON format"""
         jaeger_traces = {
-            "data": [{
-                "traceID": trace["trace_id"],
-                "spans": [{
+            "data": [
+                {
                     "traceID": trace["trace_id"],
-                    "spanID": trace["span_id"],
-                    "operationName": trace["name"],
-                    "references": [{
-                        "refType": "CHILD_OF",
-                        "traceID": trace["trace_id"],
-                        "spanID": trace["parent_span_id"]
-                    }] if trace.get("parent_span_id") else [],
-                    "startTime": int(trace["start_time"] * 1_000_000),
-                    "duration": int(trace.get("duration_ms", 0) * 1000),
-                    "tags": [
-                        {"key": k, "type": "string", "value": str(v)}
-                        for k, v in trace.get("attributes", {}).items()
-                    ],
-                    "logs": [
+                    "spans": [
                         {
-                            "timestamp": int(event["timestamp"] * 1_000_000),
-                            "fields": [
+                            "traceID": trace["trace_id"],
+                            "spanID": trace["span_id"],
+                            "operationName": trace["name"],
+                            "references": (
+                                [
+                                    {
+                                        "refType": "CHILD_OF",
+                                        "traceID": trace["trace_id"],
+                                        "spanID": trace["parent_span_id"],
+                                    }
+                                ]
+                                if trace.get("parent_span_id")
+                                else []
+                            ),
+                            "startTime": int(trace["start_time"] * 1_000_000),
+                            "duration": int(trace.get("duration_ms", 0) * 1000),
+                            "tags": [
                                 {"key": k, "type": "string", "value": str(v)}
-                                for k, v in event.get("attributes", {}).items()
-                            ]
+                                for k, v in trace.get("attributes", {}).items()
+                            ],
+                            "logs": [
+                                {
+                                    "timestamp": int(event["timestamp"] * 1_000_000),
+                                    "fields": [
+                                        {"key": k, "type": "string", "value": str(v)}
+                                        for k, v in event.get("attributes", {}).items()
+                                    ],
+                                }
+                                for event in trace.get("events", [])
+                            ],
                         }
-                        for event in trace.get("events", [])
-                    ]
-                }]
-            } for trace in traces]
+                    ],
+                }
+                for trace in traces
+            ]
         }
         return json.dumps(jaeger_traces, indent=2)
 
@@ -318,13 +343,7 @@ class StructuredLogger:
         self._lock = threading.Lock()
         self.min_level = "DEBUG"
 
-    LEVELS = {
-        "DEBUG": 0,
-        "INFO": 1,
-        "WARNING": 2,
-        "ERROR": 3,
-        "CRITICAL": 4
-    }
+    LEVELS = {"DEBUG": 0, "INFO": 1, "WARNING": 2, "ERROR": 3, "CRITICAL": 4}
 
     def log(
         self,
@@ -332,7 +351,7 @@ class StructuredLogger:
         message: str,
         context: Optional[Dict[str, Any]] = None,
         trace_id: Optional[str] = None,
-        span_id: Optional[str] = None
+        span_id: Optional[str] = None,
     ):
         """Log structured message"""
         if self.LEVELS.get(level, 0) < self.LEVELS.get(self.min_level, 0):
@@ -344,7 +363,7 @@ class StructuredLogger:
             message=message,
             context=context or {},
             trace_id=trace_id,
-            span_id=span_id
+            span_id=span_id,
         )
 
         with self._lock:
@@ -375,14 +394,16 @@ class StructuredLogger:
         trace_info = ""
         if entry.trace_id:
             trace_info = f" [trace={entry.trace_id[:8]}]"
-        print(f"[{timestamp}] {entry.level:8s}{trace_info} {entry.message} {context_str}")
+        print(
+            f"[{timestamp}] {entry.level:8s}{trace_info} {entry.message} {context_str}"
+        )
 
     def query(
         self,
         level: Optional[str] = None,
         start_time: Optional[float] = None,
         end_time: Optional[float] = None,
-        trace_id: Optional[str] = None
+        trace_id: Optional[str] = None,
     ) -> List[LogEntry]:
         """Query logs"""
         with self._lock:
@@ -420,14 +441,10 @@ class Observability:
         node_name: str,
         duration_ms: float,
         status: str,
-        error: Optional[str] = None
+        error: Optional[str] = None,
     ):
         """Record workflow node execution"""
-        tags = {
-            "workflow": workflow_name,
-            "node": node_name,
-            "status": status
-        }
+        tags = {"workflow": workflow_name, "node": node_name, "status": status}
 
         # Metrics
         self.metrics.counter("bbx.node.executions", tags=tags)
@@ -442,7 +459,7 @@ class Observability:
             workflow=workflow_name,
             duration_ms=duration_ms,
             status=status,
-            error=error
+            error=error,
         )
 
     def trace_workflow(self, workflow_name: str):
@@ -462,7 +479,7 @@ class Observability:
         data = {
             "metrics": self.metrics.get_summary(),
             "traces": [asdict(span) for span in self.tracer.spans.values()],
-            "logs": [asdict(log) for log in self.logger.logs]
+            "logs": [asdict(log) for log in self.logger.logs],
         }
 
         for exporter in self.exporters:
@@ -478,11 +495,13 @@ class Observability:
         """Get data for observability dashboard"""
         return {
             "metrics": self.metrics.get_summary(),
-            "active_traces": len([s for s in self.tracer.spans.values() if s.status == "running"]),
+            "active_traces": len(
+                [s for s in self.tracer.spans.values() if s.status == "running"]
+            ),
             "total_traces": len(self.tracer.spans),
             "recent_logs": [asdict(log) for log in list(self.logger.logs)[-100:]],
             "error_rate": self._calculate_error_rate(),
-            "avg_duration": self._calculate_avg_duration()
+            "avg_duration": self._calculate_avg_duration(),
         }
 
     def _calculate_error_rate(self) -> float:
@@ -517,9 +536,7 @@ class TraceContext:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type:
             self.observability.tracer.end_span(
-                self.span,
-                status="error",
-                error=f"{exc_type.__name__}: {exc_val}"
+                self.span, status="error", error=f"{exc_type.__name__}: {exc_val}"
             )
         else:
             self.observability.tracer.end_span(self.span, status="success")
@@ -532,6 +549,7 @@ class TraceContext:
 
 
 # Exporters
+
 
 class PrometheusExporter:
     """Export metrics in Prometheus format"""

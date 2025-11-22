@@ -23,23 +23,26 @@ Centralized configuration management supporting:
 - Type-safe access
 """
 
-import os
 import logging
-from pathlib import Path
-from typing import Dict, Any, Optional, List
+import os
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("bbx.config")
 
 # Check for Pydantic
 try:
     from pydantic import BaseModel, Field, validator
+
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
     BaseModel = object  # type: ignore
+
     def Field(*args, **kwargs):  # type: ignore
         return None
+
     def validator(*args, **kwargs):  # type: ignore
         return lambda f: f
 
@@ -49,126 +52,99 @@ except ImportError:
 # ============================================================================
 
 if PYDANTIC_AVAILABLE:
+
     class PathsConfig(BaseModel):
         """Path configuration"""
+
         bbx_home: Path = Field(
             default_factory=lambda: Path.home() / ".bbx",
-            description="BBX home directory"
+            description="BBX home directory",
         )
         cache_dir: Path = Field(
             default_factory=lambda: Path.home() / ".bbx" / "cache",
-            description="Cache directory"
+            description="Cache directory",
         )
         state_dir: Path = Field(
             default_factory=lambda: Path.home() / ".bbx" / "state",
-            description="State directory"
+            description="State directory",
         )
         bundle_dir: Path = Field(
             default_factory=lambda: Path.cwd() / ".bbx_bundle",
-            description="Bundle build directory"
+            description="Bundle build directory",
         )
         output_dir: Path = Field(
             default_factory=lambda: Path.cwd() / "output",
-            description="Default output directory"
+            description="Default output directory",
         )
         temp_dir: Path = Field(
             default_factory=lambda: Path.home() / ".bbx" / "tmp",
-            description="Temporary files directory"
+            description="Temporary files directory",
         )
         log_dir: Path = Field(
             default_factory=lambda: Path.home() / ".bbx" / "logs",
-            description="Log files directory"
+            description="Log files directory",
         )
 
         class Config:
             arbitrary_types_allowed = True
 
-        @validator('*', pre=True)
+        @validator("*", pre=True)
         def ensure_path(cls, v):
             """Convert strings to Path objects"""
             if isinstance(v, str):
                 return Path(v).expanduser()
             return v
 
-
     class RuntimeConfig(BaseModel):
         """Runtime execution configuration"""
+
         default_timeout_ms: int = Field(
-            default=30000,
-            description="Default step timeout (ms)",
-            ge=0
+            default=30000, description="Default step timeout (ms)", ge=0
         )
         max_parallel_steps: int = Field(
-            default=10,
-            description="Maximum parallel step execution",
-            ge=1
+            default=10, description="Maximum parallel step execution", ge=1
         )
         enable_caching: bool = Field(
-            default=True,
-            description="Enable workflow parsing cache"
+            default=True, description="Enable workflow parsing cache"
         )
         cache_ttl_seconds: int = Field(
-            default=3600,
-            description="Cache TTL in seconds",
-            ge=0
+            default=3600, description="Cache TTL in seconds", ge=0
         )
-        retry_default: int = Field(
-            default=0,
-            description="Default retry count",
-            ge=0
-        )
+        retry_default: int = Field(default=0, description="Default retry count", ge=0)
         retry_delay_ms: int = Field(
-            default=1000,
-            description="Default retry delay (ms)",
-            ge=0
+            default=1000, description="Default retry delay (ms)", ge=0
         )
         retry_backoff: float = Field(
-            default=2.0,
-            description="Retry backoff multiplier",
-            ge=1.0
+            default=2.0, description="Retry backoff multiplier", ge=1.0
         )
-
 
     class ObservabilityConfig(BaseModel):
         """Observability configuration"""
+
         enable_metrics: bool = Field(
-            default=True,
-            description="Enable metrics collection"
+            default=True, description="Enable metrics collection"
         )
         enable_tracing: bool = Field(
-            default=True,
-            description="Enable distributed tracing"
+            default=True, description="Enable distributed tracing"
         )
         enable_logging: bool = Field(
-            default=True,
-            description="Enable structured logging"
+            default=True, description="Enable structured logging"
         )
-        log_level: str = Field(
-            default="INFO",
-            description="Logging level"
-        )
+        log_level: str = Field(default="INFO", description="Logging level")
         metrics_retention: int = Field(
-            default=10000,
-            description="Max metrics to retain",
-            ge=100
+            default=10000, description="Max metrics to retain", ge=100
         )
         trace_retention: int = Field(
-            default=1000,
-            description="Max traces to retain",
-            ge=10
+            default=1000, description="Max traces to retain", ge=10
         )
         log_retention: int = Field(
-            default=10000,
-            description="Max log entries to retain",
-            ge=100
+            default=10000, description="Max log entries to retain", ge=100
         )
         export_interval_seconds: int = Field(
-            default=60,
-            description="Export interval (seconds)",
-            ge=1
+            default=60, description="Export interval (seconds)", ge=1
         )
 
-        @validator('log_level')
+        @validator("log_level")
         def validate_log_level(cls, v):
             """Validate log level"""
             valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
@@ -177,87 +153,64 @@ if PYDANTIC_AVAILABLE:
                 raise ValueError(f"Invalid log level. Must be one of: {valid_levels}")
             return v_upper
 
-
     class AdapterConfig(BaseModel):
         """Adapter configuration"""
+
         aws_region: Optional[str] = Field(
-            default=None,
-            description="Default AWS region"
+            default=None, description="Default AWS region"
         )
         gcp_project: Optional[str] = Field(
-            default=None,
-            description="Default GCP project"
+            default=None, description="Default GCP project"
         )
         azure_subscription: Optional[str] = Field(
-            default=None,
-            description="Default Azure subscription"
+            default=None, description="Default Azure subscription"
         )
         http_timeout: int = Field(
-            default=30,
-            description="HTTP request timeout (seconds)",
-            ge=1
+            default=30, description="HTTP request timeout (seconds)", ge=1
         )
-        http_max_retries: int = Field(
-            default=3,
-            description="HTTP max retries",
-            ge=0
-        )
+        http_max_retries: int = Field(default=3, description="HTTP max retries", ge=0)
         enable_ssl_verify: bool = Field(
-            default=True,
-            description="Verify SSL certificates"
+            default=True, description="Verify SSL certificates"
         )
-
 
     class SecurityConfig(BaseModel):
         """Security configuration"""
-        enable_sandbox: bool = Field(
-            default=False,
-            description="Enable sandbox mode"
-        )
+
+        enable_sandbox: bool = Field(default=False, description="Enable sandbox mode")
         allowed_adapters: Optional[List[str]] = Field(
-            default=None,
-            description="Whitelist of allowed adapters"
+            default=None, description="Whitelist of allowed adapters"
         )
         blocked_adapters: Optional[List[str]] = Field(
-            default=None,
-            description="Blacklist of blocked adapters"
+            default=None, description="Blacklist of blocked adapters"
         )
         max_workflow_size_mb: int = Field(
-            default=10,
-            description="Max workflow file size (MB)",
-            ge=1
+            default=10, description="Max workflow file size (MB)", ge=1
         )
         allow_network_access: bool = Field(
-            default=True,
-            description="Allow network access"
+            default=True, description="Allow network access"
         )
         allow_file_system_access: bool = Field(
-            default=True,
-            description="Allow file system access"
+            default=True, description="Allow file system access"
         )
-
 
     class BBXConfig(BaseModel):
         """Complete BBX configuration"""
+
         paths: PathsConfig = Field(
-            default_factory=PathsConfig,
-            description="Path configuration"
+            default_factory=PathsConfig, description="Path configuration"
         )
         runtime: RuntimeConfig = Field(
-            default_factory=RuntimeConfig,
-            description="Runtime configuration"
+            default_factory=RuntimeConfig, description="Runtime configuration"
         )
         observability: ObservabilityConfig = Field(
             default_factory=ObservabilityConfig,
-            description="Observability configuration"
+            description="Observability configuration",
         )
         adapters: AdapterConfig = Field(
-            default_factory=AdapterConfig,
-            description="Adapter configuration"
+            default_factory=AdapterConfig, description="Adapter configuration"
         )
         security: SecurityConfig = Field(
-            default_factory=SecurityConfig,
-            description="Security configuration"
+            default_factory=SecurityConfig, description="Security configuration"
         )
 
         class Config:
@@ -268,6 +221,7 @@ else:
     @dataclass
     class PathsConfig:  # type: ignore
         """Path configuration (no validation)"""
+
         bbx_home: Path = field(default_factory=lambda: Path.home() / ".bbx")
         cache_dir: Path = field(default_factory=lambda: Path.home() / ".bbx" / "cache")
         state_dir: Path = field(default_factory=lambda: Path.home() / ".bbx" / "state")
@@ -276,10 +230,10 @@ else:
         temp_dir: Path = field(default_factory=lambda: Path.home() / ".bbx" / "tmp")
         log_dir: Path = field(default_factory=lambda: Path.home() / ".bbx" / "logs")
 
-
     @dataclass
     class RuntimeConfig:  # type: ignore
         """Runtime configuration (no validation)"""
+
         default_timeout_ms: int = 30000
         max_parallel_steps: int = 10
         enable_caching: bool = True
@@ -288,10 +242,10 @@ else:
         retry_delay_ms: int = 1000
         retry_backoff: float = 2.0
 
-
     @dataclass
     class ObservabilityConfig:  # type: ignore
         """Observability configuration (no validation)"""
+
         enable_metrics: bool = True
         enable_tracing: bool = True
         enable_logging: bool = True
@@ -301,10 +255,10 @@ else:
         log_retention: int = 10000
         export_interval_seconds: int = 60
 
-
     @dataclass
     class AdapterConfig:  # type: ignore
         """Adapter configuration (no validation)"""
+
         aws_region: Optional[str] = None
         gcp_project: Optional[str] = None
         azure_subscription: Optional[str] = None
@@ -312,10 +266,10 @@ else:
         http_max_retries: int = 3
         enable_ssl_verify: bool = True
 
-
     @dataclass
     class SecurityConfig:  # type: ignore
         """Security configuration (no validation)"""
+
         enable_sandbox: bool = False
         allowed_adapters: Optional[List[str]] = None
         blocked_adapters: Optional[List[str]] = None
@@ -323,10 +277,10 @@ else:
         allow_network_access: bool = True
         allow_file_system_access: bool = True
 
-
     @dataclass
     class BBXConfig:  # type: ignore
         """Complete BBX configuration (no validation)"""
+
         paths: PathsConfig = field(default_factory=PathsConfig)
         runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
         observability: ObservabilityConfig = field(default_factory=ObservabilityConfig)
@@ -337,6 +291,7 @@ else:
 # ============================================================================
 # Configuration Loader
 # ============================================================================
+
 
 class ConfigLoader:
     """Load configuration from multiple sources"""
@@ -382,11 +337,15 @@ class ConfigLoader:
 
         bbx_max_parallel = os.getenv("BBX_MAX_PARALLEL")
         if bbx_max_parallel:
-            config.setdefault("runtime", {})["max_parallel_steps"] = int(bbx_max_parallel)
+            config.setdefault("runtime", {})["max_parallel_steps"] = int(
+                bbx_max_parallel
+            )
 
         bbx_enable_cache = os.getenv("BBX_ENABLE_CACHE")
         if bbx_enable_cache:
-            config.setdefault("runtime", {})["enable_caching"] = bbx_enable_cache.lower() == "true"
+            config.setdefault("runtime", {})["enable_caching"] = (
+                bbx_enable_cache.lower() == "true"
+            )
 
         bbx_cache_ttl = os.getenv("BBX_CACHE_TTL")
         if bbx_cache_ttl:
@@ -399,11 +358,15 @@ class ConfigLoader:
 
         bbx_enable_metrics = os.getenv("BBX_ENABLE_METRICS")
         if bbx_enable_metrics:
-            config.setdefault("observability", {})["enable_metrics"] = bbx_enable_metrics.lower() == "true"
+            config.setdefault("observability", {})["enable_metrics"] = (
+                bbx_enable_metrics.lower() == "true"
+            )
 
         bbx_enable_tracing = os.getenv("BBX_ENABLE_TRACING")
         if bbx_enable_tracing:
-            config.setdefault("observability", {})["enable_tracing"] = bbx_enable_tracing.lower() == "true"
+            config.setdefault("observability", {})["enable_tracing"] = (
+                bbx_enable_tracing.lower() == "true"
+            )
 
         # Adapters
         aws_region = os.getenv("AWS_REGION")
@@ -425,15 +388,21 @@ class ConfigLoader:
         # Security
         bbx_sandbox = os.getenv("BBX_SANDBOX")
         if bbx_sandbox:
-            config.setdefault("security", {})["enable_sandbox"] = bbx_sandbox.lower() == "true"
+            config.setdefault("security", {})["enable_sandbox"] = (
+                bbx_sandbox.lower() == "true"
+            )
 
         bbx_allowed = os.getenv("BBX_ALLOWED_ADAPTERS")
         if bbx_allowed:
-            config.setdefault("security", {})["allowed_adapters"] = bbx_allowed.split(",")
+            config.setdefault("security", {})["allowed_adapters"] = bbx_allowed.split(
+                ","
+            )
 
         bbx_blocked = os.getenv("BBX_BLOCKED_ADAPTERS")
         if bbx_blocked:
-            config.setdefault("security", {})["blocked_adapters"] = bbx_blocked.split(",")
+            config.setdefault("security", {})["blocked_adapters"] = bbx_blocked.split(
+                ","
+            )
 
         return config
 
@@ -445,7 +414,8 @@ class ConfigLoader:
 
         try:
             import yaml
-            with open(file_path, 'r') as f:
+
+            with open(file_path, "r") as f:
                 return yaml.safe_load(f) or {}
         except ImportError:
             logger.warning("PyYAML not installed, skipping config file")
@@ -460,7 +430,11 @@ class ConfigLoader:
         result: Dict[str, Any] = {}
         for config in configs:
             for key, value in config.items():
-                if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                if (
+                    key in result
+                    and isinstance(result[key], dict)
+                    and isinstance(value, dict)
+                ):
                     result[key] = ConfigLoader.merge_configs(result[key], value)
                 else:
                     result[key] = value
@@ -496,8 +470,7 @@ def get_config() -> BBXConfig:
 
 
 def load_config(
-    config_file: Optional[Path] = None,
-    env_override: bool = True
+    config_file: Optional[Path] = None, env_override: bool = True
 ) -> BBXConfig:
     """
     Load configuration from all sources
@@ -555,7 +528,9 @@ def load_config(
 
         if "paths" in merged:
             for key, value in merged["paths"].items():
-                setattr(config.paths, key, Path(value) if isinstance(value, str) else value)
+                setattr(
+                    config.paths, key, Path(value) if isinstance(value, str) else value
+                )
 
         if "runtime" in merged:
             for key, value in merged["runtime"].items():
@@ -616,6 +591,7 @@ except Exception as e:
 # ============================================================================
 # Convenience Functions
 # ============================================================================
+
 
 def get_path(path_name: str) -> Path:
     """Get a configured path by name"""

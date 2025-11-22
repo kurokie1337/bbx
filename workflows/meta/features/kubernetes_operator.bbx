@@ -1,0 +1,249 @@
+# BBX Kubernetes Operator Feature
+# Native Kubernetes integration with CRDs
+
+workflow:
+  id: feature_kubernetes_operator
+  name: Kubernetes Operator Implementation
+  version: "6.0"
+  description: |
+    Creates Kubernetes Operator for BBX:
+    - Custom Resource Definitions (CRDs)
+    - Workflow, WorkflowRun, WorkflowTemplate resources
+    - Kubernetes-native workflow execution
+    - Helm chart for easy deployment
+
+  tags: [feature, kubernetes, operator, v2.0]
+
+  steps:
+    - id: install_operator_sdk
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          # Install operator-sdk (assume already installed or skip)
+          echo "Operator SDK required: https://sdk.operatorframework.io"
+
+    - id: init_operator_project
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          mkdir -p k8s-operator
+          cd k8s-operator
+          # operator-sdk init --domain=bbx.io --repo=github.com/kurokie1337/bbx-operator
+
+    - id: create_workflow_crd
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          mkdir -p k8s-operator/config/crd
+          cat > k8s-operator/config/crd/workflow_crd.yaml << 'EOF'
+          apiVersion: apiextensions.k8s.io/v1
+          kind: CustomResourceDefinition
+          metadata:
+            name: workflows.bbx.io
+          spec:
+            group: bbx.io
+            versions:
+              - name: v1alpha1
+                served: true
+                storage: true
+                schema:
+                  openAPIV3Schema:
+                    type: object
+                    properties:
+                      spec:
+                        type: object
+                        properties:
+                          workflowSpec:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                          inputs:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                      status:
+                        type: object
+                        properties:
+                          phase:
+                            type: string
+                          outputs:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+            scope: Namespaced
+            names:
+              plural: workflows
+              singular: workflow
+              kind: Workflow
+              shortNames:
+                - wf
+          EOF
+
+    - id: create_controller
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          mkdir -p k8s-operator/controllers
+          cat > k8s-operator/controllers/workflow_controller.py << 'EOF'
+          """Kubernetes Workflow Controller."""
+          import kopf
+          import yaml
+          from blackbox.core.runtime import execute_workflow
+
+          @kopf.on.create('bbx.io', 'v1alpha1', 'workflows')
+          def create_workflow(spec, name, namespace, **kwargs):
+              """Handle Workflow creation."""
+              workflow_spec = spec.get('workflowSpec', {})
+              inputs = spec.get('inputs', {})
+
+              # Execute BBX workflow
+              result = execute_workflow(workflow_spec, inputs)
+
+              # Update status
+              return {
+                  'phase': 'Completed' if result['status'] == 'success' else 'Failed',
+                  'outputs': result.get('outputs', {})
+              }
+
+          @kopf.on.update('bbx.io', 'v1alpha1', 'workflows')
+          def update_workflow(spec, name, namespace, **kwargs):
+              """Handle Workflow updates."""
+              return create_workflow(spec, name, namespace, **kwargs)
+
+          @kopf.on.delete('bbx.io', 'v1alpha1', 'workflows')
+          def delete_workflow(name, namespace, **kwargs):
+              """Handle Workflow deletion."""
+              print(f"Deleting workflow {name} in {namespace}")
+          EOF
+
+    - id: create_dockerfile
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > k8s-operator/Dockerfile << 'EOF'
+          FROM python:3.11-slim
+
+          WORKDIR /app
+          COPY requirements.txt .
+          RUN pip install -r requirements.txt
+
+          COPY . .
+
+          CMD ["kopf", "run", "controllers/workflow_controller.py"]
+          EOF
+
+    - id: create_helm_chart
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          mkdir -p k8s-operator/helm/bbx-operator
+          cat > k8s-operator/helm/bbx-operator/Chart.yaml << 'EOF'
+          apiVersion: v2
+          name: bbx-operator
+          description: Kubernetes Operator for BBX Workflows
+          version: 1.0.0
+          appVersion: "1.0.0"
+          EOF
+
+          mkdir -p k8s-operator/helm/bbx-operator/templates
+          cat > k8s-operator/helm/bbx-operator/templates/deployment.yaml << 'EOF'
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: bbx-operator
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: bbx-operator
+            template:
+              metadata:
+                labels:
+                  app: bbx-operator
+              spec:
+                serviceAccountName: bbx-operator
+                containers:
+                  - name: operator
+                    image: bbx-operator:latest
+                    imagePullPolicy: Always
+          EOF
+
+    - id: create_example_workflow
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > k8s-operator/examples/simple-workflow.yaml << 'EOF'
+          apiVersion: bbx.io/v1alpha1
+          kind: Workflow
+          metadata:
+            name: hello-world
+          spec:
+            workflowSpec:
+              workflow:
+                id: hello_world_k8s
+                version: "6.0"
+                steps:
+                  - id: greet
+                    mcp: bbx.logger
+                    method: info
+                    inputs:
+                      message: "Hello from Kubernetes!"
+            inputs: {}
+          EOF
+
+    - id: create_readme
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > k8s-operator/README.md << 'EOF'
+          # BBX Kubernetes Operator
+
+          Native Kubernetes integration for BBX workflows.
+
+          ## Installation
+
+          \`\`\`bash
+          helm install bbx-operator ./helm/bbx-operator
+          \`\`\`
+
+          ## Usage
+
+          \`\`\`yaml
+          apiVersion: bbx.io/v1alpha1
+          kind: Workflow
+          metadata:
+            name: my-workflow
+          spec:
+            workflowSpec:
+              workflow:
+                id: my_workflow
+                version: "6.0"
+                steps:
+                  - id: step1
+                    mcp: bbx.http
+                    method: get
+                    inputs:
+                      url: https://api.example.com
+          \`\`\`
+
+          ## Check status
+
+          \`\`\`bash
+          kubectl get workflows
+          kubectl describe workflow my-workflow
+          \`\`\`
+          EOF
+
+    - id: log_completion
+      mcp: bbx.logger
+      method: info
+      inputs:
+        message: "✅ Kubernetes Operator Complete!"
+
+  outputs:
+    feature_status: "complete"

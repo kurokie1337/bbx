@@ -8,7 +8,7 @@ Code Generation Adapters Package
 Provides adapters for code generation, templating, and scaffolding.
 """
 
-from blackbox.core.adapters.codegen.template import TemplateAdapter
 from blackbox.core.adapters.codegen.fs import FileSystemGenAdapter
+from blackbox.core.adapters.codegen.template import TemplateAdapter
 
-__all__ = ['TemplateAdapter', 'FileSystemGenAdapter']
+__all__ = ["TemplateAdapter", "FileSystemGenAdapter"]

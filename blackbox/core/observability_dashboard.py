@@ -16,12 +16,11 @@
 Real-time Observability Dashboard
 Web-based dashboard for monitoring BBX workflows
 """
+import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
-import uvicorn
 
 from .observability import get_observability
-
 
 app = FastAPI(title="BBX Observability Dashboard")
 
@@ -401,6 +400,7 @@ async def get_metrics():
 async def get_traces():
     """Get all traces"""
 
+
 @app.get("/api/export/{format}")
 async def export_data(format: str):
     """Export telemetry data"""
@@ -408,6 +408,7 @@ async def export_data(format: str):
 
     if format == "prometheus":
         from .observability import PrometheusExporter
+
         exporter = PrometheusExporter()
         data = obs.get_dashboard_data()
         return exporter(data)

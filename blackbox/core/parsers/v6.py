@@ -22,69 +22,63 @@ Simplified BBX syntax with:
 - Human-readable durations ('5s', '1m', '10ms')
 """
 
-import yaml
 import re
-from typing import Dict, Any
+from typing import Any, Dict
+
+import yaml
 
 
 class BBXv6Parser:
     """Parser for BBX Format v6.0"""
-    
+
     @staticmethod
     def parse_duration(duration_str: str) -> int:
         """
         Parse human-readable duration to milliseconds.
-        
+
         Examples:
             '5s' -> 5000
             '1m' -> 60000
             '500ms' -> 500
             '30' -> 30000 (defaults to ms if no unit)
-        
+
         Args:
             duration_str: Duration string
-            
+
         Returns:
             Duration in milliseconds
         """
         if isinstance(duration_str, (int, float)):
             return int(duration_str)
-        
+
         duration_str = str(duration_str).strip()
-        
+
         # Parse with regex
-        match = re.match(r'^(\d+(?:\.\d+)?)(ms|s|m|h)?$', duration_str)
+        match = re.match(r"^(\d+(?:\.\d+)?)(ms|s|m|h)?$", duration_str)
         if not match:
             raise ValueError(f"Invalid duration format: {duration_str}")
-        
+
         value = float(match.group(1))
-        unit = match.group(2) or 'ms'  # Default to milliseconds
-        
+        unit = match.group(2) or "ms"  # Default to milliseconds
+
         # Convert to milliseconds
-        multipliers = {
-            'ms': 1,
-            's': 1000,
-            'm': 60000,
-            'h': 3600000
-        }
-        
+        multipliers = {"ms": 1, "s": 1000, "m": 60000, "h": 3600000}
+
         return int(value * multipliers[unit])
-    
+
     @staticmethod
     def parse_step(step_id: str, step_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Convert v6.0 step to v5.0 format.
-        
+
         Args:
             step_id: Step identifier
             step_data: v6.0 step data
-            
+
         Returns:
             v5.0 step dictionary
         """
-        v5_step: Dict[str, Any] = {
-            "id": step_id
-        }
+        v5_step: Dict[str, Any] = {"id": step_id}
 
         # Parse 'use' field (adapter.method)
         if "use" in step_data:
@@ -93,7 +87,9 @@ class BBXv6Parser:
                 v5_step["mcp"] = parts[0]
                 v5_step["method"] = parts[1]
             else:
-                raise ValueError(f"Invalid 'use' format: {step_data['use']}. Expected 'adapter.method'")
+                raise ValueError(
+                    f"Invalid 'use' format: {step_data['use']}. Expected 'adapter.method'"
+                )
         else:
             # Fallback to explicit mcp/method
             mcp_value = step_data.get("mcp")
@@ -102,45 +98,49 @@ class BBXv6Parser:
                 v5_step["mcp"] = mcp_value
             if method_value:
                 v5_step["method"] = method_value
-        
+
         # Convert field names
         field_mapping = {
             "args": "inputs",
             "save": "outputs",
             "when": "when",
             "parallel": "parallel",
-            "depends_on": "depends_on"
+            "depends_on": "depends_on",
         }
-        
+
         for v6_name, v5_name in field_mapping.items():
             if v6_name in step_data:
                 v5_step[v5_name] = step_data[v6_name]
-        
+
         # Parse durations
         if "timeout" in step_data:
             v5_step["timeout"] = BBXv6Parser.parse_duration(step_data["timeout"])
-        
+
         if "retry_delay" in step_data:
-            v5_step["retry_delay"] = BBXv6Parser.parse_duration(step_data["retry_delay"])
-        
+            v5_step["retry_delay"] = BBXv6Parser.parse_duration(
+                step_data["retry_delay"]
+            )
+
         # Copy numeric fields
         if "retry" in step_data:
             v5_step["retry"] = step_data["retry"]
-        
+
         if "retry_backoff" in step_data:
             v5_step["retry_backoff"] = step_data["retry_backoff"]
-        
+
         # Cache configuration
         if "cache" in step_data:
             cache_config = step_data["cache"]
             if isinstance(cache_config, dict):
                 # Convert TTL if needed
                 if "ttl" in cache_config:
-                    cache_config["ttl"] = BBXv6Parser.parse_duration(cache_config["ttl"])
+                    cache_config["ttl"] = BBXv6Parser.parse_duration(
+                        cache_config["ttl"]
+                    )
             v5_step["cache"] = cache_config
-        
+
         return v5_step
-    
+
     @staticmethod
     def parse_v6(data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -157,7 +157,7 @@ class BBXv6Parser:
         v5_data: Dict[str, Any] = {
             "bbx_version": "5.0",
             "type": "workflow",
-            "workflow": workflow
+            "workflow": workflow,
         }
 
         # Copy workflow metadata
@@ -186,12 +186,12 @@ class BBXv6Parser:
                 workflow["steps"] = steps_data
 
         return v5_data
-    
+
     @staticmethod
     def detect_version(data: Dict[str, Any]) -> str:
         """
         Detect BBX format version.
-        
+
         Returns:
             Version string ('5.0' or '6.0')
         """
@@ -201,34 +201,34 @@ class BBXv6Parser:
             if version.startswith("6"):
                 return "6.0"
             return "5.0"
-        
+
         # Heuristic: v6.0 has top-level 'id' and dict-based 'steps'
         if "id" in data and "steps" in data and isinstance(data["steps"], dict):
             return "6.0"
-        
+
         # Heuristic: v5.0 has 'workflow' container
         if "workflow" in data:
             return "5.0"
-        
+
         # Default to v5.0
         return "5.0"
-    
+
     @staticmethod
     def load_yaml(file_path: str) -> Dict[str, Any]:
         """
         Load and parse BBX file (auto-detects version).
-        
+
         Args:
             file_path: Path to BBX file
-            
+
         Returns:
             v5.0 format data (converted if needed)
         """
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
-        
+
         version = BBXv6Parser.detect_version(data)
-        
+
         if version == "6.0":
             return BBXv6Parser.parse_v6(data)
         else:

@@ -1,0 +1,46 @@
+# BBX Standard Library: Kubernetes Get
+# Get Kubernetes resources
+
+id: kubectl_get
+description: Get Kubernetes resources
+uses: docker://bitnami/kubectl:latest
+
+cmd:
+  - kubectl
+  - get
+  - "{{ resource }}"
+  - "{% if namespace %}-n{{ namespace }}{% endif %}"
+  - -o
+  - json
+
+inputs:
+  resource:
+    type: string
+    description: "Resource type (pods, services, deployments, etc.)"
+    required: true
+
+  namespace:
+    type: string
+    description: "Kubernetes namespace"
+    required: false
+
+output_parser:
+  type: json
+  description: "Parse kubectl output as JSON"
+
+# Example usage:
+# - id: get_pods
+#   mcp: universal
+#   method: run
+#   inputs:
+#     uses: docker://bitnami/kubectl:latest
+#     cmd:
+#       - kubectl
+#       - get
+#       - pods
+#       - -n
+#       - production
+#       - -o
+#       - json
+#     output_parser:
+#       type: json

@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, Any, Optional, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
 from blackbox.core.base_adapter import MCPAdapter
 
 if TYPE_CHECKING:
-    from playwright.async_api import PlaywrightContextManager
+    pass
 
 try:
-    from playwright.async_api import async_playwright, Playwright, Browser, Page
+    from playwright.async_api import (Browser, Page, Playwright,
+                                      async_playwright)
+
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     async_playwright = None  # type: ignore
@@ -28,20 +31,23 @@ except ImportError:
     Browser = type(None)  # type: ignore
     Page = type(None)  # type: ignore
 
+
 class BrowserAdapter(MCPAdapter):
     """
     Adapter for controlling a web browser using Playwright.
     Maintains state (browser, page) for the duration of the workflow.
     """
-    
+
     def __init__(self):
         self.playwright: Optional[Playwright] = None
         self.browser: Optional[Browser] = None
         self.page: Optional[Page] = None
-        
+
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
         if async_playwright is None:
-            raise ImportError("Playwright is not installed. Run: pip install playwright && playwright install")
+            raise ImportError(
+                "Playwright is not installed. Run: pip install playwright && playwright install"
+            )
 
         if method == "open":
             return await self._open(inputs)
@@ -66,16 +72,16 @@ class BrowserAdapter(MCPAdapter):
 
     async def _open(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         headless = inputs.get("headless", True)
-        
+
         if not self.playwright:
             self.playwright = await async_playwright().start()
-            
+
         if not self.browser:
             self.browser = await self.playwright.chromium.launch(headless=headless)
-            
+
         if not self.page:
             self.page = await self.browser.new_page()
-            
+
         return {"status": "opened", "headless": headless}
 
     async def _goto(self, inputs: Dict[str, Any]) -> Dict[str, Any]:

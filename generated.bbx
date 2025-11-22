@@ -1,0 +1,18 @@
+workflow:
+  id: generated_workflow
+  steps:
+ 
+    - id: build
+      mcp: universal
+      method: run
+      inputs:
+        uses: docker://node:20-alpine
+        cmd: [npm, run, build]
+
+    - id: deploy
+      mcp: universal
+      method: run
+      inputs:
+        uses: docker://amazon/aws-cli:latest
+        cmd: [aws, s3, sync, dist/, s3://bucket/]
+      depends_on: [build]

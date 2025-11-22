@@ -13,25 +13,29 @@
 # limitations under the License.
 
 
-import logging
-
-
 import asyncio
+import logging
 import traceback
-from typing import Dict, Any, Optional
-from .context import WorkflowContext
-from .registry import MCPRegistry
+from typing import Any, Dict, Optional
+
 from .adapters.http import LocalHttpAdapter
-from .events import EventBus, Event, EventType
-from .expressions import SafeExpr, ExpressionError
-from .dag import WorkflowDAG, should_use_dag, DAGError
 from .cache import get_cache
+from .context import WorkflowContext
+from .dag import DAGError, WorkflowDAG, should_use_dag
+from .events import Event, EventBus, EventType
+from .expressions import ExpressionError, SafeExpr
 from .parsers.v6 import BBXv6Parser
+from .registry import MCPRegistry
 
 logger = logging.getLogger("bbx.runtime")
 
 
-async def run_file(file_path: str, event_bus: Optional[EventBus] = None, use_cache: bool = True, inputs: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+async def run_file(
+    file_path: str,
+    event_bus: Optional[EventBus] = None,
+    use_cache: bool = True,
+    inputs: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """
     Execute a local .bbx file using the Blackbox Core Runtime.
 
@@ -66,27 +70,25 @@ async def run_file(file_path: str, event_bus: Optional[EventBus] = None, use_cac
         workflow = data.get("workflow", {})
         steps = workflow.get("steps", [])
         workflow_id = workflow.get("id", "unknown")
-        workflow_name = workflow.get("name", workflow_id)
     else:
         # Simple format - entire file is workflow
         workflow = data
         steps = data.get("steps", [])
         workflow_id = data.get("id", "unknown")
-        workflow_name = data.get("name", workflow_id)
 
     # 2. Initialize Runtime
     context = WorkflowContext()
 
     # Add inputs to context if provided
     if inputs:
-        context.variables['inputs'] = inputs
+        context.variables["inputs"] = inputs
 
     registry = MCPRegistry()
 
     # Register default adapters
     from .adapters.logger import LoggerAdapter
-    from .adapters.telegram import TelegramAdapter
     from .adapters.mcp_bridge import MCPBridgeAdapter
+    from .adapters.telegram import TelegramAdapter
     from .adapters.transform import TransformAdapter
 
     registry.register("http", LocalHttpAdapter())
@@ -114,18 +116,25 @@ async def run_file(file_path: str, event_bus: Optional[EventBus] = None, use_cac
             raise
     else:
         logger.info("📝 Using sequential execution")
-        await _execute_sequential(steps, context, registry, event_bus, workflow_id, results)
+        await _execute_sequential(
+            steps, context, registry, event_bus, workflow_id, results
+        )
 
-    await event_bus.emit(Event(EventType.WORKFLOW_END, {
-        "id": workflow_id,
-        "results": results
-    }))
+    await event_bus.emit(
+        Event(EventType.WORKFLOW_END, {"id": workflow_id, "results": results})
+    )
 
     return results
 
 
-async def _execute_dag(dag: WorkflowDAG, context: WorkflowContext, registry: MCPRegistry,
-                       event_bus: EventBus, workflow_id: str, results: Dict[str, Any]):
+async def _execute_dag(
+    dag: WorkflowDAG,
+    context: WorkflowContext,
+    registry: MCPRegistry,
+    event_bus: EventBus,
+    workflow_id: str,
+    results: Dict[str, Any],
+):
     """Execute workflow using DAG with parallel execution"""
     levels = dag.get_execution_levels()
 
@@ -136,22 +145,36 @@ async def _execute_dag(dag: WorkflowDAG, context: WorkflowContext, registry: MCP
         tasks = []
         for step_id in level:
             step = dag.get_step(step_id)
-            task = _execute_step(step, context, registry, event_bus, workflow_id, results)
+            task = _execute_step(
+                step, context, registry, event_bus, workflow_id, results
+            )
             tasks.append(task)
 
         # Wait for all steps in this level to complete
         await asyncio.gather(*tasks, return_exceptions=True)
 
 
-async def _execute_sequential(steps: list, context: WorkflowContext, registry: MCPRegistry,
-                              event_bus: EventBus, workflow_id: str, results: Dict[str, Any]):
+async def _execute_sequential(
+    steps: list,
+    context: WorkflowContext,
+    registry: MCPRegistry,
+    event_bus: EventBus,
+    workflow_id: str,
+    results: Dict[str, Any],
+):
     """Execute workflow steps sequentially"""
     for step in steps:
         await _execute_step(step, context, registry, event_bus, workflow_id, results)
 
 
-async def _execute_step(step: Dict[str, Any], context: WorkflowContext, registry: MCPRegistry,
-                       event_bus: EventBus, workflow_id: str, results: Dict[str, Any]):
+async def _execute_step(
+    step: Dict[str, Any],
+    context: WorkflowContext,
+    registry: MCPRegistry,
+    event_bus: EventBus,
+    workflow_id: str,
+    results: Dict[str, Any],
+):
     """Execute a single workflow step"""
     step_id = step.get("id")
     mcp_type = step.get("mcp")
@@ -166,10 +189,9 @@ async def _execute_step(step: Dict[str, Any], context: WorkflowContext, registry
     if not method or not isinstance(method, str):
         raise ValueError(f"Step '{step_id}': 'method' is required and must be a string")
 
-    await event_bus.emit(Event(EventType.STEP_START, {
-        "step_id": step_id,
-        "workflow_id": workflow_id
-    }))
+    await event_bus.emit(
+        Event(EventType.STEP_START, {"step_id": step_id, "workflow_id": workflow_id})
+    )
 
     try:
         # Resolve inputs
@@ -213,16 +235,17 @@ async def _execute_step(step: Dict[str, Any], context: WorkflowContext, registry
         for attempt in range(retry_count + 1):
             try:
                 output = await asyncio.wait_for(
-                    adapter.execute(method, resolved_inputs),
-                    timeout=timeout_sec
+                    adapter.execute(method, resolved_inputs), timeout=timeout_sec
                 )
                 break  # Success, exit retry loop
 
             except asyncio.TimeoutError:
                 last_error = Exception(f"Step timeout after {timeout_ms}ms")
                 if attempt < retry_count:
-                    delay = retry_delay * (retry_backoff ** attempt)
-                    logger.info(f"⏳ Timeout - Retry {attempt + 1}/{retry_count} after {delay:.1f}s")
+                    delay = retry_delay * (retry_backoff**attempt)
+                    logger.info(
+                        f"⏳ Timeout - Retry {attempt + 1}/{retry_count} after {delay:.1f}s"
+                    )
                     await asyncio.sleep(delay)
                 else:
                     raise last_error
@@ -230,18 +253,17 @@ async def _execute_step(step: Dict[str, Any], context: WorkflowContext, registry
             except Exception as e:
                 last_error = e
                 if attempt < retry_count:
-                    delay = retry_delay * (retry_backoff ** attempt)
-                    logger.error(f"⏳ Error - Retry {attempt + 1}/{retry_count} after {delay:.1f}s: {e}")
+                    delay = retry_delay * (retry_backoff**attempt)
+                    logger.error(
+                        f"⏳ Error - Retry {attempt + 1}/{retry_count} after {delay:.1f}s: {e}"
+                    )
                     await asyncio.sleep(delay)
                 else:
                     raise
 
         # Store output
         output_key = step.get("outputs", "result")
-        step_context_data = {
-            "status": "success",
-            "output": output
-        }
+        step_context_data = {"status": "success", "output": output}
 
         if isinstance(output_key, str):
             step_context_data[output_key] = output
@@ -249,10 +271,9 @@ async def _execute_step(step: Dict[str, Any], context: WorkflowContext, registry
         context.set_step_output(step_id, step_context_data)
         results[step_id] = {"status": "success", "output": output}
 
-        await event_bus.emit(Event(EventType.STEP_END, {
-            "step_id": step_id,
-            "output": output
-        }))
+        await event_bus.emit(
+            Event(EventType.STEP_END, {"step_id": step_id, "output": output})
+        )
         logger.info(f"✅ {step_id} completed")
 
     except Exception as e:
@@ -263,51 +284,54 @@ async def _execute_step(step: Dict[str, Any], context: WorkflowContext, registry
         results[step_id] = error_data
         context.set_step_output(step_id, error_data)
 
-        await event_bus.emit(Event(EventType.STEP_ERROR, {
-            "step_id": step_id,
-            "error": str(e)
-        }))
+        await event_bus.emit(
+            Event(EventType.STEP_ERROR, {"step_id": step_id, "error": str(e)})
+        )
 
 
 class BBXRuntime:
     """BBX Runtime wrapper for bundled workflows"""
-    
+
     def __init__(self):
         self.workflow: Optional[Dict[str, Any]] = None
         self.inputs: Dict[str, Any] = {}
         self.event_bus = EventBus()
-    
+
     def load_workflow(self, workflow: Dict[str, Any]):
         """Load workflow definition"""
         self.workflow = workflow
-    
+
     def set_input(self, key: str, value: Any):
         """Set workflow input"""
         self.inputs[key] = value
-    
+
     async def execute(self) -> Dict[str, Any]:
         """Execute the workflow"""
         if not self.workflow:
             raise ValueError("No workflow loaded")
-        
+
         # Create context
         context = WorkflowContext(inputs=self.inputs)
-        
+
         # Get registry
         registry = MCPRegistry()
         registry.register("http", LocalHttpAdapter())
-        
+
         # Get steps
         workflow_def = self.workflow.get("workflow", {})
         steps = workflow_def.get("steps", [])
-        
+
         # Execute
         results: Dict[str, Any] = {}
-        
+
         if should_use_dag(steps):
             dag = WorkflowDAG(steps)
-            await _execute_dag(dag, context, registry, self.event_bus, "bundled", results)
+            await _execute_dag(
+                dag, context, registry, self.event_bus, "bundled", results
+            )
         else:
-            await _execute_sequential(steps, context, registry, self.event_bus, "bundled", results)
-        
+            await _execute_sequential(
+                steps, context, registry, self.event_bus, "bundled", results
+            )
+
         return results

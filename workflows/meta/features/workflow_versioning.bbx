@@ -1,0 +1,543 @@
+# BBX Workflow Versioning & Rollback Feature
+# Implements version control for workflows with rollback capability
+
+workflow:
+  id: feature_workflow_versioning
+  name: Workflow Versioning & Rollback Implementation
+  version: "6.0"
+  description: |
+    Implements workflow versioning system with:
+    - Semantic versioning for workflows
+    - Git-like version history
+    - Rollback to previous versions
+    - Diff between versions
+    - Migration paths between versions
+
+  tags:
+    - feature
+    - versioning
+    - v1.1.0
+
+  steps:
+    # ============================================
+    # Step 1: Create Data Models
+    # ============================================
+    - id: create_version_models
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          mkdir -p blackbox/core/versioning
+          cat > blackbox/core/versioning/models.py << 'EOF'
+          """Workflow versioning data models."""
+          from datetime import datetime
+          from typing import Optional, List, Dict, Any
+          from pydantic import BaseModel, Field
+
+          class WorkflowVersion(BaseModel):
+              """Represents a single version of a workflow."""
+              workflow_id: str
+              version: str  # Semantic version: 1.0.0
+              created_at: datetime
+              created_by: str
+              description: Optional[str] = None
+              content: Dict[str, Any]  # Full BBX YAML content
+              parent_version: Optional[str] = None
+              is_published: bool = False
+              tags: List[str] = Field(default_factory=list)
+
+          class VersionHistory(BaseModel):
+              """Version history for a workflow."""
+              workflow_id: str
+              versions: List[WorkflowVersion]
+              current_version: str
+
+          class VersionDiff(BaseModel):
+              """Diff between two workflow versions."""
+              from_version: str
+              to_version: str
+              added_steps: List[str]
+              removed_steps: List[str]
+              modified_steps: List[str]
+              changes: Dict[str, Any]
+          EOF
+
+    # ============================================
+    # Step 2: Implement Version Manager
+    # ============================================
+    - id: create_version_manager
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          mkdir -p blackbox/core/versioning
+          cat > blackbox/core/versioning/manager.py << 'EOF'
+          """Workflow version management."""
+          import json
+          import hashlib
+          from pathlib import Path
+          from datetime import datetime
+          from typing import Optional, List
+          from .models import WorkflowVersion, VersionHistory, VersionDiff
+
+          class VersionManager:
+              """Manages workflow versions and history."""
+
+              def __init__(self, storage_path: Path):
+                  self.storage_path = storage_path
+                  self.storage_path.mkdir(parents=True, exist_ok=True)
+
+              def create_version(
+                  self,
+                  workflow_id: str,
+                  content: dict,
+                  version: str,
+                  created_by: str,
+                  description: Optional[str] = None
+              ) -> WorkflowVersion:
+                  """Create a new workflow version."""
+                  version_obj = WorkflowVersion(
+                      workflow_id=workflow_id,
+                      version=version,
+                      created_at=datetime.now(),
+                      created_by=created_by,
+                      description=description,
+                      content=content
+                  )
+
+                  # Save to storage
+                  self._save_version(version_obj)
+                  return version_obj
+
+              def get_version(self, workflow_id: str, version: str) -> Optional[WorkflowVersion]:
+                  """Retrieve specific version."""
+                  version_file = self.storage_path / workflow_id / f"{version}.json"
+                  if not version_file.exists():
+                      return None
+
+                  with open(version_file) as f:
+                      data = json.load(f)
+                  return WorkflowVersion(**data)
+
+              def list_versions(self, workflow_id: str) -> List[WorkflowVersion]:
+                  """List all versions of a workflow."""
+                  workflow_dir = self.storage_path / workflow_id
+                  if not workflow_dir.exists():
+                      return []
+
+                  versions = []
+                  for version_file in workflow_dir.glob("*.json"):
+                      with open(version_file) as f:
+                          data = json.load(f)
+                      versions.append(WorkflowVersion(**data))
+
+                  return sorted(versions, key=lambda v: v.created_at, reverse=True)
+
+              def rollback(self, workflow_id: str, target_version: str) -> WorkflowVersion:
+                  """Rollback to a previous version."""
+                  target = self.get_version(workflow_id, target_version)
+                  if not target:
+                      raise ValueError(f"Version {target_version} not found")
+
+                  # Create new version based on target
+                  current_versions = self.list_versions(workflow_id)
+                  next_version = self._increment_version(current_versions[0].version)
+
+                  rollback_version = self.create_version(
+                      workflow_id=workflow_id,
+                      content=target.content,
+                      version=next_version,
+                      created_by="system",
+                      description=f"Rollback to version {target_version}"
+                  )
+                  rollback_version.parent_version = target_version
+                  self._save_version(rollback_version)
+
+                  return rollback_version
+
+              def diff(self, workflow_id: str, from_version: str, to_version: str) -> VersionDiff:
+                  """Generate diff between two versions."""
+                  v1 = self.get_version(workflow_id, from_version)
+                  v2 = self.get_version(workflow_id, to_version)
+
+                  if not v1 or not v2:
+                      raise ValueError("One or both versions not found")
+
+                  steps1 = {s["id"]: s for s in v1.content.get("workflow", {}).get("steps", [])}
+                  steps2 = {s["id"]: s for s in v2.content.get("workflow", {}).get("steps", [])}
+
+                  added = list(set(steps2.keys()) - set(steps1.keys()))
+                  removed = list(set(steps1.keys()) - set(steps2.keys()))
+                  modified = [
+                      sid for sid in set(steps1.keys()) & set(steps2.keys())
+                      if steps1[sid] != steps2[sid]
+                  ]
+
+                  return VersionDiff(
+                      from_version=from_version,
+                      to_version=to_version,
+                      added_steps=added,
+                      removed_steps=removed,
+                      modified_steps=modified,
+                      changes=self._detailed_diff(v1.content, v2.content)
+                  )
+
+              def _save_version(self, version: WorkflowVersion):
+                  """Save version to disk."""
+                  workflow_dir = self.storage_path / version.workflow_id
+                  workflow_dir.mkdir(parents=True, exist_ok=True)
+
+                  version_file = workflow_dir / f"{version.version}.json"
+                  with open(version_file, "w") as f:
+                      json.dump(version.dict(), f, indent=2, default=str)
+
+              def _increment_version(self, version: str) -> str:
+                  """Increment semantic version."""
+                  major, minor, patch = map(int, version.split("."))
+                  return f"{major}.{minor}.{patch + 1}"
+
+              def _detailed_diff(self, d1: dict, d2: dict) -> dict:
+                  """Generate detailed diff between two dicts."""
+                  # Simplified implementation
+                  return {"summary": "Changes detected"}
+          EOF
+      depends_on: [create_version_models]
+
+    # ============================================
+    # Step 3: Add CLI Commands
+    # ============================================
+    - id: add_cli_commands
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat >> cli.py << 'EOF'
+
+          # Workflow Versioning Commands
+          @click.group()
+          def version():
+              """Workflow versioning commands."""
+              pass
+
+          @version.command()
+          @click.argument("workflow_path")
+          @click.option("--version", "-v", required=True, help="Version number (semver)")
+          @click.option("--message", "-m", help="Version description")
+          def create(workflow_path: str, version: str, message: str):
+              """Create a new workflow version."""
+              from blackbox.core.versioning.manager import VersionManager
+              import yaml
+
+              # Load workflow
+              with open(workflow_path) as f:
+                  content = yaml.safe_load(f)
+
+              workflow_id = content["workflow"]["id"]
+              manager = VersionManager(Path("~/.bbx/versions").expanduser())
+
+              version_obj = manager.create_version(
+                  workflow_id=workflow_id,
+                  content=content,
+                  version=version,
+                  created_by="cli",
+                  description=message
+              )
+
+              click.echo(f"✅ Created version {version_obj.version} for {workflow_id}")
+
+          @version.command()
+          @click.argument("workflow_id")
+          def list(workflow_id: str):
+              """List all versions of a workflow."""
+              from blackbox.core.versioning.manager import VersionManager
+
+              manager = VersionManager(Path("~/.bbx/versions").expanduser())
+              versions = manager.list_versions(workflow_id)
+
+              click.echo(f"Versions for {workflow_id}:")
+              for v in versions:
+                  click.echo(f"  {v.version} - {v.created_at} - {v.description or 'No description'}")
+
+          @version.command()
+          @click.argument("workflow_id")
+          @click.argument("target_version")
+          def rollback(workflow_id: str, target_version: str):
+              """Rollback workflow to a previous version."""
+              from blackbox.core.versioning.manager import VersionManager
+
+              manager = VersionManager(Path("~/.bbx/versions").expanduser())
+              rollback_version = manager.rollback(workflow_id, target_version)
+
+              click.echo(f"✅ Rolled back to {target_version}")
+              click.echo(f"   New version: {rollback_version.version}")
+
+          @version.command()
+          @click.argument("workflow_id")
+          @click.argument("from_version")
+          @click.argument("to_version")
+          def diff(workflow_id: str, from_version: str, to_version: str):
+              """Show differences between two versions."""
+              from blackbox.core.versioning.manager import VersionManager
+
+              manager = VersionManager(Path("~/.bbx/versions").expanduser())
+              diff = manager.diff(workflow_id, from_version, to_version)
+
+              click.echo(f"Diff: {from_version} → {to_version}")
+              click.echo(f"  Added steps: {', '.join(diff.added_steps) or 'None'}")
+              click.echo(f"  Removed steps: {', '.join(diff.removed_steps) or 'None'}")
+              click.echo(f"  Modified steps: {', '.join(diff.modified_steps) or 'None'}")
+
+          cli.add_command(version)
+          EOF
+      depends_on: [create_version_manager]
+
+    # ============================================
+    # Step 4: Add API Endpoints
+    # ============================================
+    - id: add_api_endpoints
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat >> blackbox/server/app.py << 'EOF'
+
+          # Versioning API Endpoints
+          @app.post("/api/workflows/{workflow_id}/versions")
+          async def create_workflow_version(
+              workflow_id: str,
+              version: str = Body(...),
+              content: dict = Body(...),
+              description: Optional[str] = Body(None)
+          ):
+              """Create a new workflow version."""
+              from blackbox.core.versioning.manager import VersionManager
+
+              manager = VersionManager(Path("~/.bbx/versions").expanduser())
+              version_obj = manager.create_version(
+                  workflow_id=workflow_id,
+                  content=content,
+                  version=version,
+                  created_by="api",
+                  description=description
+              )
+
+              return {"status": "success", "version": version_obj.dict()}
+
+          @app.get("/api/workflows/{workflow_id}/versions")
+          async def list_workflow_versions(workflow_id: str):
+              """List all versions of a workflow."""
+              from blackbox.core.versioning.manager import VersionManager
+
+              manager = VersionManager(Path("~/.bbx/versions").expanduser())
+              versions = manager.list_versions(workflow_id)
+
+              return {"versions": [v.dict() for v in versions]}
+
+          @app.post("/api/workflows/{workflow_id}/rollback")
+          async def rollback_workflow(
+              workflow_id: str,
+              target_version: str = Body(...)
+          ):
+              """Rollback workflow to a previous version."""
+              from blackbox.core.versioning.manager import VersionManager
+
+              manager = VersionManager(Path("~/.bbx/versions").expanduser())
+              rollback_version = manager.rollback(workflow_id, target_version)
+
+              return {
+                  "status": "success",
+                  "rollback_version": rollback_version.dict()
+              }
+
+          @app.get("/api/workflows/{workflow_id}/diff")
+          async def diff_workflow_versions(
+              workflow_id: str,
+              from_version: str,
+              to_version: str
+          ):
+              """Get diff between two workflow versions."""
+              from blackbox.core.versioning.manager import VersionManager
+
+              manager = VersionManager(Path("~/.bbx/versions").expanduser())
+              diff = manager.diff(workflow_id, from_version, to_version)
+
+              return {"diff": diff.dict()}
+          EOF
+      depends_on: [create_version_manager]
+
+    # ============================================
+    # Step 5: Create Tests
+    # ============================================
+    - id: create_tests
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > tests/test_versioning.py << 'EOF'
+          """Tests for workflow versioning."""
+          import pytest
+          from pathlib import Path
+          from blackbox.core.versioning.manager import VersionManager
+          from blackbox.core.versioning.models import WorkflowVersion
+
+          @pytest.fixture
+          def version_manager(tmp_path):
+              return VersionManager(tmp_path)
+
+          def test_create_version(version_manager):
+              """Test creating a workflow version."""
+              content = {"workflow": {"id": "test", "steps": []}}
+
+              version = version_manager.create_version(
+                  workflow_id="test",
+                  content=content,
+                  version="1.0.0",
+                  created_by="test_user",
+                  description="Initial version"
+              )
+
+              assert version.version == "1.0.0"
+              assert version.workflow_id == "test"
+              assert version.created_by == "test_user"
+
+          def test_list_versions(version_manager):
+              """Test listing workflow versions."""
+              content = {"workflow": {"id": "test", "steps": []}}
+
+              version_manager.create_version("test", content, "1.0.0", "user1")
+              version_manager.create_version("test", content, "1.0.1", "user1")
+              version_manager.create_version("test", content, "1.1.0", "user1")
+
+              versions = version_manager.list_versions("test")
+              assert len(versions) == 3
+
+          def test_rollback(version_manager):
+              """Test rolling back to a previous version."""
+              content1 = {"workflow": {"id": "test", "steps": [{"id": "step1"}]}}
+              content2 = {"workflow": {"id": "test", "steps": [{"id": "step2"}]}}
+
+              version_manager.create_version("test", content1, "1.0.0", "user1")
+              version_manager.create_version("test", content2, "1.1.0", "user1")
+
+              rollback = version_manager.rollback("test", "1.0.0")
+              assert rollback.parent_version == "1.0.0"
+              assert rollback.content == content1
+
+          def test_diff(version_manager):
+              """Test diff between versions."""
+              content1 = {"workflow": {"id": "test", "steps": [{"id": "step1"}]}}
+              content2 = {"workflow": {"id": "test", "steps": [{"id": "step2"}]}}
+
+              version_manager.create_version("test", content1, "1.0.0", "user1")
+              version_manager.create_version("test", content2, "1.1.0", "user1")
+
+              diff = version_manager.diff("test", "1.0.0", "1.1.0")
+              assert "step1" in diff.removed_steps
+              assert "step2" in diff.added_steps
+          EOF
+      depends_on: [create_version_manager]
+
+    # ============================================
+    # Step 6: Run Tests
+    # ============================================
+    - id: run_tests
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: pytest tests/test_versioning.py -v
+      depends_on: [create_tests]
+      timeout: 60000
+
+    # ============================================
+    # Step 7: Update Documentation
+    # ============================================
+    - id: update_docs
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > docs/VERSIONING.md << 'EOF'
+          # Workflow Versioning & Rollback
+
+          BBX supports semantic versioning for workflows with rollback capabilities.
+
+          ## Features
+
+          - Semantic versioning (MAJOR.MINOR.PATCH)
+          - Version history tracking
+          - Rollback to previous versions
+          - Diff between versions
+          - Version tags and descriptions
+
+          ## CLI Usage
+
+          ### Create Version
+          \`\`\`bash
+          python cli.py version create my_workflow.bbx -v 1.0.0 -m "Initial version"
+          \`\`\`
+
+          ### List Versions
+          \`\`\`bash
+          python cli.py version list my_workflow
+          \`\`\`
+
+          ### Rollback
+          \`\`\`bash
+          python cli.py version rollback my_workflow 1.0.0
+          \`\`\`
+
+          ### Diff
+          \`\`\`bash
+          python cli.py version diff my_workflow 1.0.0 1.1.0
+          \`\`\`
+
+          ## API Usage
+
+          ### Create Version (POST /api/workflows/{id}/versions)
+          \`\`\`bash
+          curl -X POST http://localhost:8000/api/workflows/my_workflow/versions \
+            -H "Content-Type: application/json" \
+            -d '{"version": "1.0.0", "content": {...}, "description": "Initial"}'
+          \`\`\`
+
+          ### List Versions (GET /api/workflows/{id}/versions)
+          \`\`\`bash
+          curl http://localhost:8000/api/workflows/my_workflow/versions
+          \`\`\`
+
+          ### Rollback (POST /api/workflows/{id}/rollback)
+          \`\`\`bash
+          curl -X POST http://localhost:8000/api/workflows/my_workflow/rollback \
+            -H "Content-Type: application/json" \
+            -d '{"target_version": "1.0.0"}'
+          \`\`\`
+
+          ## Storage
+
+          Versions are stored in `~/.bbx/versions/{workflow_id}/{version}.json`
+          EOF
+      depends_on: [run_tests]
+
+    # ============================================
+    # Step 8: Log Success
+    # ============================================
+    - id: log_completion
+      mcp: bbx.logger
+      method: info
+      inputs:
+        message: |
+          ✅ Workflow Versioning Feature Complete!
+
+          Components:
+          - Data Models: Created
+          - Version Manager: Implemented
+          - CLI Commands: Added
+          - API Endpoints: Added
+          - Tests: ${steps.run_tests.status}
+          - Documentation: Updated
+      depends_on: [update_docs]
+
+  outputs:
+    feature_status: "complete"
+    test_status: ${steps.run_tests.status}
+    docs_path: "docs/VERSIONING.md"

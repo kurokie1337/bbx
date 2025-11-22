@@ -1,0 +1,263 @@
+# BBX Node.js SDK Feature
+# Official Node.js/TypeScript SDK for BBX
+
+workflow:
+  id: feature_sdk_nodejs
+  name: Node.js SDK Implementation
+  version: "6.0"
+  description: |
+    Creates official Node.js/TypeScript SDK:
+    - TypeScript-first API client
+    - Workflow execution
+    - Type-safe workflow definitions
+    - npm package publishing
+
+  tags:
+    - feature
+    - sdk
+    - nodejs
+    - typescript
+    - v1.1.0
+
+  steps:
+    - id: scaffold_npm_package
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          mkdir -p sdks/nodejs
+          cd sdks/nodejs
+          npm init -y
+          cat > package.json << 'EOF'
+          {
+            "name": "@bbx/sdk",
+            "version": "1.0.0",
+            "description": "Official BBX SDK for Node.js and TypeScript",
+            "main": "dist/index.js",
+            "types": "dist/index.d.ts",
+            "scripts": {
+              "build": "tsc",
+              "test": "jest",
+              "prepublishOnly": "npm run build"
+            },
+            "keywords": ["bbx", "workflow", "automation"],
+            "author": "Ilya Makarov",
+            "license": "Apache-2.0",
+            "devDependencies": {
+              "@types/node": "^20.0.0",
+              "typescript": "^5.3.0",
+              "jest": "^29.7.0",
+              "@types/jest": "^29.5.0"
+            },
+            "dependencies": {
+              "axios": "^1.6.0"
+            }
+          }
+          EOF
+
+    - id: create_typescript_config
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cd sdks/nodejs
+          cat > tsconfig.json << 'EOF'
+          {
+            "compilerOptions": {
+              "target": "ES2020",
+              "module": "commonjs",
+              "declaration": true,
+              "outDir": "./dist",
+              "strict": true,
+              "esModuleInterop": true
+            },
+            "include": ["src/**/*"],
+            "exclude": ["node_modules", "dist"]
+          }
+          EOF
+      depends_on: [scaffold_npm_package]
+
+    - id: create_sdk_client
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          mkdir -p sdks/nodejs/src
+          cat > sdks/nodejs/src/client.ts << 'EOF'
+          /**
+           * BBX SDK Client
+           */
+          import axios, { AxiosInstance } from 'axios';
+
+          export interface WorkflowInputs {
+            [key: string]: any;
+          }
+
+          export interface WorkflowExecution {
+            id: string;
+            workflow_id: string;
+            status: 'running' | 'completed' | 'failed';
+            outputs?: any;
+          }
+
+          export class BBXClient {
+            private client: AxiosInstance;
+
+            constructor(baseURL: string, apiKey?: string) {
+              this.client = axios.create({
+                baseURL,
+                headers: apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}
+              });
+            }
+
+            async executeWorkflow(
+              workflowPath: string,
+              inputs?: WorkflowInputs
+            ): Promise<WorkflowExecution> {
+              const response = await this.client.post('/api/workflows/execute', {
+                workflow_path: workflowPath,
+                inputs: inputs || {}
+              });
+              return response.data;
+            }
+
+            async getExecution(executionId: string): Promise<WorkflowExecution> {
+              const response = await this.client.get(`/api/executions/${executionId}`);
+              return response.data;
+            }
+
+            async listWorkflows(): Promise<any[]> {
+              const response = await this.client.get('/api/workflows');
+              return response.data.workflows;
+            }
+          }
+          EOF
+      depends_on: [create_typescript_config]
+
+    - id: create_index
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > sdks/nodejs/src/index.ts << 'EOF'
+          export { BBXClient, WorkflowInputs, WorkflowExecution } from './client';
+          export { WorkflowBuilder } from './builder';
+          EOF
+      depends_on: [create_sdk_client]
+
+    - id: create_workflow_builder
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > sdks/nodejs/src/builder.ts << 'EOF'
+          /**
+           * Type-safe workflow builder
+           */
+          export interface Step {
+            id: string;
+            mcp: string;
+            method: string;
+            inputs?: Record<string, any>;
+            depends_on?: string[];
+          }
+
+          export class WorkflowBuilder {
+            private workflow: any = {
+              workflow: {
+                id: '',
+                name: '',
+                version: '6.0',
+                steps: []
+              }
+            };
+
+            constructor(id: string, name: string) {
+              this.workflow.workflow.id = id;
+              this.workflow.workflow.name = name;
+            }
+
+            addStep(step: Step): this {
+              this.workflow.workflow.steps.push(step);
+              return this;
+            }
+
+            build(): any {
+              return this.workflow;
+            }
+
+            toYAML(): string {
+              // Simple YAML generation
+              return JSON.stringify(this.workflow, null, 2);
+            }
+          }
+          EOF
+      depends_on: [create_sdk_client]
+
+    - id: create_readme
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > sdks/nodejs/README.md << 'EOF'
+          # @bbx/sdk
+
+          Official BBX SDK for Node.js and TypeScript.
+
+          ## Installation
+
+          \`\`\`bash
+          npm install @bbx/sdk
+          \`\`\`
+
+          ## Usage
+
+          \`\`\`typescript
+          import { BBXClient, WorkflowBuilder } from '@bbx/sdk';
+
+          // Connect to BBX
+          const client = new BBXClient('http://localhost:8000');
+
+          // Execute workflow
+          const execution = await client.executeWorkflow('my_workflow.bbx', {
+            param1: 'value1'
+          });
+
+          console.log(execution.status);
+
+          // Build workflow programmatically
+          const workflow = new WorkflowBuilder('my_workflow', 'My Workflow')
+            .addStep({
+              id: 'step1',
+              mcp: 'bbx.http',
+              method: 'get',
+              inputs: { url: 'https://api.example.com' }
+            })
+            .build();
+          \`\`\`
+
+          ## License
+
+          Apache-2.0
+          EOF
+      depends_on: [create_workflow_builder]
+
+    - id: build_package
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: cd sdks/nodejs && npm install && npm run build
+      depends_on: [create_readme]
+      timeout: 120000
+
+    - id: log_completion
+      mcp: bbx.logger
+      method: info
+      inputs:
+        message: "✅ Node.js SDK Feature Complete!"
+      depends_on: [build_package]
+
+  outputs:
+    feature_status: "complete"
+    package_path: "sdks/nodejs"
+    npm_package: "@bbx/sdk"

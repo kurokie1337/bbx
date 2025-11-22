@@ -1,0 +1,427 @@
+workflow:
+  id: bbx_self_optimization
+  name: "BBX Self-Optimization Analysis"
+  version: "6.0"
+  description: |
+    BBX analyzes itself to find optimization opportunities:
+    - Identify unused code and dependencies
+    - Find duplicate/redundant modules
+    - Analyze directory structure
+    - Propose simplifications
+    - Create optimization plan
+
+    Principle: ПРОСТОТА - но пиздец как мощно
+
+  steps:
+    # Phase 1: Directory Structure Analysis
+    - id: analyze_directory_structure
+      mcp: universal
+      method: run
+      inputs:
+        uses: docker://python:3.11-slim
+        cmd:
+          - bash
+          - -c
+          - |
+            echo "=== BBX DIRECTORY ANALYSIS ==="
+            echo ""
+            echo "Top-level directories (with sizes):"
+            du -sh */ 2>/dev/null | sort -hr
+            echo ""
+            echo "=== SUSPICIOUS LARGE DIRS ==="
+            du -sh */ 2>/dev/null | awk '$1 ~ /M$/ && $1+0 > 10 {print}'
+            echo ""
+            echo "=== NODE_MODULES CHECK ==="
+            find . -name "node_modules" -type d -exec du -sh {} \; 2>/dev/null
+
+    # Phase 2: Identify Build Artifacts
+    - id: find_build_artifacts
+      mcp: universal
+      method: run
+      inputs:
+        uses: docker://python:3.11-slim
+        cmd:
+          - bash
+          - -c
+          - |
+            echo "=== BUILD ARTIFACTS (should be gitignored) ==="
+            echo ""
+            echo "Build directories:"
+            find . -name "build" -o -name "dist" -o -name "__pycache__" -o -name "*.egg-info" | head -20
+            echo ""
+            echo "Cache directories:"
+            find . -name ".pytest_cache" -o -name ".mypy_cache" -o -name ".ruff_cache" | head -10
+
+    # Phase 3: Analyze Core vs Examples
+    - id: categorize_directories
+      mcp: universal
+      method: run
+      inputs:
+        uses: docker://python:3.11-slim
+        cmd:
+          - bash
+          - -c
+          - |
+            echo "=== BBX DIRECTORY CATEGORIZATION ==="
+            echo ""
+            echo "🔥 CORE (Required):"
+            echo "  - blackbox/     (1.7MB) - Core engine"
+            echo "  - cli.py        - CLI interface"
+            echo "  - requirements.txt"
+            echo ""
+            echo "📚 DOCS (Keep):"
+            echo "  - docs/         (319K)"
+            echo "  - README.md"
+            echo ""
+            echo "🧪 TESTS (Keep):"
+            echo "  - tests/        (359K)"
+            echo ""
+            echo "🎯 WORKFLOWS (Keep):"
+            echo "  - workflows/    (435K)"
+            echo ""
+            echo "🗑️ REMOVABLE (Build artifacts):"
+            echo "  - build/        (48MB)"
+            echo "  - dist/         (32MB)"
+            echo "  - designer/node_modules/ (301MB)"
+            echo "  - __pycache__/"
+            echo "  - .pytest_cache/"
+            echo "  - .mypy_cache/"
+            echo "  - .ruff_cache/"
+            echo ""
+            echo "❓ QUESTIONABLE (Analyze further):"
+            echo "  - designer/     (302MB total) - Node.js visual designer"
+            echo "  - sdks/         (79MB) - Go/Node/Rust SDKs"
+            echo "  - DemoApp/      (68K) - Example app"
+            echo "  - GameHub/      (68K) - Example app"
+            echo "  - dashboard/    - Dashboard UI"
+            echo "  - bbx_ui/       (13K) - UI components"
+            echo "  - marketplace/  (40K) - Marketplace stub"
+            echo "  - k8s-operator/ (16K) - K8s operator stub"
+
+    # Phase 4: Analyze Code Duplication
+    - id: find_code_duplication
+      mcp: universal
+      method: run
+      inputs:
+        uses: docker://python:3.11-slim
+        cmd:
+          - bash
+          - -c
+          - |
+            echo "=== CODE DUPLICATION ANALYSIS ==="
+            echo ""
+            echo "Python files in blackbox/:"
+            find blackbox -name "*.py" | wc -l
+            echo ""
+            echo "Modules in blackbox/:"
+            ls -d blackbox/*/ 2>/dev/null | wc -l
+            echo ""
+            echo "All Python modules:"
+            ls -d blackbox/*/
+      depends_on:
+        - analyze_directory_structure
+
+    # Phase 5: Check Import Dependencies
+    - id: analyze_imports
+      mcp: universal
+      method: run
+      inputs:
+        uses: docker://python:3.11-slim
+        cmd:
+          - bash
+          - -c
+          - |
+            echo "=== IMPORT ANALYSIS ==="
+            echo ""
+            echo "Which modules are actually used in core?"
+            grep -r "from blackbox" blackbox/core/ cli.py 2>/dev/null | \
+              sed 's/.*from blackbox\.\([a-z_]*\).*/\1/' | sort | uniq -c | sort -rn
+            echo ""
+            echo "Which might be unused?"
+            echo "(Modules in blackbox/ but not imported in core/cli)"
+
+    # Phase 6: Generate Optimization Report
+    - id: generate_optimization_report
+      mcp: universal
+      method: run
+      inputs:
+        uses: docker://python:3.11-slim
+        cmd:
+          - bash
+          - -c
+          - |
+            cat > /tmp/BBX_OPTIMIZATION_REPORT.md <<'EOF'
+            # BBX Self-Optimization Report
+
+            ## 🎯 Core Principle: ПРОСТОТА - но пиздец как мощно
+
+            ## 📊 Current State Analysis
+
+            ### Total Size Breakdown:
+            - **designer/node_modules**: 301MB (❌ REMOVABLE)
+            - **sdks/**: 79MB (❓ Move to separate repos?)
+            - **build/**: 48MB (❌ REMOVABLE - build artifact)
+            - **dist/**: 32MB (❌ REMOVABLE - build artifact)
+            - **blackbox/**: 1.7MB (✅ CORE)
+            - **workflows/**: 435K (✅ CORE)
+            - **tests/**: 359K (✅ CORE)
+            - **docs/**: 319K (✅ CORE)
+
+            ### Directory Categories:
+
+            #### ✅ KEEP (Core BBX):
+            ```
+            blackbox/          # Core engine (1.7MB)
+              ├── core/        # Parser, validator, runner
+              ├── ai/          # Local LLM integration
+              ├── mcp/         # MCP server for AI agents
+              └── server/      # API server (optional)
+
+            cli.py             # CLI interface
+            requirements.txt   # Dependencies
+            workflows/         # Workflow examples & meta
+            tests/             # Test suite
+            docs/              # Documentation
+            ```
+
+            #### ❌ REMOVE (Build Artifacts):
+            ```
+            build/             # PyInstaller output (48MB)
+            dist/              # Distribution files (32MB)
+            designer/node_modules/  # npm deps (301MB)
+            __pycache__/       # Python cache
+            .pytest_cache/     # Test cache
+            .mypy_cache/       # Type check cache
+            .ruff_cache/       # Linter cache
+            *.egg-info/        # Egg metadata
+            ```
+
+            #### 🔄 MOVE TO EXAMPLES REPO:
+            ```
+            DemoApp/           # Example React app
+            GameHub/           # Example game hub
+            examples/          # Example workflows (keep minimal set)
+            ```
+
+            #### 📦 MOVE TO SEPARATE REPOS:
+            ```
+            sdks/              # Move to bbx-sdks repo
+              ├── go/          # bbx-sdk-go
+              ├── nodejs/      # bbx-sdk-nodejs
+              └── rust/        # bbx-sdk-rust
+
+            k8s-operator/      # Move to bbx-k8s-operator repo
+            ```
+
+            #### ❓ RETHINK ARCHITECTURE:
+            ```
+            designer/          # Node.js visual designer (302MB)
+              └── Question: Do we need separate designer if:
+                  - Workflows can be generated with AI
+                  - Workflows can be edited as YAML
+                  - Studio can be workflow-based?
+
+            Proposal:
+              1. Make studio BE workflow-driven
+              2. Remove Node.js designer
+              3. Use AI generation + YAML editing
+              4. Simple web UI for execution/monitoring only
+            ```
+
+            ## 💡 Optimization Proposals
+
+            ### 1. Simplify Studio Architecture
+
+            **Current:**
+            ```
+            designer/ (302MB Node.js)
+              → React + Monaco + Node graph
+              → Separate build process
+              → Heavy dependencies
+            ```
+
+            **Proposed:**
+            ```
+            studio.bbx (workflow)
+              → Generates simple web UI
+              → Uses BBX server APIs
+              → AI-powered workflow creation
+              → YAML editing with validation
+              → Execution monitoring
+            ```
+
+            **Benefits:**
+            - ✅ Remove 302MB of Node deps
+            - ✅ Everything is workflows
+            - ✅ Simpler architecture
+            - ✅ AI-first approach
+
+            ### 2. Clean Up Build Artifacts
+
+            **Action:** Add to .gitignore:
+            ```
+            build/
+            dist/
+            *.egg-info/
+            __pycache__/
+            .pytest_cache/
+            .mypy_cache/
+            .ruff_cache/
+            designer/node_modules/
+            designer/build/
+            ```
+
+            ### 3. Reorganize Repository Structure
+
+            **Proposed Structure:**
+            ```
+            bbx/                     # Main repo (small, focused)
+              ├── blackbox/          # Core engine
+              ├── cli.py             # CLI
+              ├── workflows/         # Core workflows
+              ├── tests/             # Tests
+              ├── docs/              # Documentation
+              └── requirements.txt
+
+            bbx-examples/            # Separate repo
+              ├── DemoApp/
+              ├── GameHub/
+              └── workflows/
+
+            bbx-sdks/                # Separate repo
+              ├── go/
+              ├── nodejs/
+              └── rust/
+
+            bbx-k8s-operator/        # Separate repo
+            ```
+
+            ### 4. Simplify Blackbox Modules
+
+            **Current modules in blackbox/:**
+            ```
+            core/              ✅ Keep - engine core
+            ai/                ✅ Keep - LLM integration
+            mcp/               ✅ Keep - AI agent support
+            server/            ✅ Keep - API server
+            cli/               ❓ Merge into top-level cli.py?
+
+            cache/             ❓ Used? Check imports
+            event_sourcing/    ❓ Implemented? Or stub?
+            graphql/           ❓ Implemented? Or stub?
+            marketplace/       ❓ Implemented? Or stub?
+            multi_tenancy/     ❓ Implemented? Or stub?
+            plugins/           ❓ Used?
+            remote/            ❓ Used?
+            scheduler/         ❓ Used?
+            ```
+
+            **Action:** Remove stub modules (unimplemented features)
+
+            ### 5. Dependencies Audit
+
+            **Check if actually used:**
+            ```
+            strawberry-graphql     # GraphQL - used?
+            celery                 # Task queue - used?
+            redis                  # Cache - used?
+            websockets             # WebSocket - used?
+            ```
+
+            ## 🚀 Execution Plan
+
+            ### Phase 1: Clean Build Artifacts (Immediate)
+            1. Remove build/, dist/, __pycache__
+            2. Remove designer/node_modules/
+            3. Update .gitignore
+
+            ### Phase 2: Analyze Module Usage (1 day)
+            1. Check which blackbox/ modules are imported
+            2. Identify stub/unimplemented modules
+            3. Create removal list
+
+            ### Phase 3: Dependency Audit (1 day)
+            1. Check requirements.txt usage
+            2. Remove unused dependencies
+            3. Test minimal install
+
+            ### Phase 4: Repository Reorganization (2 days)
+            1. Create bbx-examples repo
+            2. Create bbx-sdks repo
+            3. Move DemoApp, GameHub, SDKs
+            4. Update documentation
+
+            ### Phase 5: Studio Rethink (1 week)
+            1. Design workflow-based studio
+            2. Implement as studio.bbx
+            3. Remove Node.js designer
+            4. Test and validate
+
+            ## 📊 Expected Results
+
+            **Size Reduction:**
+            - Current: ~500MB (with node_modules, build artifacts)
+            - After cleanup: ~5-10MB (core only)
+            - **97-98% size reduction**
+
+            **Simplicity Increase:**
+            - Fewer directories
+            - Fewer dependencies
+            - Clearer separation
+            - Workflow-first architecture
+
+            **Maintainability:**
+            - ✅ Easier to understand
+            - ✅ Easier to test
+            - ✅ Easier to deploy
+            - ✅ Faster builds
+
+            ## ✅ Success Criteria
+
+            1. Core repo < 10MB
+            2. Only essential dependencies
+            3. All features work with minimal install
+            4. Clear separation: core vs examples vs SDKs
+            5. Studio is workflow-driven
+
+            EOF
+            cat /tmp/BBX_OPTIMIZATION_REPORT.md
+      depends_on:
+        - categorize_directories
+        - find_code_duplication
+        - analyze_imports
+
+    # Phase 7: Summary and Next Steps
+    - id: print_summary
+      mcp: universal
+      method: run
+      inputs:
+        uses: docker://python:3.11-slim
+        cmd:
+          - bash
+          - -c
+          - |
+            echo ""
+            echo "=================================="
+            echo "BBX SELF-OPTIMIZATION COMPLETE"
+            echo "=================================="
+            echo ""
+            echo "Report generated: BBX_OPTIMIZATION_REPORT.md"
+            echo ""
+            echo "Key Findings:"
+            echo "  - 97% size reduction possible"
+            echo "  - 301MB of node_modules removable"
+            echo "  - 80MB of build artifacts removable"
+            echo "  - Many stub modules can be removed"
+            echo ""
+            echo "Next Steps:"
+            echo "  1. Review report"
+            echo "  2. Execute cleanup phase"
+            echo "  3. Test core functionality"
+            echo "  4. Reorganize repos"
+            echo "  5. Rethink studio architecture"
+            echo ""
+            echo "Principle: ПРОСТОТА - но пиздец как мощно"
+            echo "=================================="
+      depends_on:
+        - generate_optimization_report

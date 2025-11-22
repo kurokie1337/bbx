@@ -17,8 +17,9 @@ Transform adapter for data manipulation.
 Provides methods to transform, filter, map, and reduce data.
 """
 
-from typing import Dict, Any, List
 import json
+from typing import Any, Dict, List
+
 from blackbox.core.base_adapter import MCPAdapter
 
 

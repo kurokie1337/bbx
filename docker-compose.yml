@@ -99,3 +99,36 @@ volumes:
   redis-data:
   prometheus-data:
   grafana-data:
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+volumes:
+  redis_data:
+
+  celery_worker:
+    build: .
+    command: celery -A blackbox.scheduler.celery_app worker --loglevel=info
+    depends_on:
+      - redis
+
+  celery_beat:
+    build: .
+    command: celery -A blackbox.scheduler.celery_app beat --loglevel=info
+    depends_on:
+      - redis
+
+  designer:
+    build: ./designer
+    ports:
+      - "3000:80"
+
+  designer:
+    build: ./designer
+    ports:
+      - "3000:80"

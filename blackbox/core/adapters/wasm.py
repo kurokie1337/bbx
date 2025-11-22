@@ -20,6 +20,7 @@ import asyncio
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional
+
 from ..base_adapter import BaseAdapter
 
 
@@ -47,9 +48,7 @@ class WasmAdapter(BaseAdapter):
         """Detect wasmtime runtime"""
         try:
             result = subprocess.run(
-                ["wasmtime", "--version"],
-                capture_output=True,
-                text=True
+                ["wasmtime", "--version"], capture_output=True, text=True
             )
             if result.returncode == 0:
                 return "wasmtime"
@@ -61,9 +60,7 @@ class WasmAdapter(BaseAdapter):
         """Detect wasm-opt optimizer"""
         try:
             result = subprocess.run(
-                ["wasm-opt", "--version"],
-                capture_output=True,
-                text=True
+                ["wasm-opt", "--version"], capture_output=True, text=True
             )
             if result.returncode == 0:
                 return "wasm-opt"
@@ -104,9 +101,7 @@ class WasmAdapter(BaseAdapter):
         cmd = ["emcc", source_file, "-o", output_file] + flags
 
         proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         stdout, stderr = await proc.communicate()
 
@@ -114,13 +109,13 @@ class WasmAdapter(BaseAdapter):
             return {
                 "status": "error",
                 "error": stderr.decode(),
-                "output": stdout.decode()
+                "output": stdout.decode(),
             }
 
         return {
             "status": "success",
             "output_file": output_file,
-            "size": Path(output_file).stat().st_size
+            "size": Path(output_file).stat().st_size,
         }
 
     async def _compile_cpp(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -132,9 +127,7 @@ class WasmAdapter(BaseAdapter):
         cmd = ["em++", source_file, "-o", output_file] + flags
 
         proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         stdout, stderr = await proc.communicate()
 
@@ -142,13 +135,13 @@ class WasmAdapter(BaseAdapter):
             return {
                 "status": "error",
                 "error": stderr.decode(),
-                "output": stdout.decode()
+                "output": stdout.decode(),
             }
 
         return {
             "status": "success",
             "output_file": output_file,
-            "size": Path(output_file).stat().st_size
+            "size": Path(output_file).stat().st_size,
         }
 
     async def _compile_rust(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -166,7 +159,7 @@ class WasmAdapter(BaseAdapter):
             *cmd,
             cwd=source_dir,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            stderr=asyncio.subprocess.PIPE,
         )
         stdout, stderr = await proc.communicate()
 
@@ -174,28 +167,28 @@ class WasmAdapter(BaseAdapter):
             return {
                 "status": "error",
                 "error": stderr.decode(),
-                "output": stdout.decode()
+                "output": stdout.decode(),
             }
 
         # Find the compiled wasm file
-        build_dir = Path(source_dir) / "target" / target / ("release" if release else "debug")
+        build_dir = (
+            Path(source_dir) / "target" / target / ("release" if release else "debug")
+        )
         wasm_files = list(build_dir.glob("*.wasm"))
 
         if not wasm_files:
-            return {
-                "status": "error",
-                "error": "No WASM file found after compilation"
-            }
+            return {"status": "error", "error": "No WASM file found after compilation"}
 
         source_wasm = wasm_files[0]
         if output_file != str(source_wasm):
             import shutil
+
             shutil.copy(source_wasm, output_file)
 
         return {
             "status": "success",
             "output_file": output_file,
-            "size": Path(output_file).stat().st_size
+            "size": Path(output_file).stat().st_size,
         }
 
     async def _compile_assemblyscript(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -209,9 +202,7 @@ class WasmAdapter(BaseAdapter):
             cmd.extend(["-O3", "--optimize"])
 
         proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         stdout, stderr = await proc.communicate()
 
@@ -219,13 +210,13 @@ class WasmAdapter(BaseAdapter):
             return {
                 "status": "error",
                 "error": stderr.decode(),
-                "output": stdout.decode()
+                "output": stdout.decode(),
             }
 
         return {
             "status": "success",
             "output_file": output_file,
-            "size": Path(output_file).stat().st_size
+            "size": Path(output_file).stat().st_size,
         }
 
     async def _run_wasm(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -243,16 +234,14 @@ class WasmAdapter(BaseAdapter):
         cmd.extend([str(arg) for arg in args])
 
         proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         stdout, stderr = await proc.communicate()
 
         return {
             "stdout": stdout.decode(),
             "stderr": stderr.decode(),
-            "returncode": proc.returncode
+            "returncode": proc.returncode,
         }
 
     async def _run_wasi(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -279,16 +268,14 @@ class WasmAdapter(BaseAdapter):
         cmd.extend([str(arg) for arg in args])
 
         proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         stdout, stderr = await proc.communicate()
 
         return {
             "stdout": stdout.decode(),
             "stderr": stderr.decode(),
-            "returncode": proc.returncode
+            "returncode": proc.returncode,
         }
 
     async def _optimize(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -309,9 +296,7 @@ class WasmAdapter(BaseAdapter):
             cmd.append("--strip-producers")
 
         proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         stdout, stderr = await proc.communicate()
 
@@ -323,7 +308,7 @@ class WasmAdapter(BaseAdapter):
             "output_file": output_file,
             "original_size": original_size,
             "optimized_size": optimized_size,
-            "reduction": f"{((original_size - optimized_size) / original_size * 100):.2f}%"
+            "reduction": f"{((original_size - optimized_size) / original_size * 100):.2f}%",
         }
 
     async def _validate(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -336,16 +321,14 @@ class WasmAdapter(BaseAdapter):
         cmd = [self.wasmtime, "compile", wasm_file, "--dry-run"]
 
         proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         stdout, stderr = await proc.communicate()
 
         return {
             "valid": proc.returncode == 0,
             "output": stdout.decode(),
-            "error": stderr.decode()
+            "error": stderr.decode(),
         }
 
     async def _get_info(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -355,23 +338,25 @@ class WasmAdapter(BaseAdapter):
         # Use wasm-objdump if available
         try:
             proc = await asyncio.create_subprocess_exec(
-                "wasm-objdump", "-h", wasm_file,
+                "wasm-objdump",
+                "-h",
+                wasm_file,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await proc.communicate()
 
             return {
                 "file": wasm_file,
                 "size": Path(wasm_file).stat().st_size,
-                "info": stdout.decode()
+                "info": stdout.decode(),
             }
         except FileNotFoundError:
             # Fallback to basic info
             return {
                 "file": wasm_file,
                 "size": Path(wasm_file).stat().st_size,
-                "error": "wasm-objdump not available for detailed info"
+                "error": "wasm-objdump not available for detailed info",
             }
 
     async def _link_modules(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -383,22 +368,17 @@ class WasmAdapter(BaseAdapter):
         cmd = ["wasm-ld"] + modules + ["-o", output_file]
 
         proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         stdout, stderr = await proc.communicate()
 
         if proc.returncode != 0:
-            return {
-                "status": "error",
-                "error": stderr.decode()
-            }
+            return {"status": "error", "error": stderr.decode()}
 
         return {
             "status": "linked",
             "output_file": output_file,
-            "size": Path(output_file).stat().st_size
+            "size": Path(output_file).stat().st_size,
         }
 
     async def _benchmark(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -420,7 +400,7 @@ class WasmAdapter(BaseAdapter):
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL
+                stderr=asyncio.subprocess.DEVNULL,
             )
             await proc.communicate()
 
@@ -436,7 +416,7 @@ class WasmAdapter(BaseAdapter):
             "avg_time_ms": avg_time,
             "min_time_ms": min_time,
             "max_time_ms": max_time,
-            "times": times
+            "times": times,
         }
 
     async def _profile(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -445,22 +425,13 @@ class WasmAdapter(BaseAdapter):
         func = params.get("function", "_start")
 
         # Use wasmtime with profiling
-        cmd = [
-            self.wasmtime, "run",
-            "--profile=perfmap",
-            wasm_file
-        ]
+        cmd = [self.wasmtime, "run", "--profile=perfmap", wasm_file]
         if func != "_start":
             cmd.extend(["--invoke", func])
 
         proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         stdout, stderr = await proc.communicate()
 
-        return {
-            "output": stdout.decode(),
-            "profile_data": stderr.decode()
-        }
+        return {"output": stdout.decode(), "profile_data": stderr.decode()}

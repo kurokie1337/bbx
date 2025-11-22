@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sqlite3
 import json
-from typing import Dict, Any
+import sqlite3
+from typing import Any, Dict
+
 from blackbox.core.base_adapter import MCPAdapter
 
 DB_PATH = "blackbox.db"
+
 
 class QueueAdapter(MCPAdapter):
     """
@@ -30,7 +32,8 @@ class QueueAdapter(MCPAdapter):
 
     def _init_db(self):
         with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS queues (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     queue_name TEXT NOT NULL,
@@ -39,7 +42,8 @@ class QueueAdapter(MCPAdapter):
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     processed_at TIMESTAMP
                 )
-            """)
+            """
+            )
 
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
         if method == "push":
@@ -64,7 +68,7 @@ class QueueAdapter(MCPAdapter):
         with sqlite3.connect(DB_PATH) as conn:
             cursor = conn.execute(
                 "INSERT INTO queues (queue_name, payload) VALUES (?, ?)",
-                (queue_name, payload)
+                (queue_name, payload),
             )
             job_id = cursor.lastrowid
 
@@ -84,7 +88,7 @@ class QueueAdapter(MCPAdapter):
                 WHERE queue_name = ? AND status = 'pending'
                 ORDER BY id ASC LIMIT 1
                 """,
-                (queue_name,)
+                (queue_name,),
             )
             row = cursor.fetchone()
 
@@ -95,7 +99,7 @@ class QueueAdapter(MCPAdapter):
                 # Here we'll just mark it 'processed' to simulate consumption.
                 conn.execute(
                     "UPDATE queues SET status = 'processed', processed_at = CURRENT_TIMESTAMP WHERE id = ?",
-                    (job_id,)
+                    (job_id,),
                 )
 
                 try:
@@ -119,7 +123,7 @@ class QueueAdapter(MCPAdapter):
                 SELECT count(*) FROM queues
                 WHERE queue_name = ? AND status = 'pending'
                 """,
-                (queue_name,)
+                (queue_name,),
             )
             count = cursor.fetchone()[0]
 

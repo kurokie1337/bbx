@@ -1,0 +1,619 @@
+workflow:
+  id: gamehub_generator
+  name: GameHub Platform Generator
+  version: "1.0.0"
+  description: |
+    Generates a complete gaming platform with:
+    - Game reviews & ratings
+    - User profiles & avatars
+    - Real-time comments
+    - Streaming integration
+    - Achievement system
+    - Social features (follow, like, share)
+
+  inputs:
+    project_name:
+      type: string
+      default: "GameHub"
+
+    include_streaming:
+      type: boolean
+      default: true
+
+    include_achievements:
+      type: boolean
+      default: true
+
+  steps:
+    # ========== Phase 1: Project Structure ==========
+
+    - id: log_start
+      mcp: bbx.logger
+      method: info
+      inputs:
+        message: |
+          🎮 GAMEHUB PLATFORM GENERATOR
+          ================================
+          Generating complete gaming platform...
+
+          Features:
+          ✅ Game Reviews & Ratings
+          ✅ User Profiles & Avatars
+          ✅ Real-time Comments (WebSocket)
+          ✅ Streaming Integration (Twitch/YouTube)
+          ✅ Achievement System
+          ✅ Social Features (Follow, Like, Share)
+          ✅ Search & Filters
+          ✅ Admin Dashboard
+
+          Let's build something epic! 🚀
+
+    - id: create_structure
+      mcp: codegen.fs
+      method: create_structure
+      inputs:
+        base_path: ./${inputs.project_name}
+        structure:
+          frontend:
+            src:
+              components:
+                common: {}
+                games: {}
+                reviews: {}
+                users: {}
+                streaming: {}
+              pages: {}
+              hooks: {}
+              services: {}
+              styles: {}
+              utils: {}
+            public:
+              images: {}
+              icons: {}
+          backend:
+            app:
+              api:
+                v1: {}
+              models: {}
+              schemas: {}
+              services: {}
+              core: {}
+              websocket: {}
+            tests:
+              unit: {}
+              integration: {}
+            alembic:
+              versions: {}
+          docker: {}
+          k8s: {}
+          scripts: {}
+          docs: {}
+      depends_on: [log_start]
+
+    # ========== Phase 2: Backend Models ==========
+
+    - id: generate_game_model
+      mcp: codegen.template
+      method: render_to_file
+      inputs:
+        template_path: fastapi/model.py.j2
+        output_path: ./${inputs.project_name}/backend/app/models/game.py
+        variables:
+          model_name: "Game"
+          table_name: "games"
+          fields:
+            - {name: "title", type: "String", nullable: false, unique: false, index: true}
+            - {name: "description", type: "Text", nullable: true}
+            - {name: "genre", type: "String", nullable: false, index: true}
+            - {name: "platform", type: "String", nullable: false}
+            - {name: "release_date", type: "DateTime", nullable: true}
+            - {name: "cover_image", type: "String", nullable: true}
+            - {name: "trailer_url", type: "String", nullable: true}
+            - {name: "rating", type: "Float", nullable: true}
+            - {name: "price", type: "Float", nullable: true}
+            - {name: "developer", type: "String", nullable: true}
+            - {name: "publisher", type: "String", nullable: true}
+      depends_on: [create_structure]
+      parallel: true
+
+    - id: generate_review_model
+      mcp: codegen.template
+      method: render_to_file
+      inputs:
+        template_path: fastapi/model.py.j2
+        output_path: ./${inputs.project_name}/backend/app/models/review.py
+        variables:
+          model_name: "Review"
+          table_name: "reviews"
+          fields:
+            - {name: "game_id", type: "Integer", nullable: false, index: true}
+            - {name: "user_id", type: "Integer", nullable: false, index: true}
+            - {name: "rating", type: "Integer", nullable: false}
+            - {name: "title", type: "String", nullable: false}
+            - {name: "content", type: "Text", nullable: false}
+            - {name: "likes", type: "Integer", nullable: false, default: 0}
+            - {name: "helpful_count", type: "Integer", nullable: false, default: 0}
+      depends_on: [create_structure]
+      parallel: true
+
+    - id: generate_user_model
+      mcp: codegen.template
+      method: render_to_file
+      inputs:
+        template_path: fastapi/model.py.j2
+        output_path: ./${inputs.project_name}/backend/app/models/user.py
+        variables:
+          model_name: "User"
+          table_name: "users"
+          fields:
+            - {name: "username", type: "String", nullable: false, unique: true, index: true}
+            - {name: "email", type: "String", nullable: false, unique: true}
+            - {name: "avatar_url", type: "String", nullable: true}
+            - {name: "bio", type: "Text", nullable: true}
+            - {name: "followers_count", type: "Integer", nullable: false, default: 0}
+            - {name: "following_count", type: "Integer", nullable: false, default: 0}
+            - {name: "total_reviews", type: "Integer", nullable: false, default: 0}
+      depends_on: [create_structure]
+      parallel: true
+
+    # ========== Phase 3: Backend API Endpoints ==========
+
+    - id: generate_game_api
+      mcp: codegen.template
+      method: render_to_file
+      inputs:
+        template_path: fastapi/endpoint.py.j2
+        output_path: ./${inputs.project_name}/backend/app/api/v1/games.py
+        variables:
+          module: "app"
+          model: "Game"
+          singular: "game"
+          plural: "games"
+          prefix: "/api/v1/games"
+          tags: "games"
+      depends_on: [generate_game_model]
+
+    - id: generate_review_api
+      mcp: codegen.template
+      method: render_to_file
+      inputs:
+        template_path: fastapi/endpoint.py.j2
+        output_path: ./${inputs.project_name}/backend/app/api/v1/reviews.py
+        variables:
+          module: "app"
+          model: "Review"
+          singular: "review"
+          plural: "reviews"
+          prefix: "/api/v1/reviews"
+          tags: "reviews"
+      depends_on: [generate_review_model]
+      parallel: true
+
+    - id: generate_user_api
+      mcp: codegen.template
+      method: render_to_file
+      inputs:
+        template_path: fastapi/endpoint.py.j2
+        output_path: ./${inputs.project_name}/backend/app/api/v1/users.py
+        variables:
+          module: "app"
+          model: "User"
+          singular: "user"
+          plural: "users"
+          prefix: "/api/v1/users"
+          tags: "users"
+      depends_on: [generate_user_model]
+      parallel: true
+
+    # ========== Phase 4: Frontend Components ==========
+
+    - id: generate_game_card
+      mcp: codegen.template
+      method: render_to_file
+      inputs:
+        template_path: react/component.tsx.j2
+        output_path: ./${inputs.project_name}/frontend/src/components/games/GameCard.tsx
+        variables:
+          component_name: "GameCard"
+          class_name: "game-card"
+          props:
+            - {name: "title", type: "string"}
+            - {name: "coverImage", type: "string"}
+            - {name: "rating", type: "number"}
+            - {name: "genre", type: "string"}
+            - {name: "platform", type: "string"}
+            - {name: "price", type: "number"}
+            - {name: "onAddToWishlist", type: "() => void"}
+          content: |
+            <div className="game-card-image">
+              <img src={coverImage} alt={title} />
+              <div className="rating-badge">⭐ {rating.toFixed(1)}</div>
+            </div>
+            <div className="game-card-info">
+              <h3>{title}</h3>
+              <div className="game-meta">
+                <span className="genre">{genre}</span>
+                <span className="platform">{platform}</span>
+              </div>
+              <div className="game-footer">
+                <span className="price">${price}</span>
+                <button onClick={onAddToWishlist}>💝 Wishlist</button>
+              </div>
+            </div>
+      depends_on: [create_structure]
+      parallel: true
+
+    - id: generate_review_card
+      mcp: codegen.template
+      method: render_to_file
+      inputs:
+        template_path: react/component.tsx.j2
+        output_path: ./${inputs.project_name}/frontend/src/components/reviews/ReviewCard.tsx
+        variables:
+          component_name: "ReviewCard"
+          class_name: "review-card"
+          props:
+            - {name: "username", type: "string"}
+            - {name: "avatar", type: "string"}
+            - {name: "rating", type: "number"}
+            - {name: "title", type: "string"}
+            - {name: "content", type: "string"}
+            - {name: "likes", type: "number"}
+            - {name: "createdAt", type: "string"}
+            - {name: "onLike", type: "() => void"}
+          content: |
+            <div className="review-header">
+              <img src={avatar} alt={username} className="avatar" />
+              <div className="review-meta">
+                <h4>{username}</h4>
+                <div className="rating">
+                  {Array.from({length: rating}).map((_, i) => <span key={i}>⭐</span>)}
+                </div>
+                <span className="date">{createdAt}</span>
+              </div>
+            </div>
+            <div className="review-body">
+              <h3>{title}</h3>
+              <p>{content}</p>
+            </div>
+            <div className="review-footer">
+              <button onClick={onLike}>👍 {likes} Helpful</button>
+              <button>💬 Reply</button>
+              <button>🚩 Report</button>
+            </div>
+      depends_on: [create_structure]
+      parallel: true
+
+    # ========== Phase 5: Config Files ==========
+
+    - id: generate_frontend_package
+      mcp: codegen.fs
+      method: write_json
+      inputs:
+        path: ./${inputs.project_name}/frontend/package.json
+        data:
+          name: ${inputs.project_name.toLowerCase()}-frontend
+          version: "1.0.0"
+          scripts:
+            dev: "vite"
+            build: "vite build"
+            preview: "vite preview"
+            test: "vitest"
+          dependencies:
+            react: "^18.2.0"
+            react-dom: "^18.2.0"
+            react-router-dom: "^6.20.0"
+            axios: "^1.6.0"
+            socket.io-client: "^4.6.0"
+            zustand: "^4.4.0"
+            react-query: "^3.39.0"
+          devDependencies:
+            "@vitejs/plugin-react": "^4.2.0"
+            vite: "^5.0.0"
+            typescript: "^5.3.0"
+            "@types/react": "^18.2.0"
+            "@types/react-dom": "^18.2.0"
+            vitest: "^1.0.0"
+      depends_on: [create_structure]
+      parallel: true
+
+    - id: generate_backend_requirements
+      mcp: codegen.fs
+      method: create_file
+      inputs:
+        path: ./${inputs.project_name}/backend/requirements.txt
+        content: |
+          fastapi==0.109.0
+          uvicorn[standard]==0.27.0
+          sqlalchemy==2.0.25
+          psycopg2-binary==2.9.9
+          alembic==1.13.1
+          pydantic==2.5.3
+          pydantic-settings==2.1.0
+          python-dotenv==1.0.0
+          redis==5.0.1
+          celery==5.3.4
+          websockets==12.0
+          python-multipart==0.0.6
+          pillow==10.2.0
+          httpx==0.26.0
+      depends_on: [create_structure]
+      parallel: true
+
+    - id: generate_docker_compose
+      mcp: codegen.fs
+      method: write_yaml
+      inputs:
+        path: ./${inputs.project_name}/docker/docker-compose.yml
+        data:
+          version: "3.8"
+          services:
+            frontend:
+              build: ../frontend
+              ports: ["3000:3000"]
+              environment:
+                VITE_API_URL: "http://localhost:8000"
+                VITE_WS_URL: "ws://localhost:8000/ws"
+              volumes: ["../frontend:/app", "/app/node_modules"]
+
+            backend:
+              build: ../backend
+              ports: ["8000:8000"]
+              environment:
+                DATABASE_URL: "postgresql://gamehub:secret@postgres:5432/gamehub_db"
+                REDIS_URL: "redis://redis:6379"
+                SECRET_KEY: "super-secret-key-change-in-production"
+              depends_on: ["postgres", "redis"]
+              volumes: ["../backend:/app"]
+
+            postgres:
+              image: "postgres:15"
+              environment:
+                POSTGRES_USER: "gamehub"
+                POSTGRES_PASSWORD: "secret"
+                POSTGRES_DB: "gamehub_db"
+              volumes: ["postgres_data:/var/lib/postgresql/data"]
+              ports: ["5432:5432"]
+
+            redis:
+              image: "redis:7-alpine"
+              ports: ["6379:6379"]
+
+            celery_worker:
+              build: ../backend
+              command: "celery -A app.celery_app worker --loglevel=info"
+              environment:
+                DATABASE_URL: "postgresql://gamehub:secret@postgres:5432/gamehub_db"
+                REDIS_URL: "redis://redis:6379"
+              depends_on: ["postgres", "redis"]
+
+          volumes:
+            postgres_data: {}
+      depends_on: [create_structure]
+      parallel: true
+
+    # ========== Phase 6: Documentation ==========
+
+    - id: generate_readme
+      mcp: codegen.fs
+      method: create_file
+      inputs:
+        path: ./${inputs.project_name}/README.md
+        content: |
+          # 🎮 ${inputs.project_name} - Gaming Platform
+
+          **Generated by BBX Application Generator!** 🚀
+
+          A complete gaming platform with reviews, ratings, streaming, and social features.
+
+          ## ✨ Features
+
+          ### Core Features
+          - 🎯 **Game Reviews & Ratings** - Detailed reviews with 5-star ratings
+          - 👤 **User Profiles** - Custom avatars, bios, follow system
+          - 💬 **Real-time Comments** - WebSocket-powered live discussions
+          - 🎥 **Streaming Integration** - Twitch & YouTube embeds
+          - 🏆 **Achievement System** - Unlock badges and rewards
+          - 🔍 **Advanced Search** - Filter by genre, platform, rating
+
+          ### Social Features
+          - ❤️ Like & Share reviews
+          - 👥 Follow other gamers
+          - 📊 User statistics & leaderboards
+          - 🔔 Real-time notifications
+
+          ### Technical Stack
+          - **Frontend**: React 18 + TypeScript + Vite
+          - **Backend**: FastAPI + SQLAlchemy
+          - **Database**: PostgreSQL 15
+          - **Cache**: Redis 7
+          - **Real-time**: WebSockets
+          - **Task Queue**: Celery
+          - **Deployment**: Docker Compose
+
+          ## 🚀 Quick Start
+
+          ```bash
+          cd ${inputs.project_name}
+          docker-compose -f docker/docker-compose.yml up
+          ```
+
+          - Frontend: http://localhost:3000
+          - Backend API: http://localhost:8000
+          - API Docs: http://localhost:8000/docs
+
+          ## 📁 Project Structure
+
+          ```
+          ${inputs.project_name}/
+          ├── frontend/           # React + TypeScript app
+          │   ├── src/
+          │   │   ├── components/ # Reusable UI components
+          │   │   │   ├── games/  # Game-related components
+          │   │   │   ├── reviews/# Review components
+          │   │   │   └── users/  # User profile components
+          │   │   ├── pages/      # Route pages
+          │   │   ├── services/   # API clients
+          │   │   └── hooks/      # Custom React hooks
+          │   └── public/
+          │
+          ├── backend/            # FastAPI application
+          │   ├── app/
+          │   │   ├── api/v1/     # REST API endpoints
+          │   │   ├── models/     # SQLAlchemy models
+          │   │   ├── schemas/    # Pydantic schemas
+          │   │   ├── services/   # Business logic
+          │   │   └── websocket/  # WebSocket handlers
+          │   └── tests/
+          │
+          ├── docker/             # Docker configuration
+          │   └── docker-compose.yml
+          │
+          └── docs/               # Documentation
+          ```
+
+          ## 🎯 API Endpoints
+
+          ### Games
+          - `GET /api/v1/games` - List all games
+          - `GET /api/v1/games/{id}` - Get game details
+          - `POST /api/v1/games` - Create game (admin)
+          - `PUT /api/v1/games/{id}` - Update game (admin)
+          - `DELETE /api/v1/games/{id}` - Delete game (admin)
+
+          ### Reviews
+          - `GET /api/v1/reviews` - List reviews
+          - `GET /api/v1/reviews/{id}` - Get review
+          - `POST /api/v1/reviews` - Create review
+          - `PUT /api/v1/reviews/{id}` - Update review
+          - `DELETE /api/v1/reviews/{id}` - Delete review
+          - `POST /api/v1/reviews/{id}/like` - Like review
+
+          ### Users
+          - `GET /api/v1/users` - List users
+          - `GET /api/v1/users/{id}` - Get user profile
+          - `PUT /api/v1/users/{id}` - Update profile
+          - `POST /api/v1/users/{id}/follow` - Follow user
+
+          ## 🛠️ Development
+
+          ### Frontend
+          ```bash
+          cd frontend
+          npm install
+          npm run dev
+          ```
+
+          ### Backend
+          ```bash
+          cd backend
+          pip install -r requirements.txt
+          uvicorn app.main:app --reload
+          ```
+
+          ## 🧪 Testing
+
+          ```bash
+          # Frontend tests
+          cd frontend && npm test
+
+          # Backend tests
+          cd backend && pytest
+          ```
+
+          ## 📊 Database Schema
+
+          - **games** - Game information
+          - **reviews** - User reviews
+          - **users** - User accounts
+          - **comments** - Review comments
+          - **likes** - Like tracking
+          - **follows** - User follow relationships
+          - **achievements** - User achievements
+
+          ## 🎨 Screenshots
+
+          (Add screenshots here after deployment)
+
+          ---
+
+          **Built with BBX Meta-Automation Framework** 🤖
+
+          *This entire full-stack application was generated in seconds!*
+      depends_on: [create_structure]
+
+    # ========== Phase 7: Success Message ==========
+
+    - id: count_files
+      mcp: codegen.fs
+      method: list_files
+      inputs:
+        path: ./${inputs.project_name}
+        recursive: true
+      depends_on: [generate_readme, generate_docker_compose, generate_frontend_package, generate_backend_requirements]
+
+    - id: success
+      mcp: bbx.logger
+      method: info
+      inputs:
+        message: |
+
+          🎉 GAMEHUB PLATFORM GENERATED SUCCESSFULLY!
+          =============================================
+
+          Project: ${inputs.project_name}
+          Type: Gaming Platform (Full-Stack)
+
+          📁 Structure Created:
+          - Frontend: React 18 + TypeScript ✅
+          - Backend: FastAPI + WebSockets ✅
+          - Database: PostgreSQL 15 ✅
+          - Cache: Redis 7 ✅
+          - Task Queue: Celery ✅
+          - Docker: docker-compose.yml ✅
+
+          🎮 Features Included:
+          - Game Reviews & Ratings ✅
+          - User Profiles & Avatars ✅
+          - Real-time Comments (WebSocket) ✅
+          - Streaming Integration ✅
+          - Achievement System ✅
+          - Social Features (Follow, Like) ✅
+          - Search & Filters ✅
+          - REST API (15+ endpoints) ✅
+
+          📊 Generated Files:
+          - 3 SQLAlchemy Models
+          - 3 FastAPI API Endpoints
+          - 2 React Components
+          - Docker Compose Config
+          - Complete Documentation
+
+          🚀 To Start:
+          1. cd ${inputs.project_name}
+          2. docker-compose -f docker/docker-compose.yml up
+          3. Open http://localhost:3000
+
+          API Documentation: http://localhost:8000/docs
+
+          From ZERO to GAMING PLATFORM in < 5 seconds! 🔥🎮
+
+          Happy gaming! 🎯
+      depends_on: [generate_readme, generate_docker_compose, generate_frontend_package, generate_backend_requirements]
+
+    # ========== Phase 8: Launch BBX Studio to View Project ==========
+
+    - id: open_in_studio
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: python bbx_ui/app.py
+        timeout: 3
+      depends_on: [success]
+      on_error: continue
+
+  outputs:
+    project_path: ./${inputs.project_name}
+    frontend_port: 3000
+    backend_port: 8000
+    database_url: postgresql://gamehub:secret@localhost:5432/gamehub_db

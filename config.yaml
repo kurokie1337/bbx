@@ -1,0 +1,12 @@
+
+# Redis Cache Configuration
+cache:
+  backend: redis  # or 'memory'
+  ttl: 3600
+
+redis:
+  host: localhost
+  port: 6379
+  db: 0
+  password: null
+  prefix: "bbx:"

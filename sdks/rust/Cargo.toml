@@ -1,0 +1,12 @@
+[package]
+name = "bbx-sdk"
+version = "1.0.0"
+edition = "2021"
+authors = ["Ilya Makarov"]
+license = "Apache-2.0"
+
+[dependencies]
+reqwest = { version = "0.11", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.35", features = ["full"] }

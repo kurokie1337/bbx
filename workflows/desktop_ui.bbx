@@ -1,0 +1,345 @@
+# BBX Desktop UI Builder
+# Создает простое desktop приложение для BBX
+
+workflow:
+  id: desktop_ui_builder
+  name: BBX Desktop UI Application
+  version: "6.0"
+  description: |
+    Создает desktop UI приложение для BBX используя Python + CustomTkinter
+    - Визуальный редактор workflows
+    - Live execution monitoring
+    - Built-in code editor
+
+  steps:
+    - id: install_dependencies
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: pip install customtkinter pillow pyyaml
+
+    - id: create_ui_app
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          mkdir -p bbx_ui
+          cat > bbx_ui/app.py << 'EOF'
+          """BBX Desktop UI Application"""
+          import customtkinter as ctk
+          import tkinter as tk
+          from tkinter import filedialog, scrolledtext
+          import subprocess
+          import os
+          import yaml
+          from pathlib import Path
+
+          ctk.set_appearance_mode("dark")
+          ctk.set_default_color_theme("blue")
+
+          class BBXStudio(ctk.CTk):
+              def __init__(self):
+                  super().__init__()
+
+                  self.title("🚀 BBX Workflow Studio")
+                  self.geometry("1200x800")
+
+                  # Create main layout
+                  self.grid_columnconfigure(1, weight=1)
+                  self.grid_rowconfigure(0, weight=1)
+
+                  # Sidebar
+                  self.sidebar = ctk.CTkFrame(self, width=200, corner_radius=0)
+                  self.sidebar.grid(row=0, column=0, sticky="nsew")
+                  self.sidebar.grid_rowconfigure(10, weight=1)
+
+                  # Logo
+                  self.logo_label = ctk.CTkLabel(
+                      self.sidebar,
+                      text="BBX Studio",
+                      font=ctk.CTkFont(size=24, weight="bold")
+                  )
+                  self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
+
+                  # Buttons
+                  self.new_btn = ctk.CTkButton(
+                      self.sidebar,
+                      text="📄 New Workflow",
+                      command=self.new_workflow
+                  )
+                  self.new_btn.grid(row=1, column=0, padx=20, pady=10)
+
+                  self.open_btn = ctk.CTkButton(
+                      self.sidebar,
+                      text="📁 Open Workflow",
+                      command=self.open_workflow
+                  )
+                  self.open_btn.grid(row=2, column=0, padx=20, pady=10)
+
+                  self.run_btn = ctk.CTkButton(
+                      self.sidebar,
+                      text="▶️ Run Workflow",
+                      command=self.run_workflow,
+                      fg_color="green"
+                  )
+                  self.run_btn.grid(row=3, column=0, padx=20, pady=10)
+
+                  self.validate_btn = ctk.CTkButton(
+                      self.sidebar,
+                      text="✓ Validate",
+                      command=self.validate_workflow
+                  )
+                  self.validate_btn.grid(row=4, column=0, padx=20, pady=10)
+
+                  # Status
+                  self.status_label = ctk.CTkLabel(
+                      self.sidebar,
+                      text="Ready",
+                      text_color="gray"
+                  )
+                  self.status_label.grid(row=11, column=0, padx=20, pady=10)
+
+                  # Main editor area
+                  self.main_frame = ctk.CTkFrame(self)
+                  self.main_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+                  self.main_frame.grid_rowconfigure(1, weight=1)
+                  self.main_frame.grid_columnconfigure(0, weight=1)
+
+                  # File path label
+                  self.file_label = ctk.CTkLabel(
+                      self.main_frame,
+                      text="No file opened",
+                      font=ctk.CTkFont(size=14)
+                  )
+                  self.file_label.grid(row=0, column=0, sticky="w", padx=10, pady=5)
+
+                  # Editor tabs
+                  self.tabview = ctk.CTkTabview(self.main_frame)
+                  self.tabview.grid(row=1, column=0, sticky="nsew")
+
+                  # Editor tab
+                  self.tabview.add("Editor")
+                  self.editor = scrolledtext.ScrolledText(
+                      self.tabview.tab("Editor"),
+                      wrap=tk.WORD,
+                      bg="#2b2b2b",
+                      fg="#ffffff",
+                      insertbackground="white",
+                      font=("Consolas", 11)
+                  )
+                  self.editor.pack(fill="both", expand=True)
+
+                  # Output tab
+                  self.tabview.add("Output")
+                  self.output = scrolledtext.ScrolledText(
+                      self.tabview.tab("Output"),
+                      wrap=tk.WORD,
+                      bg="#1e1e1e",
+                      fg="#00ff00",
+                      font=("Consolas", 10),
+                      state="disabled"
+                  )
+                  self.output.pack(fill="both", expand=True)
+
+                  self.current_file = None
+
+              def new_workflow(self):
+                  template = """workflow:
+            id: my_workflow
+            name: My Workflow
+            version: "6.0"
+            description: A new workflow
+
+            steps:
+              - id: step1
+                mcp: bbx.logger
+                method: info
+                inputs:
+                  message: "Hello from BBX!"
+          """
+                  self.editor.delete("1.0", tk.END)
+                  self.editor.insert("1.0", template)
+                  self.file_label.configure(text="Untitled.bbx")
+                  self.update_status("New workflow created", "blue")
+
+              def open_workflow(self):
+                  filepath = filedialog.askopenfilename(
+                      title="Open BBX Workflow",
+                      filetypes=[("BBX Files", "*.bbx"), ("All Files", "*.*")]
+                  )
+                  if filepath:
+                      with open(filepath, 'r', encoding='utf-8') as f:
+                          content = f.read()
+                      self.editor.delete("1.0", tk.END)
+                      self.editor.insert("1.0", content)
+                      self.current_file = filepath
+                      self.file_label.configure(text=os.path.basename(filepath))
+                      self.update_status(f"Opened {os.path.basename(filepath)}", "blue")
+
+              def save_workflow(self):
+                  if self.current_file:
+                      filepath = self.current_file
+                  else:
+                      filepath = filedialog.asksaveasfilename(
+                          defaultextension=".bbx",
+                          filetypes=[("BBX Files", "*.bbx"), ("All Files", "*.*")]
+                      )
+
+                  if filepath:
+                      content = self.editor.get("1.0", tk.END)
+                      with open(filepath, 'w', encoding='utf-8') as f:
+                          f.write(content)
+                      self.current_file = filepath
+                      self.file_label.configure(text=os.path.basename(filepath))
+                      self.update_status("Saved!", "green")
+
+              def validate_workflow(self):
+                  # Save first
+                  if not self.current_file:
+                      self.save_workflow()
+
+                  if self.current_file:
+                      self.update_status("Validating...", "yellow")
+                      result = subprocess.run(
+                          ["python", "cli.py", "validate", self.current_file],
+                          capture_output=True,
+                          text=True
+                      )
+
+                      self.log_output(result.stdout + result.stderr)
+
+                      if result.returncode == 0:
+                          self.update_status("✓ Validation passed!", "green")
+                      else:
+                          self.update_status("✗ Validation failed", "red")
+
+                      self.tabview.set("Output")
+
+              def run_workflow(self):
+                  if not self.current_file:
+                      self.save_workflow()
+
+                  if self.current_file:
+                      self.update_status("Running workflow...", "yellow")
+                      self.log_output(f"\n{'='*60}\n▶️  Running: {self.current_file}\n{'='*60}\n")
+
+                      process = subprocess.Popen(
+                          ["python", "cli.py", "run", self.current_file],
+                          stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT,
+                          text=True,
+                          bufsize=1
+                      )
+
+                      # Stream output
+                      for line in iter(process.stdout.readline, ''):
+                          if line:
+                              self.log_output(line)
+                              self.update_idletasks()
+
+                      process.wait()
+
+                      if process.returncode == 0:
+                          self.update_status("✓ Completed successfully!", "green")
+                      else:
+                          self.update_status("✗ Execution failed", "red")
+
+                      self.tabview.set("Output")
+
+              def log_output(self, text):
+                  self.output.configure(state="normal")
+                  self.output.insert(tk.END, text)
+                  self.output.see(tk.END)
+                  self.output.configure(state="disabled")
+
+              def update_status(self, text, color="gray"):
+                  self.status_label.configure(text=text, text_color=color)
+
+          if __name__ == "__main__":
+              app = BBXStudio()
+              app.mainloop()
+          EOF
+
+    - id: create_launcher
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > run_bbx_studio.bat << 'EOF'
+          @echo off
+          echo Starting BBX Studio...
+          python bbx_ui/app.py
+          EOF
+
+          cat > run_bbx_studio.sh << 'EOF'
+          #!/bin/bash
+          echo "Starting BBX Studio..."
+          python3 bbx_ui/app.py
+          EOF
+
+          chmod +x run_bbx_studio.sh
+
+    - id: create_readme
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > bbx_ui/README.md << 'EOF'
+          # 🚀 BBX Workflow Studio
+
+          Desktop UI application for BBX workflows.
+
+          ## Features
+
+          - 📝 Visual workflow editor with syntax highlighting
+          - ▶️ Run workflows with live output streaming
+          - ✓ Built-in validation
+          - 📁 File management
+          - 🎨 Modern dark theme UI
+
+          ## Run
+
+          Windows:
+          ```
+          run_bbx_studio.bat
+          ```
+
+          Linux/Mac:
+          ```
+          ./run_bbx_studio.sh
+          ```
+
+          Or directly:
+          ```
+          python bbx_ui/app.py
+          ```
+
+          ## Screenshots
+
+          - Left sidebar: Quick actions
+          - Main editor: Edit .bbx files
+          - Output tab: See execution results in real-time
+
+          Built with CustomTkinter + BBX Meta-Automation! 🤖
+          EOF
+
+    - id: log_completion
+      mcp: bbx.logger
+      method: info
+      inputs:
+        message: |
+          ✅ BBX Desktop Studio Created!
+
+          🚀 To launch:
+            Windows: run_bbx_studio.bat
+            Linux/Mac: ./run_bbx_studio.sh
+
+          📁 Files created:
+            - bbx_ui/app.py (Desktop application)
+            - run_bbx_studio.bat (Windows launcher)
+            - run_bbx_studio.sh (Unix launcher)
+
+  outputs:
+    app_path: "bbx_ui/app.py"
+    launcher_windows: "run_bbx_studio.bat"
+    launcher_unix: "run_bbx_studio.sh"

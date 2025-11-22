@@ -20,9 +20,9 @@ all adapters at startup (performance optimization).
 """
 
 import logging
-from typing import Dict, Optional, Callable
-from blackbox.core.base_adapter import MCPAdapter
+from typing import Callable, Dict, Optional
 
+from blackbox.core.base_adapter import MCPAdapter
 
 logger = logging.getLogger("bbx.registry")
 
@@ -51,132 +51,125 @@ class MCPRegistry:
 
         # Phase 0: OS Abstraction
         self.register_lazy(
-            ["bbx.os", "os"],
-            lambda: self._import_adapter("blackbox.core.adapters.os_abstraction", "OSAbstractionAdapter")
+            ["bbx.os", "os", "bbx.system", "system"],
+            lambda: self._import_adapter(
+                "blackbox.core.adapters.os_abstraction", "OSAbstractionAdapter"
+            ),
+        )
+
+        # Logger
+        self.register_lazy(
+            ["bbx.logger", "logger"],
+            lambda: self._import_adapter(
+                "blackbox.core.adapters.logger", "LoggerAdapter"
+            ),
         )
 
         # Phase 2: Code Generation
         self.register_lazy(
             ["codegen.template", "template"],
-            lambda: self._import_adapter("blackbox.core.adapters.codegen.template", "TemplateAdapter")
+            lambda: self._import_adapter(
+                "blackbox.core.adapters.codegen.template", "TemplateAdapter"
+            ),
         )
         self.register_lazy(
             ["codegen.fs", "fs"],
-            lambda: self._import_adapter("blackbox.core.adapters.codegen.fs", "FileSystemGenAdapter")
+            lambda: self._import_adapter(
+                "blackbox.core.adapters.codegen.fs", "FileSystemGenAdapter"
+            ),
         )
 
         # Phase 4: Process Management
         self.register_lazy(
             ["bbx.process", "process"],
-            lambda: self._import_adapter("blackbox.core.adapters.process", "ProcessAdapter")
+            lambda: self._import_adapter(
+                "blackbox.core.adapters.process", "ProcessAdapter"
+            ),
         )
 
         # Phase 4: Docker
         self.register_lazy(
             ["bbx.docker", "docker"],
-            lambda: self._import_adapter("blackbox.core.adapters.docker", "DockerAdapter")
+            lambda: self._import_adapter(
+                "blackbox.core.adapters.docker", "DockerAdapter"
+            ),
         )
 
         # Phase 5: AI Integration
         self.register_lazy(
             ["bbx.ai", "ai"],
-            lambda: self._import_adapter("blackbox.core.adapters.ai", "AIAdapter")
+            lambda: self._import_adapter("blackbox.core.adapters.ai", "AIAdapter"),
         )
 
-        # Phase 6: Infrastructure - Terraform
-        self.register_lazy(
-            ["bbx.terraform", "terraform"],
-            lambda: self._import_adapter("blackbox.core.adapters.terraform", "TerraformAdapter")
-        )
-
-        # Phase 6: Infrastructure - Ansible
-        self.register_lazy(
-            ["bbx.ansible", "ansible"],
-            lambda: self._import_adapter("blackbox.core.adapters.ansible", "AnsibleAdapter")
-        )
-
-        # Phase 6: Infrastructure - Kubernetes
-        self.register_lazy(
-            ["bbx.k8s", "k8s", "kubectl"],
-            lambda: self._import_adapter("blackbox.core.adapters.kubernetes", "KubernetesAdapter")
-        )
+        # Phase 6: Infrastructure (REMOVED - Use Universal Adapter)
+        # Legacy adapters (terraform, ansible, k8s) removed.
+        # Use "universal" adapter with docker:// images instead.
 
         # Phase 7: Sandbox
         self.register_lazy(
             ["bbx.sandbox", "sandbox"],
-            lambda: self._import_adapter("blackbox.core.adapters.sandbox", "SandboxAdapter")
+            lambda: self._import_adapter(
+                "blackbox.core.adapters.sandbox", "SandboxAdapter"
+            ),
         )
 
         # Phase 8: HTTP Server
         self.register_lazy(
             ["bbx.http_server", "http_server"],
-            lambda: self._import_adapter("blackbox.core.adapters.http_server", "HTTPServerAdapter")
+            lambda: self._import_adapter(
+                "blackbox.core.adapters.http_server", "HTTPServerAdapter"
+            ),
         )
 
         # Universal Adapter (God Mode)
         self.register_lazy(
-            ["universal", "bbx.universal"],
-            lambda: self._import_adapter_universal()
+            ["universal", "bbx.universal"], lambda: self._import_adapter_universal()
         )
 
-        # Cloud Providers - AWS
-        self.register_lazy(
-            ["bbx.aws", "aws"],
-            lambda: self._import_adapter("blackbox.core.adapters.aws", "AWSAdapter")
-        )
-
-        # Cloud Providers - GCP
-        self.register_lazy(
-            ["bbx.gcp", "gcp"],
-            lambda: self._import_adapter("blackbox.core.adapters.gcp", "GCPAdapter")
-        )
-
-        # Cloud Providers - Azure
-        self.register_lazy(
-            ["bbx.azure", "azure"],
-            lambda: self._import_adapter("blackbox.core.adapters.azure", "AzureAdapter")
-        )
-
-        # Cloud Providers - DigitalOcean
-        self.register_lazy(
-            ["bbx.digitalocean", "digitalocean", "do"],
-            lambda: self._import_adapter("blackbox.core.adapters.digitalocean", "DigitalOceanAdapter")
-        )
-
-        # Cloud Providers - Linode
-        self.register_lazy(
-            ["bbx.linode", "linode"],
-            lambda: self._import_adapter("blackbox.core.adapters.linode", "LinodeAdapter")
-        )
+        # Cloud Providers (REMOVED - Use Universal Adapter)
+        # Legacy cloud provider adapters (aws, gcp, azure, do, linode) removed.
+        # Use "universal" adapter with official Docker images:
+        # - docker://amazon/aws-cli
+        # - docker://google/cloud-sdk
+        # - docker://mcr.microsoft.com/azure-cli
+        # etc.
 
         # Database Migration
         self.register_lazy(
             ["bbx.db", "db", "database"],
-            lambda: self._import_adapter("blackbox.core.adapters.database", "DatabaseMigrationAdapter")
+            lambda: self._import_adapter(
+                "blackbox.core.adapters.database", "DatabaseMigrationAdapter"
+            ),
         )
 
         # Storage
         self.register_lazy(
             ["bbx.storage", "storage"],
-            lambda: self._import_adapter("blackbox.core.adapters.storage", "StorageAdapter")
+            lambda: self._import_adapter(
+                "blackbox.core.adapters.storage", "StorageAdapter"
+            ),
         )
 
         # Queue
         self.register_lazy(
             ["bbx.queue", "queue"],
-            lambda: self._import_adapter("blackbox.core.adapters.queue", "QueueAdapter")
+            lambda: self._import_adapter(
+                "blackbox.core.adapters.queue", "QueueAdapter"
+            ),
         )
 
         # Mobile
         self.register_lazy(
             ["bbx.mobile", "mobile"],
-            lambda: self._import_adapter("blackbox.core.adapters.mobile", "MobileAdapter")
+            lambda: self._import_adapter(
+                "blackbox.core.adapters.mobile", "MobileAdapter"
+            ),
         )
 
         # WebAssembly
         self.register_lazy(
             ["bbx.wasm", "wasm"],
-            lambda: self._import_adapter("blackbox.core.adapters.wasm", "WasmAdapter")
+            lambda: self._import_adapter("blackbox.core.adapters.wasm", "WasmAdapter"),
         )
 
     def _import_adapter(self, module_path: str, class_name: str) -> MCPAdapter:
@@ -195,6 +188,7 @@ class MCPRegistry:
         """
         try:
             import importlib
+
             module = importlib.import_module(module_path)
             adapter_class = getattr(module, class_name)
             return adapter_class()
@@ -216,19 +210,19 @@ class MCPRegistry:
         # unless we have a 'UniversalAdapterFactory' or similar.
         # For now, let's register a 'GenericUniversalAdapter' that can load definitions dynamically?
         # Or better: The Runtime should handle 'adapter: universal' specially.
-        
+
         # Actually, for the 'universal' adapter type in YAML:
         # - id: my_step
         #   adapter: universal
         #   definition: path/to/def.yaml
-        
+
         # The runtime needs to instantiate it with the definition.
         # So 'universal' in registry should probably return a Factory or a special wrapper.
-        
+
         # Let's import the class so it's available, but maybe we don't instantiate it fully here.
         from blackbox.core.universal import UniversalAdapter
+
         # We return the class itself? No, registry expects an instance.
-        
         # HACK: Return a dummy instance or handle in runtime.
         # Let's make UniversalAdapter accept optional definition for registration.
         return UniversalAdapter({})
@@ -334,3 +328,8 @@ registry = get_registry()
 
 
 __all__ = ["MCPRegistry", "get_registry", "registry"]
+
+# Register remote adapter
+from blackbox.core.adapters.remote import RemoteAdapter  # noqa: E402
+
+registry.register("bbx.remote", RemoteAdapter())

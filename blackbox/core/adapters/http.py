@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any, Dict
+
 import httpx
-from typing import Dict, Any
+
 from blackbox.core.base_adapter import MCPAdapter
+
 
 class LocalHttpAdapter(MCPAdapter):
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
@@ -41,5 +44,5 @@ class LocalHttpAdapter(MCPAdapter):
             return {
                 "status_code": response.status_code,
                 "body": content,
-                "headers": dict(response.headers)
+                "headers": dict(response.headers),
             }

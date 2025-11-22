@@ -1,0 +1,42 @@
+# BBX Standard Library: Git Tag
+# Create a Git tag
+
+id: git_tag
+description: Create and push Git tag
+uses: docker://alpine/git:latest
+
+cmd:
+  - git
+  - tag
+  - "{{ tag_name }}"
+  - "{% if message %}-m{{ message }}{% endif %}"
+
+inputs:
+  tag_name:
+    type: string
+    description: "Tag name (e.g., v1.0.0)"
+    required: true
+
+  message:
+    type: string
+    description: "Tag message"
+    required: false
+
+  working_dir:
+    type: string
+    description: "Git repository directory"
+    default: "."
+
+# Example usage:
+# - id: create_tag
+#   mcp: universal
+#   method: run
+#   inputs:
+#     uses: docker://alpine/git:latest
+#     working_dir: ./my-repo
+#     cmd:
+#       - git
+#       - tag
+#       - v1.0.0
+#       - -m
+#       - "Release version 1.0.0"

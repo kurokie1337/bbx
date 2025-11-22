@@ -13,17 +13,17 @@
 # limitations under the License.
 
 
-import logging
-
-
 import asyncio
+import glob
+import logging
 import os
 import shutil
-import glob
-from typing import Dict, Any
+from typing import Any, Dict
+
 from blackbox.core.base_adapter import MCPAdapter
 
 logger = logging.getLogger("bbx.system")
+
 
 class SystemAdapter(MCPAdapter):
     """
@@ -52,15 +52,15 @@ class SystemAdapter(MCPAdapter):
             command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=cwd
+            cwd=cwd,
         )
 
         stdout, stderr = await process.communicate()
 
         return {
             "exit_code": process.returncode,
-            "stdout": stdout.decode(errors='replace').strip(),
-            "stderr": stderr.decode(errors='replace').strip()
+            "stdout": stdout.decode(errors="replace").strip(),
+            "stderr": stderr.decode(errors="replace").strip(),
         }
 
     async def _fs_delete(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
@@ -90,10 +90,7 @@ class SystemAdapter(MCPAdapter):
             except Exception as e:
                 logger.error(f"Failed to delete {path}: {e}")
 
-        return {
-            "deleted": deleted,
-            "count": len(deleted)
-        }
+        return {"deleted": deleted, "count": len(deleted)}
 
     async def _fs_list(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """List files matching a pattern."""
@@ -101,7 +98,4 @@ class SystemAdapter(MCPAdapter):
         recursive = inputs.get("recursive", False)
 
         files = glob.glob(pattern, recursive=recursive)
-        return {
-            "files": files,
-            "count": len(files)
-        }
+        return {"files": files, "count": len(files)}

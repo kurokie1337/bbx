@@ -1,24 +1,32 @@
-name: Verify Docker Adapters
-description: Test Terraform and AWS adapters running in Docker
-version: 1.0
+name: Verify Universal Adapter
+description: Test Universal Adapter with Terraform and AWS CLI via Docker
+version: 2.0
 
 steps:
   - id: check_terraform_version
-    mcp: bbx.terraform
-    method: execute
+    mcp: universal
+    method: run
     inputs:
-      command: version
-      working_dir: "."
+      uses: docker://hashicorp/terraform:latest
+      cmd:
+        - terraform
+        - version
+        - -json
+      output_parser:
+        type: json
+        query: "terraform_version"
 
   - id: check_aws_version
-    mcp: bbx.aws
-    method: execute
+    mcp: universal
+    method: run
     inputs:
-      command: --version
-      working_dir: "."
+      uses: docker://amazon/aws-cli:latest
+      cmd:
+        - aws
+        - --version
 
   - id: log_success
     mcp: bbx.logger
     method: info
     inputs:
-      message: "Docker adapters verification completed successfully"
+      message: "Universal Adapter verification completed! Terraform: ${step.check_terraform_version.result}"

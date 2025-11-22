@@ -1,0 +1,41 @@
+# BBX Standard Library: Terraform Apply
+# Apply Terraform changes
+
+id: terraform_apply
+description: Apply Terraform configuration changes
+uses: docker://hashicorp/terraform:latest
+
+cmd:
+  - terraform
+  - apply
+  - "{% if auto_approve %}-auto-approve{% endif %}"
+  - "{% if plan_file %}{{ plan_file }}{% endif %}"
+
+inputs:
+  working_dir:
+    type: string
+    description: "Terraform working directory"
+    default: "."
+
+  plan_file:
+    type: string
+    description: "Path to plan file to apply"
+    default: "tfplan"
+
+  auto_approve:
+    type: boolean
+    description: "Skip interactive approval"
+    default: false
+
+# Example usage:
+# - id: apply_changes
+#   mcp: universal
+#   method: run
+#   inputs:
+#     uses: docker://hashicorp/terraform:latest
+#     working_dir: "./terraform"
+#     cmd:
+#       - terraform
+#       - apply
+#       - -auto-approve
+#       - tfplan

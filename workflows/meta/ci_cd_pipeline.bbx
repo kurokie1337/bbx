@@ -1,0 +1,526 @@
+# BBX CI/CD Pipeline
+# Continuous Integration and Deployment for BBX itself
+
+workflow:
+  id: bbx_ci_cd_pipeline
+  name: BBX CI/CD Pipeline
+  version: "6.0"
+  description: |
+    Complete CI/CD pipeline for BBX development:
+    - Code quality checks
+    - Unit and integration tests
+    - Security scanning
+    - Docker image building
+    - Documentation generation
+    - Deployment to staging/production
+    - Automated rollback on failure
+
+  tags:
+    - meta
+    - ci-cd
+    - automation
+
+  inputs:
+    branch:
+      type: string
+      required: false
+      default: "main"
+      description: Git branch to build
+
+    environment:
+      type: string
+      required: false
+      default: "staging"
+      description: "Deployment environment: staging, production"
+
+    skip_tests:
+      type: boolean
+      required: false
+      default: false
+
+    auto_deploy:
+      type: boolean
+      required: false
+      default: false
+
+  steps:
+    # ============================================
+    # Phase 1: Source Control
+    # ============================================
+    - id: checkout_code
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          git fetch origin ${inputs.branch} && \
+          git checkout ${inputs.branch} && \
+          git pull origin ${inputs.branch}
+      timeout: 30000
+
+    - id: get_commit_info
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          echo "SHA=$(git rev-parse HEAD)" && \
+          echo "MESSAGE=$(git log -1 --pretty=%B)" && \
+          echo "AUTHOR=$(git log -1 --pretty=%an)"
+      depends_on: [checkout_code]
+
+    # ============================================
+    # Phase 2: Code Quality (Parallel)
+    # ============================================
+    - id: lint_python
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: ruff check blackbox/ --output-format=json > lint-report.json
+      depends_on: [checkout_code]
+      retry: 1
+
+    - id: type_check
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: mypy blackbox/ --ignore-missing-imports --json-report=type-report.json
+      depends_on: [checkout_code]
+
+    - id: code_format_check
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: black --check blackbox/ && isort --check-only blackbox/
+      depends_on: [checkout_code]
+
+    - id: complexity_analysis
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: radon cc blackbox/ -a -j > complexity-report.json
+      depends_on: [checkout_code]
+
+    # ============================================
+    # Phase 3: Security Scanning (Parallel)
+    # ============================================
+    - id: security_scan_code
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: bandit -r blackbox/ -f json -o security-code.json
+      depends_on: [checkout_code]
+      retry: 1
+
+    - id: security_scan_dependencies
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: safety check --json > security-deps.json
+      depends_on: [checkout_code]
+
+    - id: license_check
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: pip-licenses --format=json --output-file=licenses.json
+      depends_on: [checkout_code]
+
+    # ============================================
+    # Phase 4: Testing
+    # ============================================
+    - id: run_unit_tests
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          pytest tests/ \
+            -v \
+            --cov=blackbox \
+            --cov-report=html:coverage-html \
+            --cov-report=json:coverage.json \
+            --junitxml=junit.xml \
+            --tb=short
+      when: "${inputs.skip_tests} == false"
+      depends_on:
+        - lint_python
+        - type_check
+        - code_format_check
+      timeout: 300000
+      retry: 2
+
+    - id: run_integration_tests
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          pytest tests/integration/ \
+            -v \
+            --log-cli-level=INFO \
+            --junitxml=junit-integration.xml
+      when: "${inputs.skip_tests} == false"
+      depends_on: [run_unit_tests]
+      timeout: 600000
+
+    - id: run_e2e_tests
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          pytest tests/e2e/ \
+            -v \
+            --log-cli-level=INFO \
+            --junitxml=junit-e2e.xml
+      when: "${inputs.skip_tests} == false"
+      depends_on: [run_integration_tests]
+      timeout: 900000
+
+    # ============================================
+    # Phase 5: Performance Testing
+    # ============================================
+    - id: benchmark_runtime
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          python tests/benchmarks/bench_runtime.py \
+            --iterations=1000 \
+            --output=benchmark-runtime.json
+      depends_on: [run_unit_tests]
+      timeout: 300000
+
+    - id: benchmark_dag
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          python tests/benchmarks/bench_dag.py \
+            --steps=100 \
+            --output=benchmark-dag.json
+      depends_on: [run_unit_tests]
+
+    - id: load_test_api
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          locust -f tests/load/test_api.py \
+            --headless \
+            --users 100 \
+            --spawn-rate 10 \
+            --run-time 2m \
+            --html=load-test-report.html
+      depends_on: [run_integration_tests]
+
+    # ============================================
+    # Phase 6: Build
+    # ============================================
+    - id: build_python_package
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          python -m build && \
+          twine check dist/*
+      depends_on:
+        - run_e2e_tests
+        - security_scan_code
+        - security_scan_dependencies
+      timeout: 120000
+
+    - id: build_docker_image
+      mcp: bbx.docker
+      method: build
+      inputs:
+        path: .
+        tag: "blackbox-workflow:${steps.get_commit_info.output.sha}"
+        dockerfile: Dockerfile
+        build_args:
+          GIT_SHA: ${steps.get_commit_info.output.sha}
+          BUILD_DATE: ${env.BUILD_DATE}
+        cache_from:
+          - blackbox-workflow:latest
+      depends_on: [build_python_package]
+
+    - id: tag_docker_image
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          docker tag blackbox-workflow:${steps.get_commit_info.output.sha} blackbox-workflow:latest && \
+          docker tag blackbox-workflow:${steps.get_commit_info.output.sha} blackbox-workflow:${inputs.branch}
+      depends_on: [build_docker_image]
+
+    # ============================================
+    # Phase 7: Container Security Scan
+    # ============================================
+    - id: scan_docker_image
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          trivy image \
+            --format json \
+            --output trivy-report.json \
+            blackbox-workflow:${steps.get_commit_info.output.sha}
+      depends_on: [build_docker_image]
+      retry: 1
+
+    # ============================================
+    # Phase 8: Documentation
+    # ============================================
+    - id: generate_api_docs
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          python -m pydoc2md blackbox > docs/API.md && \
+          sphinx-build -b html docs/ docs/_build/html
+      depends_on: [build_python_package]
+
+    - id: generate_coverage_badge
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          coverage-badge -o coverage.svg -f
+      depends_on: [run_unit_tests]
+
+    # ============================================
+    # Phase 9: Artifact Publishing
+    # ============================================
+    - id: push_docker_image
+      mcp: bbx.docker
+      method: push
+      inputs:
+        image: "blackbox-workflow:${steps.get_commit_info.output.sha}"
+      when: "${inputs.environment} == 'production' and ${inputs.auto_deploy} == true"
+      depends_on:
+        - scan_docker_image
+        - tag_docker_image
+
+    - id: publish_to_pypi
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          twine upload dist/* \
+            --username ${env.PYPI_USERNAME} \
+            --password ${env.PYPI_TOKEN}
+      when: "${inputs.environment} == 'production' and ${inputs.branch} == 'main'"
+      depends_on: [build_python_package]
+
+    # ============================================
+    # Phase 10: Deployment
+    # ============================================
+    - id: deploy_to_staging
+      mcp: bbx.kubernetes
+      method: apply
+      inputs:
+        file: k8s/staging-deployment.yaml
+        namespace: bbx-staging
+      when: "${inputs.environment} == 'staging'"
+      depends_on: [push_docker_image]
+
+    - id: deploy_to_production
+      mcp: bbx.kubernetes
+      method: apply
+      inputs:
+        file: k8s/production-deployment.yaml
+        namespace: bbx-production
+      when: "${inputs.environment} == 'production' and ${inputs.auto_deploy} == true"
+      depends_on: [push_docker_image]
+
+    # ============================================
+    # Phase 11: Health Checks
+    # ============================================
+    - id: health_check_staging
+      mcp: bbx.http
+      method: get
+      inputs:
+        url: https://staging.bbx.io/health
+      when: "${inputs.environment} == 'staging'"
+      depends_on: [deploy_to_staging]
+      retry: 5
+      retry_delay: 5000
+      timeout: 10000
+
+    - id: health_check_production
+      mcp: bbx.http
+      method: get
+      inputs:
+        url: https://bbx.io/health
+      when: "${inputs.environment} == 'production' and ${inputs.auto_deploy} == true"
+      depends_on: [deploy_to_production]
+      retry: 5
+      retry_delay: 5000
+      timeout: 10000
+
+    # ============================================
+    # Phase 12: Smoke Tests
+    # ============================================
+    - id: smoke_test_staging
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          pytest tests/smoke/ \
+            --base-url=https://staging.bbx.io \
+            -v
+      when: "${inputs.environment} == 'staging'"
+      depends_on: [health_check_staging]
+      timeout: 300000
+
+    - id: smoke_test_production
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          pytest tests/smoke/ \
+            --base-url=https://bbx.io \
+            -v
+      when: "${inputs.environment} == 'production'"
+      depends_on: [health_check_production]
+      timeout: 300000
+
+    # ============================================
+    # Phase 13: Rollback on Failure
+    # ============================================
+    - id: rollback_staging
+      mcp: bbx.kubernetes
+      method: rollout
+      inputs:
+        action: undo
+        deployment: bbx-api
+        namespace: bbx-staging
+      when: "${steps.smoke_test_staging.status} == 'error'"
+      depends_on: [smoke_test_staging]
+
+    - id: rollback_production
+      mcp: bbx.kubernetes
+      method: rollout
+      inputs:
+        action: undo
+        deployment: bbx-api
+        namespace: bbx-production
+      when: "${steps.smoke_test_production.status} == 'error'"
+      depends_on: [smoke_test_production]
+
+    # ============================================
+    # Phase 14: Reporting
+    # ============================================
+    - id: generate_build_report
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          cat > build-report.json << EOF
+          {
+            "commit": "${steps.get_commit_info.output.sha}",
+            "branch": "${inputs.branch}",
+            "environment": "${inputs.environment}",
+            "tests": {
+              "unit": "${steps.run_unit_tests.status}",
+              "integration": "${steps.run_integration_tests.status}",
+              "e2e": "${steps.run_e2e_tests.status}"
+            },
+            "security": {
+              "code": "${steps.security_scan_code.status}",
+              "dependencies": "${steps.security_scan_dependencies.status}",
+              "container": "${steps.scan_docker_image.status}"
+            },
+            "deployment": {
+              "staging": "${steps.deploy_to_staging.status}",
+              "production": "${steps.deploy_to_production.status}"
+            },
+            "health_checks": {
+              "staging": "${steps.health_check_staging.status}",
+              "production": "${steps.health_check_production.status}"
+            }
+          }
+          EOF
+      depends_on:
+        - smoke_test_staging
+        - smoke_test_production
+
+    # ============================================
+    # Phase 15: Notifications
+    # ============================================
+    - id: notify_success
+      mcp: bbx.telegram
+      method: send_message
+      inputs:
+        chat_id: ${env.TELEGRAM_CHAT_ID}
+        text: |
+          ✅ BBX CI/CD Pipeline SUCCESS
+
+          📦 Build: ${inputs.branch}@${steps.get_commit_info.output.sha}
+          👤 Author: ${steps.get_commit_info.output.author}
+          💬 Message: ${steps.get_commit_info.output.message}
+
+          🧪 Tests:
+          - Unit: ${steps.run_unit_tests.status}
+          - Integration: ${steps.run_integration_tests.status}
+          - E2E: ${steps.run_e2e_tests.status}
+
+          🔒 Security:
+          - Code Scan: ${steps.security_scan_code.status}
+          - Dependencies: ${steps.security_scan_dependencies.status}
+          - Container: ${steps.scan_docker_image.status}
+
+          🚀 Deployment:
+          - Environment: ${inputs.environment}
+          - Health Check: ✅
+
+          📊 Performance:
+          - Runtime Benchmark: ${steps.benchmark_runtime.output.avg_time}ms
+          - DAG Benchmark: ${steps.benchmark_dag.output.avg_time}ms
+          - Load Test: ${steps.load_test_api.output.requests_per_sec} req/sec
+
+          🎯 Docker Image: blackbox-workflow:${steps.get_commit_info.output.sha}
+      when: "${steps.smoke_test_staging.status} == 'success' or ${steps.smoke_test_production.status} == 'success'"
+      depends_on: [generate_build_report]
+
+    - id: notify_failure
+      mcp: bbx.telegram
+      method: send_message
+      inputs:
+        chat_id: ${env.TELEGRAM_CHAT_ID}
+        text: |
+          ❌ BBX CI/CD Pipeline FAILED
+
+          📦 Build: ${inputs.branch}@${steps.get_commit_info.output.sha}
+          👤 Author: ${steps.get_commit_info.output.author}
+
+          ⚠️ Failed Steps:
+          - Lint: ${steps.lint_python.status}
+          - Tests: ${steps.run_unit_tests.status}
+          - Security: ${steps.security_scan_code.status}
+          - Build: ${steps.build_docker_image.status}
+          - Deploy: ${steps.deploy_to_staging.status}
+          - Smoke Test: ${steps.smoke_test_staging.status}
+
+          🔄 Rollback: ${steps.rollback_staging.status}
+
+          Please check logs for details.
+      when: "${steps.smoke_test_staging.status} == 'error' or ${steps.smoke_test_production.status} == 'error'"
+      depends_on: [generate_build_report]
+
+    # ============================================
+    # Phase 16: Cleanup
+    # ============================================
+    - id: cleanup_artifacts
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          rm -f *.json *.xml *.html
+      depends_on:
+        - notify_success
+        - notify_failure
+
+  outputs:
+    build_status: ${steps.smoke_test_staging.status}
+    commit_sha: ${steps.get_commit_info.output.sha}
+    docker_image: "blackbox-workflow:${steps.get_commit_info.output.sha}"
+    deployment_environment: ${inputs.environment}
+    test_coverage: ${steps.run_unit_tests.output.coverage}
+    security_status: ${steps.security_scan_code.status}

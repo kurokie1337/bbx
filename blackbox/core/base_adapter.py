@@ -23,18 +23,19 @@ Provides unified base classes for all BBX adapters with:
 - Response standardization
 """
 
-import logging
-import subprocess
 import json
-import shutil
+import logging
 import platform
-from typing import Dict, Any, Optional, List, Union, Type, Callable
+import shutil
+import subprocess
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Type
 
 try:
     from pydantic import BaseModel, ValidationError
+
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
@@ -48,6 +49,7 @@ logger = logging.getLogger("bbx.adapters")
 
 class AdapterErrorType(Enum):
     """Standard error types for adapters"""
+
     VALIDATION_ERROR = "validation_error"
     EXECUTION_ERROR = "execution_error"
     TIMEOUT_ERROR = "timeout_error"
@@ -60,6 +62,7 @@ class AdapterErrorType(Enum):
 @dataclass
 class AdapterResponse:
     """Standardized adapter response format"""
+
     success: bool
     data: Any = None
     error: Optional[str] = None
@@ -89,7 +92,7 @@ class AdapterResponse:
         cls,
         error: str,
         error_type: AdapterErrorType = AdapterErrorType.EXECUTION_ERROR,
-        **metadata
+        **metadata,
     ) -> "AdapterResponse":
         """Create error response"""
         return cls(success=False, error=error, error_type=error_type, metadata=metadata)
@@ -123,11 +126,12 @@ class MCPAdapter(ABC):
             ValueError: If method not found
             Exception: On execution errors
         """
-        pass
 
     def log_execution(self, method: str, inputs: Dict[str, Any]):
         """Log method execution"""
-        self.logger.debug(f"Executing {self.adapter_name}.{method}", extra={"inputs": inputs})
+        self.logger.debug(
+            f"Executing {self.adapter_name}.{method}", extra={"inputs": inputs}
+        )
 
     def log_success(self, method: str, result: Any):
         """Log successful execution"""
@@ -136,14 +140,11 @@ class MCPAdapter(ABC):
     def log_error(self, method: str, error: Exception):
         """Log execution error"""
         self.logger.error(
-            f"{self.adapter_name}.{method} failed: {error}",
-            exc_info=True
+            f"{self.adapter_name}.{method} failed: {error}", exc_info=True
         )
 
     def validate_inputs(
-        self,
-        inputs: Dict[str, Any],
-        schema: Optional[Type[BaseModel]] = None
+        self, inputs: Dict[str, Any], schema: Optional[Type[BaseModel]] = None
     ) -> Dict[str, Any]:
         """
         Validate inputs using Pydantic schema (if available)
@@ -175,13 +176,11 @@ class MCPAdapter(ABC):
             errors = e.errors()
             error_messages = []
             for error in errors:
-                field = ".".join(str(loc) for loc in error['loc'])
-                msg = error['msg']
+                field = ".".join(str(loc) for loc in error["loc"])
+                msg = error["msg"]
                 error_messages.append(f"{field}: {msg}")
 
-            raise ValueError(
-                f"Input validation failed: {'; '.join(error_messages)}"
-            )
+            raise ValueError(f"Input validation failed: {'; '.join(error_messages)}")
 
 
 class BaseAdapter(MCPAdapter):
@@ -211,8 +210,7 @@ class BaseAdapter(MCPAdapter):
             error = f"Unknown method: {method}"
             self.log_error(method, ValueError(error))
             return AdapterResponse.error_response(
-                error=error,
-                error_type=AdapterErrorType.NOT_FOUND_ERROR
+                error=error, error_type=AdapterErrorType.NOT_FOUND_ERROR
             ).to_dict()
 
         try:
@@ -222,8 +220,7 @@ class BaseAdapter(MCPAdapter):
         except Exception as e:
             self.log_error(method, e)
             return AdapterResponse.error_response(
-                error=str(e),
-                error_type=AdapterErrorType.EXECUTION_ERROR
+                error=str(e), error_type=AdapterErrorType.EXECUTION_ERROR
             ).to_dict()
 
 
@@ -244,7 +241,7 @@ class CLIAdapter(BaseAdapter):
         adapter_name: str,
         cli_tool: str,
         version_args: Optional[List[str]] = None,
-        required: bool = True
+        required: bool = True,
     ):
         super().__init__(adapter_name)
         self.cli_tool = cli_tool
@@ -280,7 +277,7 @@ class CLIAdapter(BaseAdapter):
                 [self.cli_tool] + self.version_args,
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
 
             if result.returncode == 0:
@@ -304,7 +301,7 @@ class CLIAdapter(BaseAdapter):
         timeout: int = 300,
         output_format: str = "json",
         check: bool = False,
-        env: Optional[Dict[str, str]] = None
+        env: Optional[Dict[str, str]] = None,
     ) -> AdapterResponse:
         """
         Execute CLI command with standard error handling.
@@ -322,7 +319,7 @@ class CLIAdapter(BaseAdapter):
         if not self.cli_available:
             return AdapterResponse.error_response(
                 error=f"{self.cli_tool} is not available",
-                error_type=AdapterErrorType.DEPENDENCY_ERROR
+                error_type=AdapterErrorType.DEPENDENCY_ERROR,
             )
 
         cmd = [self.cli_tool] + list(args)
@@ -340,7 +337,7 @@ class CLIAdapter(BaseAdapter):
                 text=True,
                 timeout=timeout,
                 env=env,
-                check=check
+                check=check,
             )
 
             # Parse output based on format
@@ -362,31 +359,31 @@ class CLIAdapter(BaseAdapter):
                     data=output_data,
                     exit_code=result.returncode,
                     stdout=result.stdout,
-                    stderr=result.stderr
+                    stderr=result.stderr,
                 )
             else:
                 return AdapterResponse.error_response(
-                    error=result.stderr.strip() or f"Command failed with exit code {result.returncode}",
+                    error=result.stderr.strip()
+                    or f"Command failed with exit code {result.returncode}",
                     error_type=AdapterErrorType.EXECUTION_ERROR,
                     exit_code=result.returncode,
                     stdout=result.stdout,
-                    stderr=result.stderr
+                    stderr=result.stderr,
                 )
 
-        except subprocess.TimeoutExpired as e:
+        except subprocess.TimeoutExpired:
             return AdapterResponse.error_response(
                 error=f"Command timed out after {timeout}s",
-                error_type=AdapterErrorType.TIMEOUT_ERROR
+                error_type=AdapterErrorType.TIMEOUT_ERROR,
             )
         except FileNotFoundError as e:
             return AdapterResponse.error_response(
                 error=f"{self.cli_tool} not found: {e}",
-                error_type=AdapterErrorType.DEPENDENCY_ERROR
+                error_type=AdapterErrorType.DEPENDENCY_ERROR,
             )
         except Exception as e:
             return AdapterResponse.error_response(
-                error=str(e),
-                error_type=AdapterErrorType.EXECUTION_ERROR
+                error=str(e), error_type=AdapterErrorType.EXECUTION_ERROR
             )
 
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
@@ -411,7 +408,7 @@ class DockerizedAdapter(MCPAdapter):
         adapter_name: str,
         docker_image: Optional[str] = None,
         cli_tool: Optional[str] = None,  # For compatibility with CLIAdapter calls
-        required: bool = True  # For compatibility with CLIAdapter calls
+        required: bool = True,  # For compatibility with CLIAdapter calls
     ):
         super().__init__(adapter_name)
         self.docker_image = docker_image
@@ -424,7 +421,7 @@ class DockerizedAdapter(MCPAdapter):
         working_dir: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         volumes: Optional[Dict[str, str]] = None,
-        output_format: str = "text"
+        output_format: str = "text",
     ) -> AdapterResponse:
         """
         Run command inside Docker container.
@@ -442,7 +439,7 @@ class DockerizedAdapter(MCPAdapter):
         if not self.docker_image:
             return AdapterResponse.error_response(
                 error="No Docker image specified",
-                error_type=AdapterErrorType.CONFIGURATION_ERROR
+                error_type=AdapterErrorType.CONFIGURATION_ERROR,
             )
 
         # Build docker run command
@@ -466,7 +463,8 @@ class DockerizedAdapter(MCPAdapter):
         if platform.system() != "Windows":
             try:
                 import os
-                if hasattr(os, 'getuid') and hasattr(os, 'getgid'):
+
+                if hasattr(os, "getuid") and hasattr(os, "getgid"):
                     docker_cmd.extend(["-u", f"{os.getuid()}:{os.getgid()}"])  # type: ignore
             except Exception:
                 pass
@@ -478,15 +476,16 @@ class DockerizedAdapter(MCPAdapter):
         # Execute
         try:
             result = subprocess.run(
-                docker_cmd,
-                capture_output=True,
-                text=True,
-                timeout=300
+                docker_cmd, capture_output=True, text=True, timeout=300
             )
 
             if result.returncode == 0:
                 return AdapterResponse.success_response(
-                    data={"stdout": result.stdout, "stderr": result.stderr, "exit_code": 0}
+                    data={
+                        "stdout": result.stdout,
+                        "stderr": result.stderr,
+                        "exit_code": 0,
+                    }
                 )
             else:
                 return AdapterResponse.error_response(
@@ -494,17 +493,15 @@ class DockerizedAdapter(MCPAdapter):
                     error_type=AdapterErrorType.EXECUTION_ERROR,
                     stdout=result.stdout,
                     stderr=result.stderr,
-                    exit_code=result.returncode
+                    exit_code=result.returncode,
                 )
         except subprocess.TimeoutExpired:
             return AdapterResponse.error_response(
-                error="Command timed out",
-                error_type=AdapterErrorType.TIMEOUT_ERROR
+                error="Command timed out", error_type=AdapterErrorType.TIMEOUT_ERROR
             )
         except Exception as e:
             return AdapterResponse.error_response(
-                error=str(e),
-                error_type=AdapterErrorType.EXECUTION_ERROR
+                error=str(e), error_type=AdapterErrorType.EXECUTION_ERROR
             )
 
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
@@ -521,5 +518,5 @@ __all__ = [
     "CLIAdapter",
     "DockerizedAdapter",
     "AdapterResponse",
-    "AdapterErrorType"
+    "AdapterErrorType",
 ]

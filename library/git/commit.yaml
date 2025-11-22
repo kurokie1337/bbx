@@ -1,0 +1,43 @@
+# BBX Standard Library: Git Commit
+# Create a Git commit
+
+id: git_commit
+description: Commit changes to Git repository
+uses: docker://alpine/git:latest
+
+cmd:
+  - git
+  - commit
+  - -m
+  - "{{ message }}"
+  - "{% if all %}-a{% endif %}"
+
+inputs:
+  message:
+    type: string
+    description: "Commit message"
+    required: true
+
+  all:
+    type: boolean
+    description: "Commit all modified files"
+    default: false
+
+  working_dir:
+    type: string
+    description: "Git repository directory"
+    default: "."
+
+# Example usage:
+# - id: commit_changes
+#   mcp: universal
+#   method: run
+#   inputs:
+#     uses: docker://alpine/git:latest
+#     working_dir: ./my-repo
+#     cmd:
+#       - git
+#       - commit
+#       - -m
+#       - "feat: Add new feature"
+#       - -a

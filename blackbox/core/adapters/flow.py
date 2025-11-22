@@ -14,13 +14,13 @@
 
 
 import logging
-
-
-from typing import Dict, Any
 import os
+from typing import Any, Dict
+
 from blackbox.core.base_adapter import MCPAdapter
 
 logger = logging.getLogger("bbx.flow")
+
 
 class FlowAdapter(MCPAdapter):
     """
@@ -54,7 +54,7 @@ class FlowAdapter(MCPAdapter):
             # Let's pass None for now to keep it simple, or maybe we want to see sub-steps?
             # If we pass None, we won't see sub-steps in the main log unless we handle it.
             # But run_file prints to stdout anyway.
-            results = await run_file(path)
+            results = await run_file(path, inputs=variables)
 
             # Check for failures
             failed_steps = []

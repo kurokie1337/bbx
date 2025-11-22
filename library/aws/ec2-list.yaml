@@ -1,0 +1,47 @@
+# BBX Standard Library: AWS EC2 List Instances
+# List EC2 instances
+
+id: aws_ec2_list
+description: List EC2 instances
+uses: docker://amazon/aws-cli:latest
+
+cmd:
+  - aws
+  - ec2
+  - describe-instances
+  - --output
+  - json
+  - "{% if region %}--region{{ region }}{% endif %}"
+
+inputs:
+  region:
+    type: string
+    description: "AWS region"
+    default: "us-east-1"
+
+auth:
+  type: aws_credentials
+
+output_parser:
+  type: json
+  query: "Reservations[].Instances[]"
+
+# Example usage:
+# - id: list_instances
+#   mcp: universal
+#   method: run
+#   inputs:
+#     uses: docker://amazon/aws-cli:latest
+#     cmd:
+#       - aws
+#       - ec2
+#       - describe-instances
+#       - --region
+#       - us-west-2
+#       - --output
+#       - json
+#     auth:
+#       type: aws_credentials
+#     output_parser:
+#       type: json
+#       query: "Reservations[].Instances[].InstanceId"

@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bbx-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bbx-operator
+  template:
+    metadata:
+      labels:
+        app: bbx-operator
+    spec:
+      serviceAccountName: bbx-operator
+      containers:
+        - name: operator
+          image: bbx-operator:latest
+          imagePullPolicy: Always

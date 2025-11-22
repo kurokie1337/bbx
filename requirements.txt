@@ -40,3 +40,19 @@ types-psutil
 types-requests
 types-boto3
 
+websockets>=12.0
+python-socketio>=5.10.0
+aioredis>=2.0.1
+"redis>=5.0.0" 
+strawberry-graphql[fastapi]>=0.217.0
+graphql-core>=3.2.0
+celery>=5.3.0
+redis>=5.0.0
+celery-beat>=2.5.0
+
+# AI / Local LLM (v1.0: AI-First)
+llama-cpp-python>=0.2.90  # Local LLM inference (Qwen2.5 0.5B)
+tqdm>=4.66.1               # Progress bars for model downloads
+
+# MCP (Model Context Protocol) - for AI agent integration
+mcp>=1.0.0                 # MCP SDK for exposing BBX to AI agents

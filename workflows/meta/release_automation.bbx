@@ -1,0 +1,610 @@
+# BBX Release Automation Workflow
+# Automates the entire release process for BBX
+
+workflow:
+  id: bbx_release_automation
+  name: BBX Release Automation
+  version: "6.0"
+  description: |
+    Fully automated release workflow for BBX:
+    - Version bumping
+    - Changelog generation
+    - Git tagging
+    - Docker image building and publishing
+    - PyPI package publishing
+    - GitHub release creation
+    - Documentation deployment
+    - Announcement notifications
+    - Homebrew formula update
+    - Release verification
+
+  tags:
+    - meta
+    - release
+    - automation
+
+  inputs:
+    version:
+      type: string
+      required: true
+      description: "Release version (e.g., 1.1.0, 2.0.0)"
+
+    release_type:
+      type: string
+      required: false
+      default: "minor"
+      description: "Release type: major, minor, patch"
+
+    pre_release:
+      type: boolean
+      required: false
+      default: false
+      description: "Is this a pre-release (beta, rc)?"
+
+    skip_verification:
+      type: boolean
+      required: false
+      default: false
+      description: "Skip release verification tests"
+
+  steps:
+    # ============================================
+    # Phase 1: Pre-release Validation
+    # ============================================
+    - id: validate_version
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          # Validate semver format
+          if ! echo "${inputs.version}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9]+)?$'; then
+            echo "Invalid version format: ${inputs.version}"
+            exit 1
+          fi
+          echo "Version ${inputs.version} is valid"
+      timeout: 5000
+
+    - id: check_git_status
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          # Ensure working directory is clean
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Working directory is not clean"
+            git status --short
+            exit 1
+          fi
+          echo "Working directory is clean"
+      depends_on: [validate_version]
+
+    - id: check_current_branch
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$BRANCH" != "main" ]; then
+            echo "Not on main branch (currently on $BRANCH)"
+            exit 1
+          fi
+          echo "On main branch"
+      depends_on: [check_git_status]
+
+    # ============================================
+    # Phase 2: Run Full Test Suite
+    # ============================================
+    - id: run_complete_test_suite
+      mcp: bbx.flow
+      method: run
+      inputs:
+        path: workflows/meta/ci_cd_pipeline.bbx
+        inputs:
+          branch: main
+          environment: staging
+          skip_tests: false
+          auto_deploy: false
+      when: "${inputs.skip_verification} == false"
+      depends_on: [check_current_branch]
+      timeout: 1800000
+
+    # ============================================
+    # Phase 3: Version Bumping
+    # ============================================
+    - id: update_version_files
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          # Update version in setup.py
+          sed -i 's/version="[^"]*"/version="${inputs.version}"/' setup.py
+
+          # Update version in __init__.py
+          echo "__version__ = '${inputs.version}'" > blackbox/__version__.py
+
+          # Update version in package.json (if exists)
+          if [ -f package.json ]; then
+            sed -i 's/"version": "[^"]*"/"version": "${inputs.version}"/' package.json
+          fi
+
+          # Update version in README.md badge
+          sed -i 's/Version-[0-9.]*-/Version-${inputs.version}-/' README.md
+
+          echo "Updated version to ${inputs.version}"
+      depends_on: [run_complete_test_suite]
+
+    # ============================================
+    # Phase 4: Changelog Generation
+    # ============================================
+    - id: generate_changelog_entry
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          # Get commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --reverse)
+          else
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)")
+          fi
+
+          # Generate changelog entry
+          cat > CHANGELOG_ENTRY.md << EOF
+          ## [${inputs.version}] - $(date +%Y-%m-%d)
+
+          ### ✨ Features
+          $(echo "$COMMITS" | grep -i "feat:" | sed 's/feat://' || echo "- No new features")
+
+          ### 🐛 Bug Fixes
+          $(echo "$COMMITS" | grep -i "fix:" | sed 's/fix://' || echo "- No bug fixes")
+
+          ### 📚 Documentation
+          $(echo "$COMMITS" | grep -i "docs:" | sed 's/docs://' || echo "- No documentation changes")
+
+          ### ⚡ Performance
+          $(echo "$COMMITS" | grep -i "perf:" | sed 's/perf://' || echo "- No performance improvements")
+
+          ### 🔧 Maintenance
+          $(echo "$COMMITS" | grep -i "chore:" | sed 's/chore://' || echo "- No maintenance changes")
+
+          ---
+          EOF
+
+          cat CHANGELOG_ENTRY.md
+      depends_on: [update_version_files]
+
+    - id: update_changelog
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          # Insert new entry after "## [Unreleased]" section
+          sed -i '/## \[Unreleased\]/r CHANGELOG_ENTRY.md' CHANGELOG.md
+          echo "Updated CHANGELOG.md"
+      depends_on: [generate_changelog_entry]
+
+    # ============================================
+    # Phase 5: Build Release Artifacts
+    # ============================================
+    - id: build_python_package
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          # Clean previous builds
+          rm -rf dist/ build/ *.egg-info
+
+          # Build package
+          python -m build
+
+          # Verify package
+          twine check dist/*
+
+          echo "Built Python package successfully"
+      depends_on: [update_changelog]
+      timeout: 120000
+
+    - id: build_docker_images
+      mcp: bbx.docker
+      method: build
+      inputs:
+        path: .
+        tag: "blackbox-workflow:${inputs.version}"
+        dockerfile: Dockerfile
+        build_args:
+          VERSION: ${inputs.version}
+          BUILD_DATE: ${env.BUILD_DATE}
+        labels:
+          version: ${inputs.version}
+          release_type: ${inputs.release_type}
+      depends_on: [build_python_package]
+
+    - id: tag_docker_images
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          docker tag blackbox-workflow:${inputs.version} blackbox-workflow:latest
+          docker tag blackbox-workflow:${inputs.version} ghcr.io/kurokie1337/bbx:${inputs.version}
+          docker tag blackbox-workflow:${inputs.version} ghcr.io/kurokie1337/bbx:latest
+          echo "Tagged Docker images"
+      depends_on: [build_docker_images]
+
+    # ============================================
+    # Phase 6: Git Operations
+    # ============================================
+    - id: commit_version_bump
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          git add -A
+          git commit -m "chore: Bump version to ${inputs.version}
+
+          This release includes:
+          - Version bump to ${inputs.version}
+          - Updated CHANGELOG.md
+          - Updated version files
+
+          Release type: ${inputs.release_type}
+          Pre-release: ${inputs.pre_release}
+
+          🤖 Generated by BBX release automation"
+      depends_on:
+        - update_changelog
+        - build_python_package
+
+    - id: create_git_tag
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          git tag -a "v${inputs.version}" -m "Release v${inputs.version}
+
+          $(cat CHANGELOG_ENTRY.md)
+
+          🏗️ Built in Siberia with ❤️
+          🤖 Automated by BBX meta-automation"
+      depends_on: [commit_version_bump]
+
+    - id: push_to_github
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          git push origin main
+          git push origin "v${inputs.version}"
+          echo "Pushed to GitHub"
+      depends_on: [create_git_tag]
+
+    # ============================================
+    # Phase 7: Publish Artifacts
+    # ============================================
+    - id: publish_to_pypi
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          twine upload dist/* \
+            --username __token__ \
+            --password ${env.PYPI_TOKEN} \
+            --verbose
+      when: "${inputs.pre_release} == false"
+      depends_on: [push_to_github]
+      retry: 2
+
+    - id: publish_to_test_pypi
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          twine upload dist/* \
+            --repository testpypi \
+            --username __token__ \
+            --password ${env.TEST_PYPI_TOKEN}
+      when: "${inputs.pre_release} == true"
+      depends_on: [push_to_github]
+
+    - id: push_docker_to_dockerhub
+      mcp: bbx.docker
+      method: push
+      inputs:
+        image: "blackbox-workflow:${inputs.version}"
+      depends_on: [tag_docker_images, push_to_github]
+
+    - id: push_docker_to_ghcr
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          echo ${env.GITHUB_TOKEN} | docker login ghcr.io -u kurokie1337 --password-stdin
+          docker push ghcr.io/kurokie1337/bbx:${inputs.version}
+          docker push ghcr.io/kurokie1337/bbx:latest
+      depends_on: [tag_docker_images, push_to_github]
+
+    # ============================================
+    # Phase 8: GitHub Release
+    # ============================================
+    - id: create_github_release
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          gh release create "v${inputs.version}" \
+            --title "BBX v${inputs.version}" \
+            --notes-file CHANGELOG_ENTRY.md \
+            $(if [ "${inputs.pre_release}" = "true" ]; then echo "--prerelease"; fi) \
+            dist/*
+      depends_on:
+        - publish_to_pypi
+        - push_docker_to_ghcr
+
+    # ============================================
+    # Phase 9: Documentation Deployment
+    # ============================================
+    - id: build_documentation
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          cd docs
+          sphinx-build -b html . _build/html
+          echo "Documentation built"
+      depends_on: [create_github_release]
+
+    - id: deploy_to_github_pages
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          cd docs/_build/html
+          git init
+          git add -A
+          git commit -m "Deploy documentation for v${inputs.version}"
+          git push -f https://github.com/kurokie1337/bbx.git HEAD:gh-pages
+      depends_on: [build_documentation]
+
+    # ============================================
+    # Phase 10: Package Managers
+    # ============================================
+    - id: update_homebrew_formula
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          # Clone homebrew tap
+          git clone https://github.com/kurokie1337/homebrew-bbx.git /tmp/homebrew-bbx
+          cd /tmp/homebrew-bbx
+
+          # Update formula
+          cat > Formula/bbx.rb << EOF
+          class Bbx < Formula
+            desc "Blackbox Workflow Engine - Production-grade workflow automation"
+            homepage "https://github.com/kurokie1337/bbx"
+            url "https://github.com/kurokie1337/bbx/archive/v${inputs.version}.tar.gz"
+            version "${inputs.version}"
+            license "Apache-2.0"
+
+            depends_on "python@3.11"
+
+            def install
+              virtualenv_install_with_resources
+            end
+
+            test do
+              system "#{bin}/bbx", "--version"
+            end
+          end
+          EOF
+
+          # Commit and push
+          git add Formula/bbx.rb
+          git commit -m "Update BBX to v${inputs.version}"
+          git push origin main
+      when: "${inputs.pre_release} == false"
+      depends_on: [publish_to_pypi]
+
+    # ============================================
+    # Phase 11: Release Verification
+    # ============================================
+    - id: verify_pypi_installation
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          # Test installation from PyPI
+          python -m venv /tmp/test-venv
+          source /tmp/test-venv/bin/activate
+          pip install blackbox-workflow==${inputs.version}
+          python -c "import blackbox; print(blackbox.__version__)"
+          deactivate
+          rm -rf /tmp/test-venv
+      when: "${inputs.skip_verification} == false and ${inputs.pre_release} == false"
+      depends_on: [publish_to_pypi]
+      retry: 3
+      retry_delay: 10000
+
+    - id: verify_docker_image
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          # Pull and test Docker image
+          docker pull blackbox-workflow:${inputs.version}
+          docker run --rm blackbox-workflow:${inputs.version} --version
+      when: "${inputs.skip_verification} == false"
+      depends_on: [push_docker_to_dockerhub]
+      retry: 3
+
+    # ============================================
+    # Phase 12: Announcements
+    # ============================================
+    - id: announce_on_telegram
+      mcp: bbx.telegram
+      method: send_message
+      inputs:
+        chat_id: ${env.TELEGRAM_CHAT_ID}
+        text: |
+          🎉 BBX v${inputs.version} Released!
+
+          $(cat CHANGELOG_ENTRY.md)
+
+          📦 Installation:
+          pip install blackbox-workflow==${inputs.version}
+
+          🐳 Docker:
+          docker pull blackbox-workflow:${inputs.version}
+
+          🍺 Homebrew:
+          brew install kurokie1337/bbx/bbx
+
+          📚 Documentation:
+          https://kurokie1337.github.io/bbx
+
+          🔗 GitHub Release:
+          https://github.com/kurokie1337/bbx/releases/tag/v${inputs.version}
+
+          Built with ❤️ in Siberia
+      depends_on: [create_github_release]
+
+    - id: create_release_tweet
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          cat > release-tweet.txt << 'EOF'
+          🚀 BBX v${inputs.version} is out!
+
+          Production-grade workflow automation for modern infrastructure.
+
+          New in this release:
+          $(head -n 5 CHANGELOG_ENTRY.md | tail -n 4)
+
+          Install: pip install blackbox-workflow
+
+          #DevOps #Automation #OpenSource #Python
+          EOF
+
+          cat release-tweet.txt
+      depends_on: [create_github_release]
+
+    - id: post_to_hacker_news
+      mcp: bbx.http
+      method: post
+      inputs:
+        url: https://news.ycombinator.com/submitlink
+        form_data:
+          title: "BBX v${inputs.version} – Production-grade workflow automation"
+          url: "https://github.com/kurokie1337/bbx"
+      when: "${inputs.release_type} == 'major' and ${inputs.pre_release} == false"
+      depends_on: [create_github_release]
+
+    # ============================================
+    # Phase 13: Post-release Tasks
+    # ============================================
+    - id: create_next_milestone
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          # Calculate next version
+          NEXT_VERSION=$(echo "${inputs.version}" | awk -F. '{print $1"."$2+1".0"}')
+
+          # Create GitHub milestone
+          gh api repos/kurokie1337/bbx/milestones \
+            -X POST \
+            -f title="v$NEXT_VERSION" \
+            -f description="Next release milestone"
+
+          echo "Created milestone for v$NEXT_VERSION"
+      depends_on: [create_github_release]
+
+    - id: update_unreleased_section
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          # Add empty Unreleased section to CHANGELOG
+          sed -i '1i## [Unreleased]\n\n### Features\n- TBD\n\n### Bug Fixes\n- TBD\n\n---\n' CHANGELOG.md
+
+          git add CHANGELOG.md
+          git commit -m "chore: Prepare CHANGELOG for next release"
+          git push origin main
+      depends_on: [create_next_milestone]
+
+    # ============================================
+    # Phase 14: Final Report
+    # ============================================
+    - id: generate_release_report
+      mcp: bbx.system
+      method: execute
+      inputs:
+        command: |
+          cat > RELEASE_REPORT_${inputs.version}.md << EOF
+          # BBX v${inputs.version} Release Report
+
+          ## Release Information
+          - **Version**: ${inputs.version}
+          - **Type**: ${inputs.release_type}
+          - **Pre-release**: ${inputs.pre_release}
+          - **Date**: $(date)
+
+          ## Build Status
+          - Python Package: ${steps.build_python_package.status}
+          - Docker Image: ${steps.build_docker_images.status}
+          - Tests: ${steps.run_complete_test_suite.status}
+
+          ## Publishing Status
+          - PyPI: ${steps.publish_to_pypi.status}
+          - Docker Hub: ${steps.push_docker_to_dockerhub.status}
+          - GitHub Container Registry: ${steps.push_docker_to_ghcr.status}
+          - GitHub Release: ${steps.create_github_release.status}
+
+          ## Verification
+          - PyPI Installation: ${steps.verify_pypi_installation.status}
+          - Docker Image: ${steps.verify_docker_image.status}
+
+          ## Distribution
+          - Documentation: ${steps.deploy_to_github_pages.status}
+          - Homebrew: ${steps.update_homebrew_formula.status}
+
+          ## Announcements
+          - Telegram: ${steps.announce_on_telegram.status}
+          - Twitter Draft: Created
+          - Hacker News: ${steps.post_to_hacker_news.status}
+
+          ## Links
+          - PyPI: https://pypi.org/project/blackbox-workflow/${inputs.version}/
+          - Docker: https://hub.docker.com/r/blackbox-workflow
+          - Release: https://github.com/kurokie1337/bbx/releases/tag/v${inputs.version}
+          - Docs: https://kurokie1337.github.io/bbx
+
+          ---
+          Generated by BBX Release Automation
+          EOF
+
+          cat RELEASE_REPORT_${inputs.version}.md
+      depends_on:
+        - verify_pypi_installation
+        - verify_docker_image
+        - announce_on_telegram
+
+    - id: send_release_report
+      mcp: bbx.telegram
+      method: send_document
+      inputs:
+        chat_id: ${env.TELEGRAM_CHAT_ID}
+        document: "RELEASE_REPORT_${inputs.version}.md"
+        caption: "📊 Release Report for BBX v${inputs.version}"
+      depends_on: [generate_release_report]
+
+  outputs:
+    version: ${inputs.version}
+    release_tag: "v${inputs.version}"
+    pypi_url: "https://pypi.org/project/blackbox-workflow/${inputs.version}/"
+    github_release_url: "https://github.com/kurokie1337/bbx/releases/tag/v${inputs.version}"
+    docker_image: "blackbox-workflow:${inputs.version}"
+    release_status: "success"
+    release_report: "RELEASE_REPORT_${inputs.version}.md"

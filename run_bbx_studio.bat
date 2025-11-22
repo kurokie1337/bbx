@@ -1,0 +1,3 @@
+@echo off
+echo Starting BBX Studio...
+python bbx_ui/app.py

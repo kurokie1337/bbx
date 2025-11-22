@@ -1,0 +1,321 @@
+# BBX Redis Cache Backend Feature
+# Replace in-memory cache with Redis for distributed caching
+
+workflow:
+  id: feature_redis_cache
+  name: Redis Cache Backend Implementation
+  version: "6.0"
+  description: |
+    Implements Redis-backed caching:
+    - Distributed cache across multiple BBX instances
+    - Workflow result caching
+    - Step output caching
+    - TTL and eviction policies
+
+  tags:
+    - feature
+    - redis
+    - cache
+    - v1.1.0
+
+  steps:
+    - id: add_redis_dependency
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          echo "redis>=5.0.0" >> requirements.txt
+          echo "hiredis>=2.2.0" >> requirements.txt
+
+    - id: create_redis_cache
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          mkdir -p blackbox/cache
+          cat > blackbox/cache/redis_backend.py << 'EOF'
+          """Redis cache backend for BBX."""
+          import json
+          import redis
+          from typing import Any, Optional
+          import hashlib
+
+          class RedisCache:
+              """Redis-backed cache for workflow results."""
+
+              def __init__(
+                  self,
+                  host: str = "localhost",
+                  port: int = 6379,
+                  db: int = 0,
+                  password: Optional[str] = None,
+                  prefix: str = "bbx:",
+                  ttl: int = 3600
+              ):
+                  self.client = redis.Redis(
+                      host=host,
+                      port=port,
+                      db=db,
+                      password=password,
+                      decode_responses=True
+                  )
+                  self.prefix = prefix
+                  self.ttl = ttl
+
+              def _make_key(self, workflow_id: str, inputs: dict) -> str:
+                  """Generate cache key from workflow and inputs."""
+                  input_hash = hashlib.md5(
+                      json.dumps(inputs, sort_keys=True).encode()
+                  ).hexdigest()
+                  return f"{self.prefix}{workflow_id}:{input_hash}"
+
+              def get(self, workflow_id: str, inputs: dict) -> Optional[Any]:
+                  """Get cached workflow result."""
+                  key = self._make_key(workflow_id, inputs)
+                  value = self.client.get(key)
+                  if value:
+                      return json.loads(value)
+                  return None
+
+              def set(self, workflow_id: str, inputs: dict, result: Any):
+                  """Cache workflow result."""
+                  key = self._make_key(workflow_id, inputs)
+                  self.client.setex(
+                      key,
+                      self.ttl,
+                      json.dumps(result, default=str)
+                  )
+
+              def invalidate(self, workflow_id: str):
+                  """Invalidate all cache entries for a workflow."""
+                  pattern = f"{self.prefix}{workflow_id}:*"
+                  for key in self.client.scan_iter(match=pattern):
+                      self.client.delete(key)
+
+              def clear(self):
+                  """Clear all BBX cache entries."""
+                  pattern = f"{self.prefix}*"
+                  for key in self.client.scan_iter(match=pattern):
+                      self.client.delete(key)
+
+              def stats(self) -> dict:
+                  """Get cache statistics."""
+                  pattern = f"{self.prefix}*"
+                  keys = list(self.client.scan_iter(match=pattern))
+                  return {
+                      "total_keys": len(keys),
+                      "memory_usage": sum(
+                          self.client.memory_usage(key) or 0 for key in keys
+                      ),
+                      "redis_info": self.client.info("stats")
+                  }
+          EOF
+      depends_on: [add_redis_dependency]
+
+    - id: integrate_with_runtime
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > blackbox/core/cache_integration.py << 'EOF'
+          """Integrate Redis cache into runtime."""
+          from blackbox.cache.redis_backend import RedisCache
+          from blackbox.core.config import config
+
+          # Initialize Redis cache if enabled
+          redis_cache = None
+          if config.get("cache.backend") == "redis":
+              redis_cache = RedisCache(
+                  host=config.get("redis.host", "localhost"),
+                  port=config.get("redis.port", 6379),
+                  db=config.get("redis.db", 0),
+                  password=config.get("redis.password"),
+                  prefix=config.get("redis.prefix", "bbx:"),
+                  ttl=config.get("cache.ttl", 3600)
+              )
+
+          def get_cache():
+              """Get cache instance."""
+              return redis_cache
+          EOF
+      depends_on: [create_redis_cache]
+
+    - id: add_cache_adapter
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > blackbox/core/adapters/cache.py << 'EOF'
+          """Cache management adapter."""
+          from blackbox.core.base_adapter import BaseAdapter
+          from blackbox.core.cache_integration import get_cache
+
+          class CacheAdapter(BaseAdapter):
+              """Adapter for cache operations."""
+
+              def __init__(self):
+                  super().__init__("cache")
+
+              def clear(self):
+                  """Clear all cache."""
+                  cache = get_cache()
+                  if cache:
+                      cache.clear()
+                      return {"status": "cleared"}
+                  return {"status": "no_cache"}
+
+              def invalidate(self, workflow_id: str):
+                  """Invalidate workflow cache."""
+                  cache = get_cache()
+                  if cache:
+                      cache.invalidate(workflow_id)
+                      return {"status": "invalidated", "workflow_id": workflow_id}
+                  return {"status": "no_cache"}
+
+              def stats(self):
+                  """Get cache statistics."""
+                  cache = get_cache()
+                  if cache:
+                      return cache.stats()
+                  return {"status": "no_cache"}
+          EOF
+      depends_on: [integrate_with_runtime]
+
+    - id: update_config
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat >> config.yaml << 'EOF'
+
+          # Redis Cache Configuration
+          cache:
+            backend: redis  # or 'memory'
+            ttl: 3600
+
+          redis:
+            host: localhost
+            port: 6379
+            db: 0
+            password: null
+            prefix: "bbx:"
+          EOF
+      depends_on: [create_redis_cache]
+
+    - id: create_docker_compose
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat >> docker-compose.yml << 'EOF'
+
+            redis:
+              image: redis:7-alpine
+              ports:
+                - "6379:6379"
+              volumes:
+                - redis_data:/data
+              command: redis-server --appendonly yes
+
+          volumes:
+            redis_data:
+          EOF
+      depends_on: [update_config]
+
+    - id: create_tests
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > tests/test_redis_cache.py << 'EOF'
+          """Tests for Redis cache."""
+          import pytest
+          from blackbox.cache.redis_backend import RedisCache
+
+          @pytest.fixture
+          def cache():
+              return RedisCache(host="localhost", port=6379, db=15)
+
+          def test_cache_set_get(cache):
+              """Test basic cache operations."""
+              cache.set("test_wf", {"input": "test"}, {"output": "result"})
+              result = cache.get("test_wf", {"input": "test"})
+              assert result == {"output": "result"}
+
+          def test_cache_invalidate(cache):
+              """Test cache invalidation."""
+              cache.set("test_wf", {"input": "test"}, {"output": "result"})
+              cache.invalidate("test_wf")
+              result = cache.get("test_wf", {"input": "test"})
+              assert result is None
+          EOF
+      depends_on: [create_redis_cache]
+
+    - id: update_docs
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > docs/REDIS_CACHE.md << 'EOF'
+          # Redis Cache Backend
+
+          Use Redis for distributed caching across BBX instances.
+
+          ## Configuration
+
+          \`\`\`yaml
+          # config.yaml
+          cache:
+            backend: redis
+            ttl: 3600
+
+          redis:
+            host: localhost
+            port: 6379
+            password: your-password
+          \`\`\`
+
+          ## Environment Variables
+
+          \`\`\`bash
+          export BBX_REDIS_HOST=localhost
+          export BBX_REDIS_PORT=6379
+          export BBX_REDIS_PASSWORD=secret
+          \`\`\`
+
+          ## Cache Operations
+
+          \`\`\`yaml
+          - id: clear_cache
+            mcp: bbx.cache
+            method: clear
+
+          - id: invalidate_workflow
+            mcp: bbx.cache
+            method: invalidate
+            inputs:
+              workflow_id: my_workflow
+
+          - id: cache_stats
+            mcp: bbx.cache
+            method: stats
+          \`\`\`
+
+          ## Docker Compose
+
+          \`\`\`bash
+          docker-compose up -d redis
+          \`\`\`
+          EOF
+      depends_on: [create_tests]
+
+    - id: log_completion
+      mcp: bbx.logger
+      method: info
+      inputs:
+        message: "✅ Redis Cache Backend Feature Complete!"
+      depends_on: [update_docs]
+
+  outputs:
+    feature_status: "complete"
+    docs_path: "docs/REDIS_CACHE.md"

@@ -12,73 +12,56 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 import click
 import yaml
-import os
+
 
 class WorkflowWizard:
     """
     Interactive wizard for generating Blackbox workflows.
     """
-    
+
     TEMPLATES = {
         "empty": {
             "name": "Empty Workflow",
             "description": "Start from scratch",
             "steps": {},
-            "params": []
+            "params": [],
         },
         "scraper": {
             "name": "Web Scraper",
             "description": "Scrape a website content and save to file",
             "steps": {
-                "open_page": {
-                    "use": "browser.open",
-                    "args": {
-                        "url": "${url}"
-                    }
-                },
-                "get_content": {
-                    "use": "browser.text",
-                    "args": {
-                        "selector": "body"
-                    }
-                },
+                "open_page": {"use": "browser.open", "args": {"url": "${url}"}},
+                "get_content": {"use": "browser.text", "args": {"selector": "body"}},
                 "save_file": {
                     "use": "system.shell",
                     "args": {
                         "command": "echo '${get_content.output}' > ${output_file}"
-                    }
-                }
+                    },
+                },
             },
-            "params": ["url", "output_file"]
+            "params": ["url", "output_file"],
         },
         "api_monitor": {
             "name": "API Monitor",
             "description": "Check API health and log result",
             "steps": {
-                "check_api": {
-                    "use": "http.get",
-                    "args": {
-                        "url": "${url}"
-                    }
-                },
+                "check_api": {"use": "http.get", "args": {"url": "${url}"}},
                 "log_success": {
                     "use": "logger.info",
-                    "args": {
-                        "message": "API is UP: ${check_api.output}"
-                    },
-                    "when": "${check_api.status} == 'success'"
+                    "args": {"message": "API is UP: ${check_api.output}"},
+                    "when": "${check_api.status} == 'success'",
                 },
                 "log_failure": {
                     "use": "logger.error",
-                    "args": {
-                        "message": "API is DOWN"
-                    },
-                    "when": "${check_api.status} != 'success'"
-                }
+                    "args": {"message": "API is DOWN"},
+                    "when": "${check_api.status} != 'success'",
+                },
             },
-            "params": ["url"]
+            "params": ["url"],
         },
         "telegram_bot": {
             "name": "Telegram Notifier",
@@ -86,29 +69,26 @@ class WorkflowWizard:
             "steps": {
                 "send_msg": {
                     "use": "telegram.send",
-                    "args": {
-                        "chat_id": "${chat_id}",
-                        "text": "${message}"
-                    }
+                    "args": {"chat_id": "${chat_id}", "text": "${message}"},
                 }
             },
-            "params": ["chat_id", "message"]
-        }
+            "params": ["chat_id", "message"],
+        },
     }
 
     @staticmethod
     def run():
         click.echo("🧙 Welcome to Blackbox Workflow Wizard!")
         click.echo("Let's create a new workflow.\n")
-        
+
         # 1. Basic Info
         name = click.prompt("Workflow Name", default="My Workflow")
         wf_id = click.prompt("Workflow ID", default=name.lower().replace(" ", "_"))
         filename = click.prompt("Filename", default=f"{wf_id}.bbx")
-        
+
         if not filename.endswith(".bbx"):
             filename += ".bbx"
-            
+
         if os.path.exists(filename):
             if not click.confirm(f"File {filename} exists. Overwrite?", default=False):
                 click.echo("Aborted.")
@@ -120,31 +100,31 @@ class WorkflowWizard:
         for i, key in enumerate(template_keys):
             tmpl = WorkflowWizard.TEMPLATES[key]
             click.echo(f"  {i+1}. {tmpl['name']} - {tmpl['description']}")
-            
+
         choice = click.prompt("\nChoose a template", type=int, default=1)
         if choice < 1 or choice > len(template_keys):
             click.echo("Invalid choice. Defaulting to Empty.")
             selected_key = "empty"
         else:
-            selected_key = template_keys[choice-1]
-            
+            selected_key = template_keys[choice - 1]
+
         template = WorkflowWizard.TEMPLATES[selected_key]
         click.echo(f"\nSelected: {template['name']}")
-        
+
         # 3. Configure Parameters
         steps = template["steps"].copy()
-        
+
         # We need to replace placeholders in steps with user values
         # Or we can just set them as default inputs?
         # Let's replace them in the YAML for simplicity, so the file is ready to run.
-        
+
         replacements = {}
         if template["params"]:
             click.echo("\nConfiguration:")
             for param in template["params"]:
                 val = click.prompt(f"  Value for '{param}'")
                 replacements[f"${{{param}}}"] = val
-                
+
         # Recursively replace in steps
         def replace_recursive(data):
             if isinstance(data, dict):
@@ -157,19 +137,19 @@ class WorkflowWizard:
                 return data
             else:
                 return data
-                
+
         final_steps = replace_recursive(steps)
-        
+
         # 4. Generate YAML
         workflow_data = {
             "id": wf_id,
             "name": name,
             "version": "1.0.0",
-            "steps": final_steps
+            "steps": final_steps,
         }
-        
-        with open(filename, 'w', encoding='utf-8') as f:
+
+        with open(filename, "w", encoding="utf-8") as f:
             yaml.dump(workflow_data, f, sort_keys=False, allow_unicode=True)
-            
+
         click.echo(f"\n✨ Workflow created successfully: {filename}")
         click.echo(f"Run it with: blackbox run {filename}")

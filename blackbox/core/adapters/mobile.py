@@ -20,6 +20,7 @@ import asyncio
 import json
 from pathlib import Path
 from typing import Any, Dict, Optional
+
 from ..base_adapter import BaseAdapter
 
 
@@ -112,19 +113,13 @@ class MobileAdapter(BaseAdapter):
             cmd.append("-writable-system")
 
         proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
 
         if wait_boot:
             await self._wait_for_boot()
 
-        return {
-            "status": "launched",
-            "emulator": emulator,
-            "pid": proc.pid
-        }
+        return {"status": "launched", "emulator": emulator, "pid": proc.pid}
 
     async def _wait_for_boot(self, timeout: int = 120):
         """Wait for Android device to finish booting"""
@@ -136,9 +131,12 @@ class MobileAdapter(BaseAdapter):
                 raise TimeoutError("Device boot timeout")
 
             proc = await asyncio.create_subprocess_exec(
-                str(adb), "shell", "getprop", "sys.boot_completed",
+                str(adb),
+                "shell",
+                "getprop",
+                "sys.boot_completed",
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.PIPE,
             )
             stdout, _ = await proc.communicate()
 
@@ -174,16 +172,14 @@ class MobileAdapter(BaseAdapter):
         cmd.extend(["install", "-r", apk_path])
 
         proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         stdout, stderr = await proc.communicate()
 
         return {
             "status": "installed",
             "output": stdout.decode(),
-            "error": stderr.decode()
+            "error": stderr.decode(),
         }
 
     async def _android_uninstall(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -214,16 +210,14 @@ class MobileAdapter(BaseAdapter):
         cmd.extend(["shell"] + command.split())
 
         proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         stdout, stderr = await proc.communicate()
 
         return {
             "stdout": stdout.decode(),
             "stderr": stderr.decode(),
-            "returncode": proc.returncode
+            "returncode": proc.returncode,
         }
 
     async def _android_screenshot(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -265,7 +259,14 @@ class MobileAdapter(BaseAdapter):
         cmd1 = [str(adb)]
         if device_id:
             cmd1.extend(["-s", device_id])
-        cmd1.extend(["shell", "screenrecord", f"--time-limit={duration}", "/sdcard/recording.mp4"])
+        cmd1.extend(
+            [
+                "shell",
+                "screenrecord",
+                f"--time-limit={duration}",
+                "/sdcard/recording.mp4",
+            ]
+        )
 
         proc = await asyncio.create_subprocess_exec(*cmd1)
         await proc.communicate()
@@ -286,9 +287,11 @@ class MobileAdapter(BaseAdapter):
         adb = self.android_sdk / "platform-tools" / "adb"
 
         proc = await asyncio.create_subprocess_exec(
-            str(adb), "devices", "-l",
+            str(adb),
+            "devices",
+            "-l",
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            stderr=asyncio.subprocess.PIPE,
         )
         stdout, _ = await proc.communicate()
 
@@ -297,11 +300,13 @@ class MobileAdapter(BaseAdapter):
         for line in lines:
             if line.strip():
                 parts = line.split()
-                devices.append({
-                    "id": parts[0],
-                    "status": parts[1],
-                    "info": " ".join(parts[2:]) if len(parts) > 2 else ""
-                })
+                devices.append(
+                    {
+                        "id": parts[0],
+                        "status": parts[1],
+                        "info": " ".join(parts[2:]) if len(parts) > 2 else "",
+                    }
+                )
 
         return {"devices": devices}
 
@@ -316,8 +321,7 @@ class MobileAdapter(BaseAdapter):
 
         # Get device UDID
         proc = await asyncio.create_subprocess_exec(
-            "xcrun", "simctl", "list", "devices", "-j",
-            stdout=asyncio.subprocess.PIPE
+            "xcrun", "simctl", "list", "devices", "-j", stdout=asyncio.subprocess.PIPE
         )
         stdout, _ = await proc.communicate()
         devices_data = json.loads(stdout.decode())
@@ -341,16 +345,10 @@ class MobileAdapter(BaseAdapter):
         await proc.communicate()
 
         # Open Simulator app
-        proc = await asyncio.create_subprocess_exec(
-            "open", "-a", "Simulator"
-        )
+        proc = await asyncio.create_subprocess_exec("open", "-a", "Simulator")
         await proc.communicate()
 
-        return {
-            "status": "launched",
-            "device": device,
-            "udid": device_udid
-        }
+        return {"status": "launched", "device": device, "udid": device_udid}
 
     async def _ios_stop(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Shutdown iOS simulator"""
@@ -393,16 +391,20 @@ class MobileAdapter(BaseAdapter):
         command = params["command"]
 
         proc = await asyncio.create_subprocess_exec(
-            "xcrun", "simctl", "spawn", device_udid, *command.split(),
+            "xcrun",
+            "simctl",
+            "spawn",
+            device_udid,
+            *command.split(),
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            stderr=asyncio.subprocess.PIPE,
         )
         stdout, stderr = await proc.communicate()
 
         return {
             "stdout": stdout.decode(),
             "stderr": stderr.decode(),
-            "returncode": proc.returncode
+            "returncode": proc.returncode,
         }
 
     async def _ios_screenshot(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -439,8 +441,7 @@ class MobileAdapter(BaseAdapter):
     async def _ios_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """List iOS simulators"""
         proc = await asyncio.create_subprocess_exec(
-            "xcrun", "simctl", "list", "devices", "-j",
-            stdout=asyncio.subprocess.PIPE
+            "xcrun", "simctl", "list", "devices", "-j", stdout=asyncio.subprocess.PIPE
         )
         stdout, _ = await proc.communicate()
 
@@ -449,12 +450,14 @@ class MobileAdapter(BaseAdapter):
         devices = []
         for runtime, devs in devices_data.get("devices", {}).items():
             for dev in devs:
-                devices.append({
-                    "name": dev["name"],
-                    "udid": dev["udid"],
-                    "state": dev["state"],
-                    "available": dev["isAvailable"],
-                    "runtime": runtime
-                })
+                devices.append(
+                    {
+                        "name": dev["name"],
+                        "udid": dev["udid"],
+                        "state": dev["state"],
+                        "available": dev["isAvailable"],
+                        "runtime": runtime,
+                    }
+                )
 
         return {"devices": devices}

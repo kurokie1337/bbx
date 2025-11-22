@@ -17,12 +17,13 @@ BBX Bundler - Create single-file executable .bbx app bundles
 Packages workflows with dependencies into standalone executables
 """
 import asyncio
-import json
-import zipfile
 import hashlib
+import json
 import logging
+import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
 import yaml
 
 logger = logging.getLogger("bbx.bundler")
@@ -40,6 +41,7 @@ class BundleBuilder:
 
     def __init__(self, workflow_path: Path):
         from blackbox.core.config import get_config
+
         self.workflow_path = Path(workflow_path)
         self.bundle_dir = get_config().paths.bundle_dir
         self.bundle_dir.mkdir(exist_ok=True)
@@ -78,7 +80,9 @@ class BundleBuilder:
             """Recursively find file references"""
             if isinstance(obj, dict):
                 for key, value in obj.items():
-                    if key in ["file", "path", "template", "script"] and isinstance(value, str):
+                    if key in ["file", "path", "template", "script"] and isinstance(
+                        value, str
+                    ):
                         file_path = Path(value)
                         if file_path.exists() and file_path.is_file():
                             assets.append(file_path)
@@ -92,10 +96,7 @@ class BundleBuilder:
         return assets
 
     def create_manifest(
-        self,
-        workflow: Dict[str, Any],
-        dependencies: List[str],
-        assets: List[Path]
+        self, workflow: Dict[str, Any], dependencies: List[str], assets: List[Path]
     ) -> Dict[str, Any]:
         """Create bundle manifest"""
         return {
@@ -108,14 +109,14 @@ class BundleBuilder:
             "dependencies": dependencies,
             "assets": [str(asset) for asset in assets],
             "created_at": __import__("datetime").datetime.now().isoformat(),
-            "checksum": ""  # Will be filled later
+            "checksum": "",  # Will be filled later
         }
 
     def create_bundle(
         self,
         output_path: Optional[Path] = None,
         include_runtime: bool = False,
-        compress: bool = True
+        compress: bool = True,
     ) -> Path:
         """Create the bundle file"""
         workflow = self.parse_workflow()
@@ -131,7 +132,7 @@ class BundleBuilder:
         with zipfile.ZipFile(
             output_path,
             "w",
-            compression=zipfile.ZIP_DEFLATED if compress else zipfile.ZIP_STORED
+            compression=zipfile.ZIP_DEFLATED if compress else zipfile.ZIP_STORED,
         ) as bundle:
             # Add workflow
             bundle.writestr("workflow.yaml", yaml.dump(workflow))
@@ -161,10 +162,7 @@ class BundleBuilder:
         """Add embedded Python runtime to bundle"""
         # This would include a minimal Python runtime
         # For now, we'll add a note
-        bundle.writestr(
-            "runtime/README.txt",
-            "Embedded Python runtime would go here"
-        )
+        bundle.writestr("runtime/README.txt", "Embedded Python runtime would go here")
 
     def _create_launcher(self, workflow: Dict[str, Any]) -> str:
         """Create launcher script for the bundle"""
@@ -272,6 +270,7 @@ class BundleExtractor:
                     expected_checksum = manifest["checksum"]
                     # Calculate actual checksum (excluding manifest itself to avoid recursion)
                     import hashlib
+
                     sha256 = hashlib.sha256()
 
                     for item in sorted(bundle.namelist()):
@@ -282,7 +281,9 @@ class BundleExtractor:
                     actual_checksum = sha256.hexdigest()
 
                     if actual_checksum != expected_checksum:
-                        logger.warning(f"Checksum mismatch: expected {expected_checksum}, got {actual_checksum}")
+                        logger.warning(
+                            f"Checksum mismatch: expected {expected_checksum}, got {actual_checksum}"
+                        )
                         return False
 
                 return True
@@ -333,7 +334,7 @@ def create_executable_bundle(
     workflow_path: Path,
     output_path: Optional[Path] = None,
     include_runtime: bool = False,
-    platform: str = "current"
+    platform: str = "current",
 ) -> Path:
     """
     Create a standalone executable bundle using PyInstaller or similar.
@@ -349,12 +350,16 @@ def create_executable_bundle(
         try:
             import PyInstaller.__main__  # type: ignore
 
-            PyInstaller.__main__.run([  # type: ignore
-                str(bundle_path),
-                '--onefile',
-                '--name', bundle_path.stem,
-                '--add-data', f'{bundle_path}:.',
-            ])
+            PyInstaller.__main__.run(
+                [  # type: ignore
+                    str(bundle_path),
+                    "--onefile",
+                    "--name",
+                    bundle_path.stem,
+                    "--add-data",
+                    f"{bundle_path}:.",
+                ]
+            )
 
             # Executable will be in dist/ directory
             exe_path = Path("dist") / bundle_path.stem
@@ -366,6 +371,7 @@ def create_executable_bundle(
 
             if exe_path.exists():
                 import shutil
+
                 shutil.move(str(exe_path), str(output_path))
 
             return output_path
@@ -413,15 +419,11 @@ def main():
 
         if args.executable:
             output = create_executable_bundle(
-                args.workflow,
-                args.output,
-                include_runtime=args.runtime
+                args.workflow, args.output, include_runtime=args.runtime
             )
         else:
             output = builder.create_bundle(
-                args.output,
-                include_runtime=args.runtime,
-                compress=not args.no_compress
+                args.output, include_runtime=args.runtime, compress=not args.no_compress
             )
 
         print(f"Bundle created: {output}")

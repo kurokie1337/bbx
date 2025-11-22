@@ -1,0 +1,60 @@
+# BBX Standard Library: AWS Lambda Invoke
+# Invoke AWS Lambda function
+
+id: aws_lambda_invoke
+description: Invoke AWS Lambda function
+uses: docker://amazon/aws-cli:latest
+
+cmd:
+  - aws
+  - lambda
+  - invoke
+  - --function-name
+  - "{{ function_name }}"
+  - "{% if payload %}--payload{{ payload }}{% endif %}"
+  - --output
+  - json
+  - response.json
+
+inputs:
+  function_name:
+    type: string
+    description: "Lambda function name or ARN"
+    required: true
+
+  payload:
+    type: string
+    description: "JSON payload to send"
+    required: false
+
+  region:
+    type: string
+    description: "AWS region"
+    default: "us-east-1"
+
+auth:
+  type: aws_credentials
+
+output_parser:
+  type: json
+  description: "Parse Lambda response"
+
+# Example usage:
+# - id: invoke_function
+#   mcp: universal
+#   method: run
+#   inputs:
+#     uses: docker://amazon/aws-cli:latest
+#     cmd:
+#       - aws
+#       - lambda
+#       - invoke
+#       - --function-name
+#       - my-function
+#       - --payload
+#       - '{"key": "value"}'
+#       - --region
+#       - us-east-1
+#       - response.json
+#     auth:
+#       type: aws_credentials

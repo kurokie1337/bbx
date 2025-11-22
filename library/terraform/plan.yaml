@@ -1,0 +1,42 @@
+# BBX Standard Library: Terraform Plan
+# Generate and show Terraform execution plan
+
+id: terraform_plan
+description: Generate Terraform execution plan
+uses: docker://hashicorp/terraform:latest
+
+cmd:
+  - terraform
+  - plan
+  - -input=false
+  - "{% if var_file %}-var-file={{ var_file }}{% endif %}"
+  - "{% if out %}-out={{ out }}{% endif %}"
+
+inputs:
+  working_dir:
+    type: string
+    description: "Terraform working directory"
+    default: "."
+
+  var_file:
+    type: string
+    description: "Path to variables file (e.g., prod.tfvars)"
+    required: false
+
+  out:
+    type: string
+    description: "Output file for plan"
+    default: "tfplan"
+
+# Example usage:
+# - id: plan_infrastructure
+#   mcp: universal
+#   method: run
+#   inputs:
+#     uses: docker://hashicorp/terraform:latest
+#     working_dir: "./terraform"
+#     cmd:
+#       - terraform
+#       - plan
+#       - -var-file=production.tfvars
+#       - -out=tfplan

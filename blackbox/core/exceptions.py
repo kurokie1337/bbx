@@ -40,13 +40,13 @@ Exception Hierarchy:
         └── PermissionError
 """
 
-from typing import Any, Dict, Optional, List
 import traceback
-
+from typing import Any, Dict, List, Optional
 
 # ============================================================================
 # Base Exceptions
 # ============================================================================
+
 
 class BBXError(Exception):
     """Base exception for all BBX errors"""
@@ -55,7 +55,7 @@ class BBXError(Exception):
         self,
         message: str,
         details: Optional[Dict[str, Any]] = None,
-        cause: Optional[Exception] = None
+        cause: Optional[Exception] = None,
     ):
         super().__init__(message)
         self.message = message
@@ -91,24 +91,23 @@ class BBXError(Exception):
 # Configuration Errors
 # ============================================================================
 
+
 class ConfigError(BBXError):
     """Configuration-related errors"""
-    pass
 
 
 class ConfigValidationError(ConfigError):
     """Configuration validation failed"""
-    pass
 
 
 class ConfigFileError(ConfigError):
     """Configuration file error"""
-    pass
 
 
 # ============================================================================
 # Validation Errors
 # ============================================================================
+
 
 class ValidationError(BBXError):
     """Input validation errors"""
@@ -119,7 +118,7 @@ class ValidationError(BBXError):
         field: Optional[str] = None,
         value: Any = None,
         errors: Optional[List[Dict[str, Any]]] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(message, **kwargs)
         self.field = field
@@ -128,17 +127,20 @@ class ValidationError(BBXError):
 
     def to_dict(self) -> Dict[str, Any]:
         result = super().to_dict()
-        result.update({
-            "field": self.field,
-            "value": self.value,
-            "errors": self.errors,
-        })
+        result.update(
+            {
+                "field": self.field,
+                "value": self.value,
+                "errors": self.errors,
+            }
+        )
         return result
 
 
 # ============================================================================
 # Workflow Errors
 # ============================================================================
+
 
 class WorkflowError(BBXError):
     """Workflow-related errors"""
@@ -148,7 +150,7 @@ class WorkflowError(BBXError):
         message: str,
         workflow_id: Optional[str] = None,
         step_id: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(message, **kwargs)
         self.workflow_id = workflow_id
@@ -156,32 +158,27 @@ class WorkflowError(BBXError):
 
     def to_dict(self) -> Dict[str, Any]:
         result = super().to_dict()
-        result.update({
-            "workflow_id": self.workflow_id,
-            "step_id": self.step_id,
-        })
+        result.update(
+            {
+                "workflow_id": self.workflow_id,
+                "step_id": self.step_id,
+            }
+        )
         return result
 
 
 class WorkflowParseError(WorkflowError):
     """Failed to parse workflow file"""
-    pass
 
 
 class WorkflowExecutionError(WorkflowError):
     """Workflow execution failed"""
-    pass
 
 
 class WorkflowTimeoutError(WorkflowError):
     """Workflow execution timed out"""
 
-    def __init__(
-        self,
-        message: str,
-        timeout_ms: int,
-        **kwargs
-    ):
+    def __init__(self, message: str, timeout_ms: int, **kwargs):
         super().__init__(message, **kwargs)
         self.timeout_ms = timeout_ms
 
@@ -193,12 +190,12 @@ class WorkflowTimeoutError(WorkflowError):
 
 class WorkflowConditionError(WorkflowError):
     """Workflow condition evaluation failed"""
-    pass
 
 
 # ============================================================================
 # Adapter Errors
 # ============================================================================
+
 
 class AdapterError(BBXError):
     """Adapter-related errors"""
@@ -208,7 +205,7 @@ class AdapterError(BBXError):
         message: str,
         adapter_name: Optional[str] = None,
         method: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(message, **kwargs)
         self.adapter_name = adapter_name
@@ -216,35 +213,34 @@ class AdapterError(BBXError):
 
     def to_dict(self) -> Dict[str, Any]:
         result = super().to_dict()
-        result.update({
-            "adapter": self.adapter_name,
-            "method": self.method,
-        })
+        result.update(
+            {
+                "adapter": self.adapter_name,
+                "method": self.method,
+            }
+        )
         return result
 
 
 class AdapterNotFoundError(AdapterError):
     """Adapter not found in registry"""
-    pass
 
 
 class AdapterExecutionError(AdapterError):
     """Adapter method execution failed"""
-    pass
 
 
 class AdapterValidationError(AdapterError):
     """Adapter input validation failed"""
-    pass
 
 
 class WorkflowValidationError(BBXError):
     """Workflow validation failed"""
-    
+
     def __init__(self, message: str, errors: Optional[List[str]] = None, **kwargs):
         super().__init__(message, **kwargs)
         self.errors = errors or []
-    
+
     def to_dict(self) -> Dict[str, Any]:
         result = super().to_dict()
         result["errors"] = self.errors
@@ -254,12 +250,7 @@ class WorkflowValidationError(BBXError):
 class AdapterTimeoutError(AdapterError):
     """Adapter execution timed out"""
 
-    def __init__(
-        self,
-        message: str,
-        timeout_ms: int,
-        **kwargs
-    ):
+    def __init__(self, message: str, timeout_ms: int, **kwargs):
         super().__init__(message, **kwargs)
         self.timeout_ms = timeout_ms
 
@@ -267,14 +258,13 @@ class AdapterTimeoutError(AdapterError):
         result = super().to_dict()
         result["timeout_ms"] = self.timeout_ms
         return result
+
+
 class AdapterNotAvailableError(AdapterError):
     """Adapter dependencies not available"""
 
     def __init__(
-        self,
-        message: str,
-        missing_dependencies: Optional[List[str]] = None,
-        **kwargs
+        self, message: str, missing_dependencies: Optional[List[str]] = None, **kwargs
     ):
         super().__init__(message, **kwargs)
         self.missing_dependencies = missing_dependencies or []
@@ -289,15 +279,11 @@ class AdapterNotAvailableError(AdapterError):
 # Expression Errors
 # ============================================================================
 
+
 class ExpressionError(BBXError):
     """Expression evaluation errors"""
 
-    def __init__(
-        self,
-        message: str,
-        expression: Optional[str] = None,
-        **kwargs
-    ):
+    def __init__(self, message: str, expression: Optional[str] = None, **kwargs):
         super().__init__(message, **kwargs)
         self.expression = expression
 
@@ -311,20 +297,15 @@ class ExpressionError(BBXError):
 # DAG Errors
 # ============================================================================
 
+
 class DAGError(BBXError):
     """DAG-related errors"""
-    pass
 
 
 class DAGCycleError(DAGError):
     """Circular dependency detected in DAG"""
 
-    def __init__(
-        self,
-        message: str,
-        cycle: Optional[List[str]] = None,
-        **kwargs
-    ):
+    def __init__(self, message: str, cycle: Optional[List[str]] = None, **kwargs):
         super().__init__(message, **kwargs)
         self.cycle = cycle or []
 
@@ -336,16 +317,15 @@ class DAGCycleError(DAGError):
 
 class DAGValidationError(DAGError):
     """DAG validation failed"""
-    pass
 
 
 # ============================================================================
 # Resource Errors
 # ============================================================================
 
+
 class ResourceError(BBXError):
     """Resource access errors"""
-    pass
 
 
 class NetworkError(ResourceError):
@@ -356,7 +336,7 @@ class NetworkError(ResourceError):
         message: str,
         url: Optional[str] = None,
         status_code: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(message, **kwargs)
         self.url = url
@@ -364,22 +344,19 @@ class NetworkError(ResourceError):
 
     def to_dict(self) -> Dict[str, Any]:
         result = super().to_dict()
-        result.update({
-            "url": self.url,
-            "status_code": self.status_code,
-        })
+        result.update(
+            {
+                "url": self.url,
+                "status_code": self.status_code,
+            }
+        )
         return result
 
 
 class FileSystemError(ResourceError):
     """File system errors"""
 
-    def __init__(
-        self,
-        message: str,
-        path: Optional[str] = None,
-        **kwargs
-    ):
+    def __init__(self, message: str, path: Optional[str] = None, **kwargs):
         super().__init__(message, **kwargs)
         self.path = path
 
@@ -391,21 +368,19 @@ class FileSystemError(ResourceError):
 
 class PermissionError(ResourceError):
     """Permission denied errors"""
-    pass
 
 
 # ============================================================================
 # Error Handler
 # ============================================================================
 
+
 class ErrorHandler:
     """Centralized error handling and logging"""
 
     @staticmethod
     def handle_exception(
-        error: Exception,
-        context: Optional[Dict[str, Any]] = None,
-        reraise: bool = True
+        error: Exception, context: Optional[Dict[str, Any]] = None, reraise: bool = True
     ) -> Dict[str, Any]:
         """
         Handle an exception with proper logging and formatting
@@ -422,17 +397,14 @@ class ErrorHandler:
             The original exception if reraise=True
         """
         import logging
+
         logger = logging.getLogger("bbx.error_handler")
 
         # Convert to BBXError if needed
         if isinstance(error, BBXError):
             bbx_error = error
         else:
-            bbx_error = BBXError(
-                message=str(error),
-                cause=error,
-                details=context or {}
-            )
+            bbx_error = BBXError(message=str(error), cause=error, details=context or {})
 
         # Log error
         error_dict = bbx_error.to_dict()
@@ -441,7 +413,7 @@ class ErrorHandler:
 
         logger.error(
             f"{error_dict['type']}: {error_dict['message']}",
-            extra={"error_details": error_dict}
+            extra={"error_details": error_dict},
         )
 
         # Log stack trace for debugging
@@ -458,7 +430,7 @@ class ErrorHandler:
         func,
         exception_class: type = BBXError,
         message: Optional[str] = None,
-        **error_kwargs
+        **error_kwargs,
     ):
         """
         Decorator to wrap function exceptions
@@ -468,6 +440,7 @@ class ErrorHandler:
             def my_function():
                 ...
         """
+
         def decorator(f):
             def wrapper(*args, **kwargs):
                 try:
@@ -476,11 +449,8 @@ class ErrorHandler:
                     if isinstance(e, BBXError):
                         raise
                     error_message = message or f"Error in {f.__name__}: {e}"
-                    raise exception_class(
-                        error_message,
-                        cause=e,
-                        **error_kwargs
-                    )
+                    raise exception_class(error_message, cause=e, **error_kwargs)
+
             return wrapper
 
         if callable(func):
@@ -492,11 +462,12 @@ class ErrorHandler:
 # Retry Decorator with Error Handling
 # ============================================================================
 
+
 def retry_on_error(
     max_retries: int = 3,
     delay_ms: int = 1000,
     backoff: float = 2.0,
-    exceptions: tuple = (Exception,)
+    exceptions: tuple = (Exception,),
 ):
     """
     Retry decorator with exponential backoff

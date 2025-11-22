@@ -1,0 +1,37 @@
+# BBX Standard Library: Terraform Output
+# Extract output values from Terraform state
+
+id: terraform_output
+description: Get Terraform output values
+uses: docker://hashicorp/terraform:latest
+
+cmd:
+  - terraform
+  - output
+  - -json
+
+inputs:
+  working_dir:
+    type: string
+    description: "Terraform working directory"
+    default: "."
+
+output_parser:
+  type: json
+  description: "Parse JSON output into variables"
+
+# Example usage:
+# - id: get_outputs
+#   mcp: universal
+#   method: run
+#   inputs:
+#     uses: docker://hashicorp/terraform:latest
+#     working_dir: "./terraform"
+#     cmd:
+#       - terraform
+#       - output
+#       - -json
+#     output_parser:
+#       type: json
+#
+# Then use in next step: ${step.get_outputs.result.vpc_id}

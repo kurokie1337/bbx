@@ -52,8 +52,9 @@ Examples:
 """
 
 import json
-from typing import Dict, Any
-from blackbox.core.base_adapter import CLIAdapter, AdapterResponse
+from typing import Any, Dict
+
+from blackbox.core.base_adapter import AdapterResponse, CLIAdapter
 
 
 class DockerAdapter(CLIAdapter):
@@ -64,7 +65,7 @@ class DockerAdapter(CLIAdapter):
             adapter_name="Docker",
             cli_tool="docker",
             version_args=["--version"],
-            required=True
+            required=True,
         )
 
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
@@ -116,9 +117,7 @@ class DockerAdapter(CLIAdapter):
         """
         image = inputs.get("image")
         if not image:
-            return AdapterResponse.error_response(
-                error="image is required"
-            ).to_dict()
+            return AdapterResponse.error_response(error="image is required").to_dict()
 
         args = ["run"]
 
@@ -152,14 +151,18 @@ class DockerAdapter(CLIAdapter):
         response = self.run_command(*args)
 
         if response.success:
-            container_id = response.data.strip() if isinstance(response.data, str) else str(response.data)
+            container_id = (
+                response.data.strip()
+                if isinstance(response.data, str)
+                else str(response.data)
+            )
             return AdapterResponse.success_response(
                 data={
                     "container_id": container_id,
                     "name": inputs.get("name"),
-                    "image": image
+                    "image": image,
                 },
-                status="running"
+                status="running",
             ).to_dict()
 
         return response.to_dict()
@@ -176,8 +179,7 @@ class DockerAdapter(CLIAdapter):
 
         if response.success:
             return AdapterResponse.success_response(
-                data={"container": container},
-                status="stopped"
+                data={"container": container}, status="stopped"
             ).to_dict()
 
         return response.to_dict()
@@ -200,8 +202,7 @@ class DockerAdapter(CLIAdapter):
 
         if response.success:
             return AdapterResponse.success_response(
-                data={"container": container},
-                status="removed"
+                data={"container": container}, status="removed"
             ).to_dict()
 
         return response.to_dict()
@@ -242,8 +243,7 @@ class DockerAdapter(CLIAdapter):
 
         if response.success:
             return AdapterResponse.success_response(
-                data={"tag": tag, "path": path},
-                status="built"
+                data={"tag": tag, "path": path}, status="built"
             ).to_dict()
 
         return response.to_dict()
@@ -252,16 +252,13 @@ class DockerAdapter(CLIAdapter):
         """Pull a Docker image"""
         image = inputs.get("image")
         if not image:
-            return AdapterResponse.error_response(
-                error="image is required"
-            ).to_dict()
+            return AdapterResponse.error_response(error="image is required").to_dict()
 
         response = self.run_command("pull", image, timeout=600)
 
         if response.success:
             return AdapterResponse.success_response(
-                data={"image": image},
-                status="pulled"
+                data={"image": image}, status="pulled"
             ).to_dict()
 
         return response.to_dict()
@@ -270,16 +267,13 @@ class DockerAdapter(CLIAdapter):
         """Push a Docker image"""
         image = inputs.get("image")
         if not image:
-            return AdapterResponse.error_response(
-                error="image is required"
-            ).to_dict()
+            return AdapterResponse.error_response(error="image is required").to_dict()
 
         response = self.run_command("push", image, timeout=600)
 
         if response.success:
             return AdapterResponse.success_response(
-                data={"image": image},
-                status="pushed"
+                data={"image": image}, status="pushed"
             ).to_dict()
 
         return response.to_dict()
@@ -306,10 +300,11 @@ class DockerAdapter(CLIAdapter):
         response = self.run_command(*args)
 
         if response.success:
-            logs = response.data if isinstance(response.data, str) else str(response.data)
+            logs = (
+                response.data if isinstance(response.data, str) else str(response.data)
+            )
             return AdapterResponse.success_response(
-                data={"container": container, "logs": logs},
-                status="ok"
+                data={"container": container, "logs": logs}, status="ok"
             ).to_dict()
 
         return response.to_dict()
@@ -326,14 +321,15 @@ class DockerAdapter(CLIAdapter):
 
         if response.success:
             try:
-                data_str = response.data if isinstance(response.data, str) else str(response.data)
+                data_str = (
+                    response.data
+                    if isinstance(response.data, str)
+                    else str(response.data)
+                )
                 data = json.loads(data_str)
                 return AdapterResponse.success_response(
-                    data={
-                        "container": container,
-                        "info": data[0] if data else {}
-                    },
-                    status="ok"
+                    data={"container": container, "info": data[0] if data else {}},
+                    status="ok",
                 ).to_dict()
             except json.JSONDecodeError:
                 return AdapterResponse.error_response(
@@ -355,8 +351,10 @@ class DockerAdapter(CLIAdapter):
 
         if response.success:
             containers = []
-            data_str = response.data if isinstance(response.data, str) else str(response.data)
-            for line in data_str.split('\n'):
+            data_str = (
+                response.data if isinstance(response.data, str) else str(response.data)
+            )
+            for line in data_str.split("\n"):
                 if line.strip():
                     try:
                         containers.append(json.loads(line))
@@ -364,8 +362,7 @@ class DockerAdapter(CLIAdapter):
                         pass
 
             return AdapterResponse.success_response(
-                data={"containers": containers, "count": len(containers)},
-                status="ok"
+                data={"containers": containers, "count": len(containers)}, status="ok"
             ).to_dict()
 
         return response.to_dict()
@@ -387,8 +384,7 @@ class DockerAdapter(CLIAdapter):
 
         if response.success:
             return AdapterResponse.success_response(
-                data={"file": compose_file},
-                status="up"
+                data={"file": compose_file}, status="up"
             ).to_dict()
 
         return response.to_dict()
@@ -405,8 +401,7 @@ class DockerAdapter(CLIAdapter):
 
         if response.success:
             return AdapterResponse.success_response(
-                data={"file": compose_file},
-                status="down"
+                data={"file": compose_file}, status="down"
             ).to_dict()
 
         return response.to_dict()

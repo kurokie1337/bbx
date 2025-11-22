@@ -1,0 +1,56 @@
+# BBX Standard Library: AWS S3 Upload
+# Upload files to S3 bucket
+
+id: aws_s3_upload
+description: Upload file to AWS S3 bucket
+uses: docker://amazon/aws-cli:latest
+
+cmd:
+  - aws
+  - s3
+  - cp
+  - "{{ source }}"
+  - "s3://{{ bucket }}/{{ key }}"
+  - "{% if region %}--region{{ region }}{% endif %}"
+
+inputs:
+  source:
+    type: string
+    description: "Local file path to upload"
+    required: true
+
+  bucket:
+    type: string
+    description: "S3 bucket name"
+    required: true
+
+  key:
+    type: string
+    description: "S3 object key (path in bucket)"
+    required: true
+
+  region:
+    type: string
+    description: "AWS region"
+    default: "us-east-1"
+
+auth:
+  type: aws_credentials
+  description: "Requires AWS credentials (env: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)"
+
+# Example usage:
+# - id: upload_artifact
+#   mcp: universal
+#   method: run
+#   inputs:
+#     uses: docker://amazon/aws-cli:latest
+#     cmd:
+#       - aws
+#       - s3
+#       - cp
+#       - ./dist/app.zip
+#       - s3://my-bucket/releases/v1.0.0/app.zip
+#       - --region
+#       - us-west-2
+#     auth:
+#       type: aws_credentials

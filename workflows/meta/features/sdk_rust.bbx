@@ -1,0 +1,135 @@
+# BBX Rust SDK Feature
+
+workflow:
+  id: feature_sdk_rust
+  name: Rust SDK Implementation
+  version: "6.0"
+  description: Official Rust SDK for BBX with async/await support
+
+  tags: [feature, sdk, rust, v1.1.0]
+
+  steps:
+    - id: create_cargo_project
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          mkdir -p sdks/rust
+          cd sdks/rust
+          cat > Cargo.toml << 'EOF'
+          [package]
+          name = "bbx-sdk"
+          version = "1.0.0"
+          edition = "2021"
+          authors = ["Ilya Makarov"]
+          license = "Apache-2.0"
+
+          [dependencies]
+          reqwest = { version = "0.11", features = ["json"] }
+          serde = { version = "1.0", features = ["derive"] }
+          serde_json = "1.0"
+          tokio = { version = "1.35", features = ["full"] }
+          EOF
+
+    - id: create_lib
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          mkdir -p sdks/rust/src
+          cat > sdks/rust/src/lib.rs << 'EOF'
+          use reqwest::Client as HttpClient;
+          use serde::{Deserialize, Serialize};
+          use std::collections::HashMap;
+
+          #[derive(Debug, Serialize, Deserialize)]
+          pub struct WorkflowExecution {
+              pub id: String,
+              pub workflow_id: String,
+              pub status: String,
+              pub outputs: Option<HashMap<String, serde_json::Value>>,
+          }
+
+          pub struct Client {
+              base_url: String,
+              api_key: Option<String>,
+              client: HttpClient,
+          }
+
+          impl Client {
+              pub fn new(base_url: String, api_key: Option<String>) -> Self {
+                  Self {
+                      base_url,
+                      api_key,
+                      client: HttpClient::new(),
+                  }
+              }
+
+              pub async fn execute_workflow(
+                  &self,
+                  workflow_path: &str,
+                  inputs: HashMap<String, serde_json::Value>,
+              ) -> Result<WorkflowExecution, Box<dyn std::error::Error>> {
+                  let url = format!("{}/api/workflows/execute", self.base_url);
+
+                  let mut request = self.client
+                      .post(&url)
+                      .json(&serde_json::json!({
+                          "workflow_path": workflow_path,
+                          "inputs": inputs
+                      }));
+
+                  if let Some(key) = &self.api_key {
+                      request = request.header("Authorization", format!("Bearer {}", key));
+                  }
+
+                  let response = request.send().await?;
+                  let execution = response.json::<WorkflowExecution>().await?;
+
+                  Ok(execution)
+              }
+          }
+          EOF
+      depends_on: [create_cargo_project]
+
+    - id: create_readme
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: |
+          cat > sdks/rust/README.md << 'EOF'
+          # BBX Rust SDK
+
+          \`\`\`rust
+          use bbx_sdk::Client;
+          use std::collections::HashMap;
+
+          #[tokio::main]
+          async fn main() {
+              let client = Client::new("http://localhost:8000".to_string(), None);
+              let inputs = HashMap::new();
+
+              let execution = client.execute_workflow("my_workflow.bbx", inputs).await.unwrap();
+              println!("Status: {}", execution.status);
+          }
+          \`\`\`
+          EOF
+      depends_on: [create_lib]
+
+    - id: build_project
+      mcp: bbx.system
+      method: exec
+      inputs:
+        command: cd sdks/rust && cargo build --release
+      depends_on: [create_readme]
+      timeout: 300000
+
+    - id: log_completion
+      mcp: bbx.logger
+      method: info
+      inputs:
+        message: "✅ Rust SDK Complete!"
+      depends_on: [build_project]
+
+  outputs:
+    feature_status: "complete"

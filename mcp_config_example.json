@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "bbx-workflow-engine": {
+      "command": "python",
+      "args": ["cli.py", "mcp-serve"],
+      "cwd": "c:\\Users\\User\\Desktop\\Новая папка\\workflow_test"
+    }
+  }
+}

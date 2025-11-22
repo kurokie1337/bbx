@@ -27,37 +27,55 @@ workflow:
           Phase 4: Kubernetes (Deployment)
     
     - id: terraform_init
-      mcp: bbx.terraform
-      method: init
+      mcp: universal
+      method: run
       inputs:
+        uses: docker://hashicorp/terraform:latest
         working_dir: "./infrastructure/terraform"
-        upgrade: true
+        cmd:
+          - terraform
+          - init
+          - -upgrade
       depends_on: [intro]
-    
+
     - id: terraform_plan
-      mcp: bbx.terraform
-      method: plan
+      mcp: universal
+      method: run
       inputs:
+        uses: docker://hashicorp/terraform:latest
         working_dir: "./infrastructure/terraform"
-        var_file: "prod.tfvars"
-        out: "tfplan"
+        cmd:
+          - terraform
+          - plan
+          - -var-file=prod.tfvars
+          - -out=tfplan
       depends_on: [terraform_init]
-    
+
     - id: terraform_apply
-      mcp: bbx.terraform
-      method: apply
+      mcp: universal
+      method: run
       inputs:
+        uses: docker://hashicorp/terraform:latest
         working_dir: "./infrastructure/terraform"
-        plan_file: "tfplan"
-        auto_approve: true
+        cmd:
+          - terraform
+          - apply
+          - -auto-approve
+          - tfplan
       depends_on: [terraform_plan]
-    
+
     - id: get_terraform_outputs
-      mcp: bbx.terraform
-      method: output
+      mcp: universal
+      method: run
       inputs:
+        uses: docker://hashicorp/terraform:latest
         working_dir: "./infrastructure/terraform"
-        json: true
+        cmd:
+          - terraform
+          - output
+          - -json
+        output_parser:
+          type: json
       depends_on: [terraform_apply]
     
     # ========== Phase 2: Configuration Management (Ansible) ==========
@@ -119,88 +137,156 @@ workflow:
     # ========== Phase 4: Kubernetes Deployment ==========
     
     - id: create_k8s_namespace
-      mcp: bbx.k8s
-      method: create_namespace
+      mcp: universal
+      method: run
       inputs:
-        namespace: "production"
+        uses: docker://bitnami/kubectl:latest
+        cmd:
+          - kubectl
+          - create
+          - namespace
+          - production
+          - --dry-run=client
+          - -o
+          - yaml
+          - "|"
+          - kubectl
+          - apply
+          - -f
+          - "-"
       depends_on: [push_backend_image, push_frontend_image]
-    
+
     - id: apply_k8s_secrets
-      mcp: bbx.k8s
-      method: apply
+      mcp: universal
+      method: run
       inputs:
-        file: "k8s/secrets.yaml"
-        namespace: "production"
+        uses: docker://bitnami/kubectl:latest
+        cmd:
+          - kubectl
+          - apply
+          - -f
+          - k8s/secrets.yaml
+          - -n
+          - production
       depends_on: [create_k8s_namespace]
-    
+
     - id: apply_k8s_configmap
-      mcp: bbx.k8s
-      method: apply
+      mcp: universal
+      method: run
       inputs:
-        file: "k8s/configmap.yaml"
-        namespace: "production"
+        uses: docker://bitnami/kubectl:latest
+        cmd:
+          - kubectl
+          - apply
+          - -f
+          - k8s/configmap.yaml
+          - -n
+          - production
       depends_on: [create_k8s_namespace]
       parallel: true
-    
+
     - id: deploy_backend
-      mcp: bbx.k8s
-      method: apply
+      mcp: universal
+      method: run
       inputs:
-        file: "k8s/backend-deployment.yaml"
-        namespace: "production"
+        uses: docker://bitnami/kubectl:latest
+        cmd:
+          - kubectl
+          - apply
+          - -f
+          - k8s/backend-deployment.yaml
+          - -n
+          - production
       depends_on: [apply_k8s_secrets, apply_k8s_configmap]
-    
+
     - id: deploy_frontend
-      mcp: bbx.k8s
-      method: apply
+      mcp: universal
+      method: run
       inputs:
-        file: "k8s/frontend-deployment.yaml"
-        namespace: "production"
+        uses: docker://bitnami/kubectl:latest
+        cmd:
+          - kubectl
+          - apply
+          - -f
+          - k8s/frontend-deployment.yaml
+          - -n
+          - production
       depends_on: [apply_k8s_secrets, apply_k8s_configmap]
       parallel: true
-    
+
     - id: apply_services
-      mcp: bbx.k8s
-      method: apply
+      mcp: universal
+      method: run
       inputs:
-        file: "k8s/services.yaml"
-        namespace: "production"
+        uses: docker://bitnami/kubectl:latest
+        cmd:
+          - kubectl
+          - apply
+          - -f
+          - k8s/services.yaml
+          - -n
+          - production
       depends_on: [deploy_backend, deploy_frontend]
-    
+
     - id: apply_ingress
-      mcp: bbx.k8s
-      method: apply
+      mcp: universal
+      method: run
       inputs:
-        file: "k8s/ingress.yaml"
-        namespace: "production"
+        uses: docker://bitnami/kubectl:latest
+        cmd:
+          - kubectl
+          - apply
+          - -f
+          - k8s/ingress.yaml
+          - -n
+          - production
       depends_on: [apply_services]
     
     # ========== Phase 5: Verification ==========
     
     - id: wait_for_rollout
-      mcp: bbx.k8s
-      method: rollout
+      mcp: universal
+      method: run
       inputs:
-        action: "status"
-        resource: "deployment/backend"
-        namespace: "production"
+        uses: docker://bitnami/kubectl:latest
+        cmd:
+          - kubectl
+          - rollout
+          - status
+          - deployment/backend
+          - -n
+          - production
       depends_on: [deploy_backend]
-    
+
     - id: get_pods
-      mcp: bbx.k8s
-      method: get
+      mcp: universal
+      method: run
       inputs:
-        resource: "pods"
-        namespace: "production"
+        uses: docker://bitnami/kubectl:latest
+        cmd:
+          - kubectl
+          - get
+          - pods
+          - -n
+          - production
+          - -o
+          - json
+        output_parser:
+          type: json
       depends_on: [wait_for_rollout]
-    
+
     - id: scale_deployment
-      mcp: bbx.k8s
-      method: scale
+      mcp: universal
+      method: run
       inputs:
-        deployment: "backend"
-        replicas: 3
-        namespace: "production"
+        uses: docker://bitnami/kubectl:latest
+        cmd:
+          - kubectl
+          - scale
+          - deployment/backend
+          - --replicas=3
+          - -n
+          - production
       depends_on: [wait_for_rollout]
     
     # ========== Success Message ==========

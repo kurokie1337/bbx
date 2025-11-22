@@ -1,0 +1,18 @@
+workflow:
+  id: generated_workflow
+  steps:
+ 
+    - id: build
+      mcp: universal
+      method: run
+      inputs:
+        uses: docker://node:20-alpine
+        cmd: [npm, run, build]
+
+    - id: test
+      mcp: universal
+      method: run
+      inputs:
+        uses: docker://python:3.8
+        cmd: [python, -m, pytest, --cov=app]
+      depends_on: [build]

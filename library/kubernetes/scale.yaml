@@ -1,0 +1,43 @@
+# BBX Standard Library: Kubernetes Scale
+# Scale Kubernetes deployment
+
+id: kubectl_scale
+description: Scale deployment replicas
+uses: docker://bitnami/kubectl:latest
+
+cmd:
+  - kubectl
+  - scale
+  - "{{ resource }}"
+  - --replicas={{ replicas }}
+  - "{% if namespace %}-n{{ namespace }}{% endif %}"
+
+inputs:
+  resource:
+    type: string
+    description: "Resource to scale (deployment/name)"
+    required: true
+
+  replicas:
+    type: integer
+    description: "Number of replicas"
+    required: true
+
+  namespace:
+    type: string
+    description: "Kubernetes namespace"
+    required: false
+
+# Example usage:
+# - id: scale_backend
+#   mcp: universal
+#   method: run
+#   inputs:
+#     uses: docker://bitnami/kubectl:latest
+#     cmd:
+#       - kubectl
+#       - scale
+#       - deployment/backend
+#       - --replicas=5
+#       - -n
+#       - production

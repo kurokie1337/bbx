@@ -1,0 +1,107 @@
+workflow:
+  id: demo_app_generator
+  name: Demo App Generator (Template-Based)
+  version: "1.0.0"
+  description: |
+    Real code generation using Jinja2 templates!
+    Not hardcoded - actual template rendering!
+
+  inputs:
+    app_name:
+      type: string
+      default: "GameHub"
+
+    app_type:
+      type: string
+      default: "gaming"
+
+  steps:
+    - id: log_start
+      mcp: bbx.logger
+      method: info
+      inputs:
+        message: |
+          🎨 DEMO APP GENERATOR (TEMPLATE-BASED)
+          =======================================
+          Generating {{inputs.app_name}} using Jinja2 templates...
+          NOT hardcoded - real template rendering!
+
+    # ========== Generate HTML from Template ==========
+
+    - id: generate_demo_html
+      mcp: codegen.template
+      method: render_to_file
+      inputs:
+        template_path: html/demo_app.html.j2
+        output_path: ./DemoApp/index.html
+        variables:
+          app_name: ${inputs.app_name}
+          app_tagline: "The Ultimate ${inputs.app_type} Platform"
+          icon: "🎮"
+          primary_color: "#667eea"
+          secondary_color: "#764ba2"
+          items:
+            - title: "Cyberpunk 2077"
+              icon: "🌃"
+              description: "Open-world RPG"
+              button_text: "Add to Library"
+            - title: "Elden Ring"
+              icon: "⚔️"
+              description: "Souls-like Action RPG"
+              button_text: "Add to Library"
+            - title: "God of War"
+              icon: "🪓"
+              description: "Action Adventure"
+              button_text: "Add to Library"
+            - title: "Minecraft"
+              icon: "🧱"
+              description: "Sandbox Building"
+              button_text: "Add to Library"
+            - title: "Valorant"
+              icon: "🎯"
+              description: "Tactical FPS"
+              button_text: "Add to Library"
+            - title: "Zelda TOTK"
+              icon: "🛡️"
+              description: "Open-world Adventure"
+              button_text: "Add to Library"
+      depends_on: [log_start]
+
+    # ========== Open in Browser ==========
+
+    - id: launch_demo
+      mcp: bbx.os
+      method: exec
+      inputs:
+        command: start "" "DemoApp/index.html"
+        timeout: 5
+      depends_on: [generate_demo_html]
+      on_error: continue
+
+    # ========== Success ==========
+
+    - id: success
+      mcp: bbx.logger
+      method: info
+      inputs:
+        message: |
+
+          ✅ DEMO APP GENERATED FROM TEMPLATE!
+          ====================================
+
+          App: ${inputs.app_name}
+          Type: ${inputs.app_type}
+
+          🎨 Used Jinja2 Template:
+          - templates/html/demo_app.html.j2
+
+          📁 Generated File:
+          - DemoApp/index.html
+
+          🚀 Opening in browser...
+
+          This is REAL code generation! 🔥
+      depends_on: [launch_demo]
+
+  outputs:
+    demo_path: ./DemoApp/index.html

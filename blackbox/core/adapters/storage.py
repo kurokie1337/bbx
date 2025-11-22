@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sqlite3
 import json
-from typing import Dict, Any
+import sqlite3
+from typing import Any, Dict
+
 from blackbox.core.base_adapter import MCPAdapter
 
 DB_PATH = "blackbox.db"
+
 
 class StorageAdapter(MCPAdapter):
     """
@@ -30,13 +32,15 @@ class StorageAdapter(MCPAdapter):
 
     def _init_db(self):
         with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS kv_store (
                     key TEXT PRIMARY KEY,
                     value TEXT,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
 
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
         if method == "kv.set":
@@ -62,7 +66,7 @@ class StorageAdapter(MCPAdapter):
         with sqlite3.connect(DB_PATH) as conn:
             conn.execute(
                 "INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)",
-                (key, value)
+                (key, value),
             )
 
         return {"status": "success", "key": key}
