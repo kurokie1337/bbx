@@ -131,9 +131,15 @@ def validate(file_path: str):
     try:
         with open(file_path, 'r') as f:
             workflow_data = yaml.safe_load(f)
-        
-        validate_workflow(workflow_data)
-        
+
+        # Support both v6 format {"workflow": {...}} and simple format
+        if "workflow" in workflow_data:
+            workflow = workflow_data["workflow"]
+        else:
+            workflow = workflow_data
+
+        validate_workflow(workflow)
+
         click.echo(f"✅ Workflow is valid: {file_path}")
         
     except WorkflowValidationError as e:
@@ -171,8 +177,14 @@ def validate_all(directory: str):
         try:
             with open(bbx_file, 'r') as f:
                 workflow_data = yaml.safe_load(f)
-            
-            validate_workflow(workflow_data)
+
+            # Support both v6 format {"workflow": {...}} and simple format
+            if "workflow" in workflow_data:
+                workflow = workflow_data["workflow"]
+            else:
+                workflow = workflow_data
+
+            validate_workflow(workflow)
             click.echo(f"✅ {bbx_file.name}")
             valid_count += 1
             
