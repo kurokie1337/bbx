@@ -52,8 +52,7 @@ Examples:
 """
 
 import json
-from typing import Dict, Any, List
-from pathlib import Path
+from typing import Dict, Any
 from blackbox.core.base_adapter import CLIAdapter, AdapterResponse
 
 
@@ -150,7 +149,7 @@ class DockerAdapter(CLIAdapter):
         if "command" in inputs:
             args.extend(inputs["command"].split())
 
-        response = self.run_command(*args, output_format=None)
+        response = self.run_command(*args)
 
         if response.success:
             container_id = response.data.strip() if isinstance(response.data, str) else str(response.data)
@@ -173,7 +172,7 @@ class DockerAdapter(CLIAdapter):
                 error="name or id is required"
             ).to_dict()
 
-        response = self.run_command("stop", container, output_format=None)
+        response = self.run_command("stop", container)
 
         if response.success:
             return AdapterResponse.success_response(
@@ -197,7 +196,7 @@ class DockerAdapter(CLIAdapter):
             args.append("-f")
 
         args.append(container)
-        response = self.run_command(*args, output_format=None)
+        response = self.run_command(*args)
 
         if response.success:
             return AdapterResponse.success_response(
@@ -239,7 +238,7 @@ class DockerAdapter(CLIAdapter):
 
         args.append(path)
 
-        response = self.run_command(*args, timeout=600, output_format=None)
+        response = self.run_command(*args, timeout=600)
 
         if response.success:
             return AdapterResponse.success_response(
@@ -257,7 +256,7 @@ class DockerAdapter(CLIAdapter):
                 error="image is required"
             ).to_dict()
 
-        response = self.run_command("pull", image, timeout=600, output_format=None)
+        response = self.run_command("pull", image, timeout=600)
 
         if response.success:
             return AdapterResponse.success_response(
@@ -275,7 +274,7 @@ class DockerAdapter(CLIAdapter):
                 error="image is required"
             ).to_dict()
 
-        response = self.run_command("push", image, timeout=600, output_format=None)
+        response = self.run_command("push", image, timeout=600)
 
         if response.success:
             return AdapterResponse.success_response(
@@ -304,7 +303,7 @@ class DockerAdapter(CLIAdapter):
             args.extend(["--tail", str(inputs["tail"])])
 
         args.append(container)
-        response = self.run_command(*args, output_format=None)
+        response = self.run_command(*args)
 
         if response.success:
             logs = response.data if isinstance(response.data, str) else str(response.data)
@@ -323,7 +322,7 @@ class DockerAdapter(CLIAdapter):
                 error="name or id is required"
             ).to_dict()
 
-        response = self.run_command("inspect", container, output_format=None)
+        response = self.run_command("inspect", container)
 
         if response.success:
             try:
@@ -352,7 +351,7 @@ class DockerAdapter(CLIAdapter):
 
         args.extend(["--format", "{{json .}}"])
 
-        response = self.run_command(*args, output_format=None)
+        response = self.run_command(*args)
 
         if response.success:
             containers = []
@@ -384,7 +383,7 @@ class DockerAdapter(CLIAdapter):
         if inputs.get("build"):
             args.append("--build")
 
-        response = self.run_command(*args, timeout=600, output_format=None)
+        response = self.run_command(*args, timeout=600)
 
         if response.success:
             return AdapterResponse.success_response(
@@ -402,7 +401,7 @@ class DockerAdapter(CLIAdapter):
         if inputs.get("volumes"):
             args.append("-v")
 
-        response = self.run_command(*args, output_format=None)
+        response = self.run_command(*args)
 
         if response.success:
             return AdapterResponse.success_response(

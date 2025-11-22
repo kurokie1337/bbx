@@ -38,16 +38,14 @@ Examples:
 
 import logging
 
-logger = logging.getLogger("bbx.adapters.process")
 
-import asyncio
+import json
 import psutil
 import time
 import subprocess
-import signal
-from typing import Dict, Any, Optional, List
-from pathlib import Path
-import json
+from typing import Dict, Any, Optional
+
+logger = logging.getLogger("bbx.adapters.process")
 
 
 class ProcessManager:

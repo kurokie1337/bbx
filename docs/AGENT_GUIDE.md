@@ -10,65 +10,64 @@ Blackbox is a workflow automation engine that executes declarative `.bbx` files.
 
 ---
 
-## 📝 BBX Format (v5.0)
+## 📝 BBX Format (v6.0)
 
 ### Basic Structure
 
 ```yaml
-bbx_version: "5.0"
-type: workflow
-
 workflow:
-  id: "unique_id"
-  name: "Human Readable Name"
-  version: "1.0.0"
-  
+  id: unique_id
+  name: Human Readable Name
+  version: "6.0"
+  description: Optional workflow description
+
   steps:
-    - id: "step1"
-      mcp: "http"
-      method: "get"
+    - id: step1
+      mcp: bbx.http
+      method: get
       inputs:
-        url: "https://api.example.com"
-      outputs: "data"
+        url: https://api.example.com
 ```
 
 ### Step Anatomy
 
 ```yaml
-- id: "fetch_data"           # Unique step identifier
-  mcp: "http"                 # MCP adapter to use
-  method: "get"               # Adapter method
+- id: fetch_data              # Unique step identifier
+  mcp: bbx.http               # MCP adapter to use (v6.0 uses bbx. prefix)
+  method: get                 # Adapter method
   inputs:                     # Method arguments
-    url: "https://..."
-  outputs: "result"           # Save output as this variable
-  when: "step.prev.status == 'success'"  # Conditional execution
-  retry: 3                    # Retry on failure
+    url: https://api.example.com
   timeout: 30000              # Timeout in ms
+  retry: 3                    # Retry on failure
+  depends_on: []              # Dependencies (optional)
 ```
 
 ---
 
 ## 🔧 Variable Resolution
 
-### Syntax: `${type.path.to.value}`
+### Syntax: `${steps.step_id.field}` or `${env.VARIABLE}` or `${inputs.param}`
 
 | Type | Example | Description |
 |------|---------|-------------|
-| `step` | `${step.fetch.data}` | Output from previous step |
+| `steps` | `${steps.fetch.output}` | Output from previous step |
 | `env` | `${env.API_KEY}` | Environment variable |
-| `input` | `${input.user_id}` | Workflow input parameter |
+| `inputs` | `${inputs.user_id}` | Workflow input parameter |
 
 ### Examples
 
 ```yaml
 # Access step output
-text: "${step.fetch_user.name}"
+message: "Hello ${steps.fetch_user.output.name}"
 
 # Access nested data
-price: "${step.get_price.data.bitcoin.usd}"
+price: ${steps.get_price.output.bitcoin.usd}
 
 # Environment variable
-token: "${env.API_TOKEN}"
+token: ${env.API_TOKEN}
+
+# Workflow inputs
+user_id: ${inputs.user_id}
 ```
 
 ---
@@ -78,10 +77,13 @@ token: "${env.API_TOKEN}"
 ### `when` Clause
 
 ```yaml
-- id: "send_alert"
-  when: "${step.check_price.price} > 50000"
-  mcp: "telegram"
-  method: "send"
+- id: send_alert
+  when: "${steps.check_price.output} > 50000"
+  mcp: bbx.telegram
+  method: send_message
+  inputs:
+    chat_id: ${env.TELEGRAM_CHAT_ID}
+    text: "Price alert!"
 ```
 
 ### Supported Operators
@@ -94,16 +96,16 @@ token: "${env.API_TOKEN}"
 
 ```yaml
 # Simple equality
-when: "${step.fetch.status} == 'success'"
+when: "${steps.fetch.status} == 'success'"
 
 # Numeric comparison
-when: "${step.count.value} >= 100"
+when: "${steps.count.output} >= 100"
 
 # Logical operators
-when: "${step.a.valid} and ${step.b.valid}"
+when: "${steps.a.output.valid} and ${steps.b.output.valid}"
 
 # Complex condition
-when: "(${step.price.btc} > 50000) or (${step.price.eth} > 3000)"
+when: "(${steps.price.output.btc} > 50000) or (${steps.price.output.eth} > 3000)"
 ```
 
 ---
@@ -113,22 +115,24 @@ when: "(${step.price.btc} > 50000) or (${step.price.eth} > 3000)"
 ### HTTP Adapter
 
 ```yaml
-- id: "api_call"
-  mcp: "http"
-  method: "get"  # or "post", "put", "delete"
+- id: api_call
+  mcp: bbx.http
+  method: get
   inputs:
-    url: "https://api.example.com/data"
+    url: https://api.example.com/data
     headers:
-      Authorization: "Bearer ${env.TOKEN}"
-    json:  # For POST/PUT
-      key: "value"
+      Authorization: Bearer ${env.API_TOKEN}
+    params:
+      limit: 10
 ```
 
-### Available Methods
-- `get(url, headers, params)`
-- `post(url, headers, json, data)`
-- `put(url, headers, json)`
-- `delete(url, headers)`
+**Available Methods:**
+- `get` - HTTP GET request
+- `post` - HTTP POST request
+- `put` - HTTP PUT request
+- `delete` - HTTP DELETE request
+- `patch` - HTTP PATCH request
+- `download` - Download file
 
 ---
 
@@ -137,11 +141,11 @@ when: "(${step.price.btc} > 50000) or (${step.price.eth} > 3000)"
 ### CLI
 
 ```bash
-# Local execution
-python cli.py run-local workflows/my-flow.bbx
+# Run workflow file
+python cli.py run my-flow.bbx
 
-# Via API (requires server)
-python cli.py execute my-workflow-id
+# Run with inputs
+python cli.py run my-flow.bbx --input key=value
 ```
 
 ### Python
@@ -173,66 +177,88 @@ curl -X POST http://localhost:8000/api/execute/my-flow \
 ### 1. API Orchestration
 
 ```yaml
-steps:
-  - id: "auth"
-    mcp: "http"
-    method: "post"
-    inputs:
-      url: "https://api.example.com/auth"
-      json: {user: "admin", pass: "${env.PASSWORD}"}
-    outputs: "token"
-    
-  - id: "fetch_data"
-    mcp: "http"
-    method: "get"
-    inputs:
-      url: "https://api.example.com/data"
-      headers:
-        Authorization: "Bearer ${step.auth.token}"
-    when: "${step.auth.status} == 'success'"
+workflow:
+  id: api_orchestration
+  name: API Orchestration Example
+  version: "6.0"
+
+  steps:
+    - id: auth
+      mcp: bbx.http
+      method: post
+      inputs:
+        url: https://api.example.com/auth
+        json:
+          user: admin
+          pass: ${env.PASSWORD}
+
+    - id: fetch_data
+      mcp: bbx.http
+      method: get
+      inputs:
+        url: https://api.example.com/data
+        headers:
+          Authorization: Bearer ${steps.auth.output.token}
+      depends_on: [auth]
+      when: "${steps.auth.output.success} == true"
 ```
 
 ### 2. Error Handling
 
 ```yaml
-steps:
-  - id: "risky_operation"
-    mcp: "http"
-    method: "get"
-    inputs: {...}
-    retry: 3
-    
-  - id: "handle_success"
-    when: "${step.risky_operation.status} == 'success'"
-    mcp: "http"
-    method: "post"
-    inputs: {...}
-    
-  - id: "handle_error"
-    when: "${step.risky_operation.status} == 'error'"
-    mcp: "logger"
-    method: "error"
-    inputs:
-      message: "Operation failed: ${step.risky_operation.error}"
+workflow:
+  id: error_handling
+  name: Error Handling Example
+  version: "6.0"
+
+  steps:
+    - id: risky_operation
+      mcp: bbx.http
+      method: get
+      inputs:
+        url: https://api.example.com/risky
+      retry: 3
+      timeout: 5000
+
+    - id: handle_success
+      when: "${steps.risky_operation.status} == 'success'"
+      mcp: bbx.logger
+      method: info
+      inputs:
+        message: "Operation succeeded"
+      depends_on: [risky_operation]
+
+    - id: handle_error
+      when: "${steps.risky_operation.status} == 'error'"
+      mcp: bbx.logger
+      method: error
+      inputs:
+        message: "Operation failed: ${steps.risky_operation.error}"
+      depends_on: [risky_operation]
 ```
 
 ### 3. Data Transformation
 
 ```yaml
-steps:
-  - id: "fetch"
-    mcp: "http"
-    method: "get"
-    inputs: {url: "..."}
-    outputs: "raw_data"
-    
-  - id: "extract"
-    mcp: "transform"
-    method: "jsonpath"
-    inputs:
-      data: "${step.fetch.raw_data}"
-      path: "$.items[*].name"
-    outputs: "names"
+workflow:
+  id: data_transformation
+  name: Data Transformation Example
+  version: "6.0"
+
+  steps:
+    - id: fetch
+      mcp: bbx.http
+      method: get
+      inputs:
+        url: https://api.example.com/data
+
+    - id: extract
+      mcp: bbx.transform
+      method: map
+      inputs:
+        data: ${steps.fetch.output}
+        function: "lambda x: x['name']"
+      depends_on: [fetch]
 ```
 
 ---
@@ -242,26 +268,28 @@ steps:
 ### 1. **Use Descriptive IDs**
 ```yaml
 # ✅ Good
-- id: "fetch_user_profile"
-- id: "validate_email"
+- id: fetch_user_profile
+- id: validate_email
 
 # ❌ Bad
-- id: "step1"
-- id: "do_thing"
+- id: step1
+- id: do_thing
 ```
 
 ### 2. **Handle Errors**
 Always add error handling steps:
 ```yaml
-- id: "log_error"
-  when: "${step.main_task.status} == 'error'"
+- id: log_error
+  when: "${steps.main_task.status} == 'error'"
+  mcp: bbx.logger
+  method: error
 ```
 
 ### 3. **Use Environment Variables**
 Never hardcode secrets:
 ```yaml
 # ✅ Good
-api_key: "${env.API_KEY}"
+api_key: ${env.API_KEY}
 
 # ❌ Bad
 api_key: "sk-1234567890abcdef"
@@ -282,18 +310,15 @@ timeout: 30000
 
 **1. Variable Not Found**
 ```
-ExpressionError: Variable 'step.fetch.data' not found
+ExpressionError: Variable 'steps.fetch.output' not found
 ```
-**Fix:** Check that the step ID and output key exist.
+**Fix:** Check that the step ID and output path exist. In v6.0, use `steps.` prefix.
 
 **2. MCP Not Registered**
 ```
-ValueError: Unknown MCP type: telegram
+ValueError: Unknown MCP type: bbx.telegram
 ```
-**Fix:** Ensure the adapter is registered:
-```python
-registry.register("telegram", TelegramAdapter())
-```
+**Fix:** Ensure the adapter is available. All built-in adapters use `bbx.` prefix in v6.0.
 
 **3. Condition Syntax Error**
 ```
@@ -301,8 +326,8 @@ ExpressionError: Unknown value: 'success'
 ```
 **Fix:** Use quotes for string literals:
 ```yaml
-when: "${step.fetch.status} == 'success'"  # ✅
-when: "${step.fetch.status} == success"     # ❌
+when: "${steps.fetch.status} == 'success'"  # ✅
+when: "${steps.fetch.status} == success"     # ❌
 ```
 
 ---
@@ -312,41 +337,39 @@ when: "${step.fetch.status} == success"     # ❌
 ### Complete Workflow
 
 ```yaml
-bbx_version: "5.0"
-type: workflow
-
 workflow:
-  id: "price_monitor"
-  name: "Crypto Price Monitor"
-  version: "1.0.0"
-  
+  id: price_monitor
+  name: Crypto Price Monitor
+  version: "6.0"
+  description: Monitor Bitcoin price and send alerts
+
   steps:
-    - id: "fetch_price"
-      mcp: "http"
-      method: "get"
+    - id: fetch_price
+      mcp: bbx.http
+      method: get
       inputs:
-        url: "https://api.coingecko.com/api/v3/simple/price"
+        url: https://api.coingecko.com/api/v3/simple/price
         params:
-          ids: "bitcoin"
-          vs_currencies: "usd"
-      outputs: "price_data"
+          ids: bitcoin
+          vs_currencies: usd
       retry: 3
-      
-    - id: "check_threshold"
-      when: "${step.fetch_price.status} == 'success'"
-      mcp: "logic"
-      method: "evaluate"
+      timeout: 10000
+
+    - id: log_price
+      mcp: bbx.logger
+      method: info
       inputs:
-        condition: "${step.fetch_price.price_data.bitcoin.usd} > 50000"
-      outputs: "alert_needed"
-      
-    - id: "send_alert"
-      when: "${step.check_threshold.alert_needed} == true"
-      mcp: "telegram"
-      method: "send_message"
+        message: "Current BTC: $${steps.fetch_price.output.bitcoin.usd}"
+      depends_on: [fetch_price]
+
+    - id: send_alert
+      when: "${steps.fetch_price.output.bitcoin.usd} > 50000"
+      mcp: bbx.telegram
+      method: send_message
       inputs:
-        chat_id: "${env.TELEGRAM_CHAT_ID}"
-        text: "🚀 BTC > $50k! Current: $${step.fetch_price.price_data.bitcoin.usd}"
+        chat_id: ${env.TELEGRAM_CHAT_ID}
+        text: "🚀 BTC > $50k! Current: $${steps.fetch_price.output.bitcoin.usd}"
+      depends_on: [fetch_price]
 ```
 
 ---
@@ -361,13 +384,16 @@ workflow:
 
 ---
 
-## 📖 Reference
+## 📖 See Also
 
-- [BBX Specification](BBX_SPEC.md)
-- [Runtime Internals](RUNTIME_INTERNALS.md)
-- [MCP Development](MCP_DEVELOPMENT.md)
-- [Deployment Guide](DEPLOYMENT.md)
+- [BBX v6.0 Specification](BBX_SPEC_v6.md) - Complete workflow format reference
+- [Universal Adapter Guide](UNIVERSAL_ADAPTER.md) - Zero-code integrations
+- [Runtime Internals](RUNTIME_INTERNALS.md) - How the engine works
+- [MCP Development](MCP_DEVELOPMENT.md) - Creating custom adapters
+- [API Reference](API_REFERENCE.md) - Complete API documentation
+- [Troubleshooting](TROUBLESHOOTING.md) - Common issues and solutions
+- [Getting Started](GETTING_STARTED.md) - Quick start guide for beginners
 
 ---
 
-**Questions?** Check examples in `workflows/` directory.
+**Questions?** Check the [Documentation Index](INDEX.md) or examples in `workflows/` directory.

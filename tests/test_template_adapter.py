@@ -314,7 +314,7 @@ export const {{name}}: React.FC<{{name}}Props> = ({
     
     output_file = tmp_path / "AnimeCard.tsx"
     
-    result = await template_adapter.execute("render_to_file", {
+    await template_adapter.execute("render_to_file", {
         "template": template,
         "output_path": str(output_file),
         "variables": {
@@ -357,7 +357,7 @@ async def create_{{singular}}(data: {{model}}Create):
     
     output_file = tmp_path / "anime.py"
     
-    result = await template_adapter.execute("render_to_file", {
+    await template_adapter.execute("render_to_file", {
         "template": template,
         "output_path": str(output_file),
         "variables": {

@@ -1,3 +1,17 @@
+# Copyright 2025 Ilya Makarov, Krasnoyarsk
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Transform adapter for data manipulation.
 Provides methods to transform, filter, map, and reduce data.
@@ -5,10 +19,14 @@ Provides methods to transform, filter, map, and reduce data.
 
 from typing import Dict, Any, List
 import json
+from blackbox.core.base_adapter import MCPAdapter
 
 
-class TransformAdapter:
+class TransformAdapter(MCPAdapter):
     """Adapter for transforming data within workflows."""
+
+    def __init__(self):
+        super().__init__("transform")
 
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
         """
@@ -176,12 +194,14 @@ class TransformAdapter:
         elif format_type == "string":
             return str(data)
         else:
-            return data
+            return str(data)
 
     def _eval_condition(self, condition: str, context: Dict[str, Any]) -> bool:
         """Safely evaluate simple conditions."""
         # Replace x with actual value
         x = context.get("x")
+        if x is None:
+            return False
 
         # Very simple condition evaluation
         if ">" in condition:
@@ -190,7 +210,7 @@ class TransformAdapter:
                 try:
                     threshold = float(parts[1].strip())
                     return float(x) > threshold
-                except Exception as e:
+                except Exception:
                     return False
         elif "<" in condition:
             parts = condition.split("<")
@@ -198,7 +218,7 @@ class TransformAdapter:
                 try:
                     threshold = float(parts[1].strip())
                     return float(x) < threshold
-                except Exception as e:
+                except Exception:
                     return False
         elif "==" in condition:
             parts = condition.split("==")

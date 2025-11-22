@@ -1,0 +1,18 @@
+# Helm Universal Definition
+id: helm
+uses: docker://dtzar/helm-kubectl:latest
+auth:
+  type: kubeconfig
+
+cmd:
+  - helm
+  - {{ inputs.action }}  # install, upgrade, uninstall, list, etc.
+  - {% if inputs.release %}{{ inputs.release }}{% endif %}
+  - {% if inputs.chart %}{{ inputs.chart }}{% endif %}
+  - {% if inputs.namespace %}--namespace={{ inputs.namespace }}{% endif %}
+  - {% if inputs.values %}--values={{ inputs.values }}{% endif %}
+  - {% if inputs.set %}{% for k, v in inputs.set.items() %}--set={{ k }}={{ v }}{% endfor %}{% endif %}
+  - --output=json
+
+output_parser:
+  type: json

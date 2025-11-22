@@ -50,8 +50,8 @@ Enhancement suggestions are welcome! Please provide:
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR_USERNAME/blackbox-workflow.git
-cd blackbox-workflow
+git clone https://github.com/YOUR_USERNAME/bbx.git
+cd bbx
 
 # Create virtual environment
 python -m venv venv
@@ -142,7 +142,7 @@ def test_simple_workflow(tmp_path):
 ## Project Structure
 
 ```
-blackbox-workflow/
+bbx/
 ├── blackbox/core/          # Core engine
 │   ├── runtime.py          # Main execution engine
 │   ├── dag.py              # DAG parallelization

@@ -155,3 +155,19 @@ steps:
 | `scheduler` | *(System Component)* | Cron & Event Triggers |
 
 This architecture transforms Blackbox from a simple script runner into a **Distributed Operating System for Workflows**.
+
+---
+
+## 📖 See Also
+
+- **[BBX v6.0 Specification](BBX_SPEC_v6.md)** - Complete workflow format reference
+- **[Runtime Internals](RUNTIME_INTERNALS.md)** - Detailed engine implementation
+- **[MCP Development](MCP_DEVELOPMENT.md)** - Custom adapter development
+- **[Universal Adapter Guide](UNIVERSAL_ADAPTER.md)** - Zero-code adapters
+- **[Deployment Guide](DEPLOYMENT.md)** - Production deployment
+- **[Documentation Index](INDEX.md)** - Complete documentation navigation
+
+---
+
+**Copyright 2025 Ilya Makarov, Krasnoyarsk, Siberia, Russia**
+Licensed under the Apache License, Version 2.0

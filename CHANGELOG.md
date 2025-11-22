@@ -75,6 +75,7 @@ This marks the official v1.0 production-ready release of Blackbox Workflow Engin
 
 ### 🎨 Developer Experience
 
+- **Python SDK** - Official client library for workflow management and sync
 - **VS Code Integration** - Full IntelliSense via JSON Schema
 - **CLI Interface** - Comprehensive command-line tool
 - **Web Dashboard** - Real-time monitoring and execution
@@ -90,14 +91,16 @@ This marks the official v1.0 production-ready release of Blackbox Workflow Engin
 
 ### 📚 Documentation
 
-- **README** - Comprehensive project overview
-- **Getting Started** - Quick start guide
+- **README** - Comprehensive project overview with 1100+ lines
+- **Quick Start** - Get started in minutes
 - **Tutorial** - Step-by-step learning path
-- **BBX Specification** - Complete format reference
+- **BBX Specification** - Complete BBX v6.0 format reference
 - **Architecture Guide** - System design and internals
-- **Adapter Development** - How to build custom adapters
+- **Adapter Development** - How to build custom adapters via MCP
 - **Deployment Guide** - Production deployment strategies
-- **FAQ** - Common questions and answers
+- **Troubleshooting** - Common issues and solutions
+- **Python SDK Guide** - SDK documentation with examples
+- **API Reference** - REST API documentation
 
 ### 🧪 Testing
 
@@ -170,4 +173,5 @@ Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for detai
 
 *This CHANGELOG will be updated with each release. All timestamps use UTC+7 (Krasnoyarsk time zone).*
 
-**Built with ❤️ in Siberia** | [View on GitHub](https://github.com/yourusername/blackbox-workflow)
+**Built with ❤️ in Siberia** | [View on GitHub](https://github.com/kurokie1337/bbx)
+

@@ -1,0 +1,14 @@
+# Docker CLI Universal Definition
+id: docker_cli
+uses: docker://docker:latest
+
+cmd:
+  - docker
+  - {{ inputs.command }}  # build, push, run, ps, etc.
+  - {% for arg in inputs.args %}{{ arg }}{% endfor %}
+
+volumes:
+  /var/run/docker.sock: /var/run/docker.sock
+
+output_parser:
+  type: text

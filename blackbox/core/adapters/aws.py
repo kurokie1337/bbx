@@ -47,19 +47,41 @@ import json
 import tempfile
 from typing import Dict, Any
 from pathlib import Path
-from blackbox.core.base_adapter import CLIAdapter, AdapterResponse
+import os
+from blackbox.core.base_adapter import DockerizedAdapter, AdapterResponse
 
 
-class AWSAdapter(CLIAdapter):
-    """BBX Adapter for AWS operations using AWS CLI"""
+class AWSAdapter(DockerizedAdapter):
+    """BBX Adapter for AWS operations using AWS CLI (Dockerized)"""
 
     def __init__(self):
         super().__init__(
             adapter_name="AWS",
+            docker_image="amazon/aws-cli:latest",
             cli_tool="aws",
             version_args=["--version"],
             required=True
         )
+
+    def run_command(self, *args, **kwargs):
+        """Override run_command to inject AWS credentials"""
+        env = kwargs.get("env", {}) or {}
+        
+        # Pass AWS credentials from host environment
+        aws_vars = [
+            "AWS_ACCESS_KEY_ID",
+            "AWS_SECRET_ACCESS_KEY",
+            "AWS_SESSION_TOKEN",
+            "AWS_REGION",
+            "AWS_DEFAULT_REGION"
+        ]
+        
+        for var in aws_vars:
+            if os.environ.get(var):
+                env[var] = os.environ[var]
+                
+        kwargs["env"] = env
+        return super().run_command(*args, **kwargs)
 
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
         """Execute AWS method"""
@@ -335,14 +357,18 @@ class AWSAdapter(CLIAdapter):
             json.dump(payload, f)
             payload_file = f.name
 
+        # Mount the payload file to /tmp in the container
+        container_payload_path = f"/tmp/{Path(payload_file).name}"
+        volumes = {payload_file: container_payload_path}
+
         args = [
             "lambda", "invoke",
             "--function-name", function_name,
-            "--payload", f"file://{payload_file}",
+            "--payload", f"file://{container_payload_path}",
             "/dev/stdout"
         ]
 
-        response = self.run_command(*args)
+        response = self.run_command(*args, volumes=volumes)
 
         # Cleanup
         Path(payload_file).unlink(missing_ok=True)

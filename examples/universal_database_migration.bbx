@@ -1,0 +1,44 @@
+# PostgreSQL Database Migration Example
+# Uses Universal Adapter to run psql commands
+
+name: Database Migration
+version: 1.0
+
+steps:
+  - id: run_migration
+    mcp: universal
+    method: run
+    inputs:
+      uses: docker://postgres:15-alpine
+      cmd:
+        - psql
+        - --host={{ inputs.db_host }}
+        - --username={{ inputs.db_user }}
+        - --dbname={{ inputs.db_name }}
+        - --file=/workspace/{{ inputs.migration_file }}
+      env:
+        PGPASSWORD: "{{ secrets.DB_PASSWORD }}"
+      volumes:
+        ./migrations: /workspace
+
+  - id: verify_migration
+    mcp: universal
+    method: run
+    inputs:
+      uses: docker://postgres:15-alpine
+      cmd:
+        - psql
+        - --host={{ inputs.db_host }}
+        - --username={{ inputs.db_user }}
+        - --dbname={{ inputs.db_name }}
+        - --command=SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1;
+      env:
+        PGPASSWORD: "{{ secrets.DB_PASSWORD }}"
+      output_parser:
+        type: text
+
+  - id: log_result
+    mcp: logger
+    method: info
+    inputs:
+      message: "Migration applied. Current version: ${step.verify_migration.result}"

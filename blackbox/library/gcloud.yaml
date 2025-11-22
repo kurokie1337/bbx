@@ -1,0 +1,16 @@
+# GCloud CLI Universal Definition
+id: gcloud
+uses: docker://google/cloud-sdk:latest
+auth:
+  type: gcp_credentials
+
+# Dynamic command construction
+cmd:
+  - gcloud
+  - {{ inputs.service }}      # compute, sql, storage, etc.
+  - {{ inputs.action }}        # instances list, buckets create, etc.
+  - {% for arg in inputs.args %}{{ arg }}{% endfor %}
+  - --format=json
+
+output_parser:
+  type: json

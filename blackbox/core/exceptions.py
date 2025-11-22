@@ -233,6 +233,24 @@ class AdapterExecutionError(AdapterError):
     pass
 
 
+class AdapterValidationError(AdapterError):
+    """Adapter input validation failed"""
+    pass
+
+
+class WorkflowValidationError(BBXError):
+    """Workflow validation failed"""
+    
+    def __init__(self, message: str, errors: Optional[List[str]] = None, **kwargs):
+        super().__init__(message, **kwargs)
+        self.errors = errors or []
+    
+    def to_dict(self) -> Dict[str, Any]:
+        result = super().to_dict()
+        result["errors"] = self.errors
+        return result
+
+
 class AdapterTimeoutError(AdapterError):
     """Adapter execution timed out"""
 
@@ -249,13 +267,6 @@ class AdapterTimeoutError(AdapterError):
         result = super().to_dict()
         result["timeout_ms"] = self.timeout_ms
         return result
-
-
-class AdapterValidationError(AdapterError):
-    """Adapter input validation failed"""
-    pass
-
-
 class AdapterNotAvailableError(AdapterError):
     """Adapter dependencies not available"""
 
@@ -542,7 +553,6 @@ def retry_on_error(
 
             raise last_error
 
-        import asyncio
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
         else:

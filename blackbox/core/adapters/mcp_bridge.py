@@ -1,3 +1,17 @@
+# Copyright 2025 Ilya Makarov, Krasnoyarsk
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Universal MCP Bridge Adapter for Blackbox
 
@@ -5,13 +19,14 @@ Connects to any MCP server and executes tools through it.
 Supports all standard MCP servers available in Antigravity.
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+from blackbox.core.base_adapter import MCPAdapter
 
 
-class MCPBridgeAdapter:
+class MCPBridgeAdapter(MCPAdapter):
     """
     Universal adapter that bridges Blackbox to any MCP server.
-    
+
     Supports:
     - Firebase MCP Server
     - GitHub MCP Server
@@ -25,15 +40,16 @@ class MCPBridgeAdapter:
     - Prisma MCP Server
     - And ALL other standard MCP servers!
     """
-    
-    def __init__(self, server_name: str = None, config: Dict[str, Any] = None):
+
+    def __init__(self, server_name: Optional[str] = None, config: Optional[Dict[str, Any]] = None):
         """
         Initialize MCP Bridge
-        
+
         Args:
             server_name: Name of MCP server (e.g., 'firebase', 'github', 'stripe')
             config: Server-specific configuration
         """
+        super().__init__("mcp")
         self.server_name = server_name
         self.config = config or {}
         self.available_servers = {

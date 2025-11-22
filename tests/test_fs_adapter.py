@@ -386,7 +386,7 @@ async def test_generate_react_project_structure(fs_adapter, tmp_path):
     project_path = tmp_path / "my_react_app"
     
     # Create directory structure
-    result = await fs_adapter.execute("create_structure", {
+    await fs_adapter.execute("create_structure", {
         "base_path": str(project_path),
         "structure": {
             "src": {

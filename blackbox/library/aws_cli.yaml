@@ -1,0 +1,17 @@
+# AWS CLI Universal Adapter Definition
+id: aws_cli
+uses: docker://amazon/aws-cli:latest
+auth:
+  type: aws_credentials
+
+cmd:
+  - aws
+  - {{ inputs.service }}
+  - {{ inputs.action }}
+  - --output
+  - json
+  # Generic arguments injection
+  - {% for k, v in inputs.args.items() %}--{{ k }}={{ v }}{% endfor %}
+
+output_parser:
+  type: json

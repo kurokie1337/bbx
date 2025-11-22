@@ -505,6 +505,14 @@ async def execute_workflow(workflow_id: str):
 
 ## 📖 See Also
 
-- [BBX Specification](BBX_SPEC.md) - Workflow format
-- [Runtime Internals](RUNTIME_INTERNALS.md) - Engine architecture
-- [MCP Development](MCP_DEVELOPMENT.md) - Custom adapters
+- **[BBX v6.0 Specification](BBX_SPEC_v6.md)** - Complete workflow format reference
+- **[Getting Started](GETTING_STARTED.md)** - Installation and basics
+- **[Architecture Guide](ARCHITECTURE.md)** - System design
+- **[Runtime Internals](RUNTIME_INTERNALS.md)** - Engine internals
+- **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues
+- **[Documentation Index](INDEX.md)** - Complete documentation navigation
+
+---
+
+**Copyright 2025 Ilya Makarov, Krasnoyarsk, Siberia, Russia**
+Licensed under the Apache License, Version 2.0

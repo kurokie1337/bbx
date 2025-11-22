@@ -15,9 +15,7 @@
 
 import logging
 
-logger = logging.getLogger("bbx.runtime")
 
-import yaml
 import asyncio
 import traceback
 from typing import Dict, Any, Optional
@@ -29,6 +27,8 @@ from .expressions import SafeExpr, ExpressionError
 from .dag import WorkflowDAG, should_use_dag, DAGError
 from .cache import get_cache
 from .parsers.v6 import BBXv6Parser
+
+logger = logging.getLogger("bbx.runtime")
 
 
 async def run_file(file_path: str, event_bus: Optional[EventBus] = None, use_cache: bool = True, inputs: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -61,10 +61,18 @@ async def run_file(file_path: str, event_bus: Optional[EventBus] = None, use_cac
     else:
         data = BBXv6Parser.load_yaml(file_path)
 
-    workflow = data.get("workflow", {})
-    steps = workflow.get("steps", [])
-    workflow_id = workflow.get("id", "unknown")
-    workflow_name = workflow.get("name", workflow_id)
+    # Support both v6 format {"workflow": {...}} and simple format
+    if "workflow" in data:
+        workflow = data.get("workflow", {})
+        steps = workflow.get("steps", [])
+        workflow_id = workflow.get("id", "unknown")
+        workflow_name = workflow.get("name", workflow_id)
+    else:
+        # Simple format - entire file is workflow
+        workflow = data
+        steps = data.get("steps", [])
+        workflow_id = data.get("id", "unknown")
+        workflow_name = data.get("name", workflow_id)
 
     # 2. Initialize Runtime
     context = WorkflowContext()
@@ -87,17 +95,15 @@ async def run_file(file_path: str, event_bus: Optional[EventBus] = None, use_cac
     registry.register("telegram", TelegramAdapter())
     registry.register("transform", TransformAdapter())
 
-    # Register MCP Bridge for all MCP servers
-    mcp_bridge = MCPBridgeAdapter()
-    for server_name in mcp_bridge.list_available_servers().keys():
-        registry.register(server_name, mcp_bridge)
+    # Add MCP Bridge if available
+    try:
+        registry.register("mcp", MCPBridgeAdapter())
+    except Exception:
+        pass  # MCP bridge optional
 
-    results = {}
+    results: Dict[str, Any] = {}
 
-    logger.info(f"🚀 Starting: {workflow_name}")
-    await event_bus.emit(Event(EventType.WORKFLOW_START, {"id": workflow_id}))
-
-    # 3. Check if DAG execution should be used
+    # 3. Execute Workflow
     if should_use_dag(steps):
         logger.info("📊 Using DAG parallel execution")
         try:
@@ -152,6 +158,14 @@ async def _execute_step(step: Dict[str, Any], context: WorkflowContext, registry
     method = step.get("method")
     inputs = step.get("inputs", {})
 
+    # Validate required fields
+    if not step_id or not isinstance(step_id, str):
+        raise ValueError("Step 'id' is required and must be a string")
+    if not mcp_type or not isinstance(mcp_type, str):
+        raise ValueError(f"Step '{step_id}': 'mcp' is required and must be a string")
+    if not method or not isinstance(method, str):
+        raise ValueError(f"Step '{step_id}': 'method' is required and must be a string")
+
     await event_bus.emit(Event(EventType.STEP_START, {
         "step_id": step_id,
         "workflow_id": workflow_id
@@ -204,7 +218,7 @@ async def _execute_step(step: Dict[str, Any], context: WorkflowContext, registry
                 )
                 break  # Success, exit retry loop
 
-            except asyncio.TimeoutError as e:
+            except asyncio.TimeoutError:
                 last_error = Exception(f"Step timeout after {timeout_ms}ms")
                 if attempt < retry_count:
                     delay = retry_delay * (retry_backoff ** attempt)
@@ -253,3 +267,47 @@ async def _execute_step(step: Dict[str, Any], context: WorkflowContext, registry
             "step_id": step_id,
             "error": str(e)
         }))
+
+
+class BBXRuntime:
+    """BBX Runtime wrapper for bundled workflows"""
+    
+    def __init__(self):
+        self.workflow: Optional[Dict[str, Any]] = None
+        self.inputs: Dict[str, Any] = {}
+        self.event_bus = EventBus()
+    
+    def load_workflow(self, workflow: Dict[str, Any]):
+        """Load workflow definition"""
+        self.workflow = workflow
+    
+    def set_input(self, key: str, value: Any):
+        """Set workflow input"""
+        self.inputs[key] = value
+    
+    async def execute(self) -> Dict[str, Any]:
+        """Execute the workflow"""
+        if not self.workflow:
+            raise ValueError("No workflow loaded")
+        
+        # Create context
+        context = WorkflowContext(inputs=self.inputs)
+        
+        # Get registry
+        registry = MCPRegistry()
+        registry.register("http", LocalHttpAdapter())
+        
+        # Get steps
+        workflow_def = self.workflow.get("workflow", {})
+        steps = workflow_def.get("steps", [])
+        
+        # Execute
+        results: Dict[str, Any] = {}
+        
+        if should_use_dag(steps):
+            dag = WorkflowDAG(steps)
+            await _execute_dag(dag, context, registry, self.event_bus, "bundled", results)
+        else:
+            await _execute_sequential(steps, context, registry, self.event_bus, "bundled", results)
+        
+        return results

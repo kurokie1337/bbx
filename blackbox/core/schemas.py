@@ -18,9 +18,13 @@ BBX Pydantic Schemas for Input Validation
 Provides type-safe validation for all adapter inputs using Pydantic models.
 """
 
-from typing import Dict, Any, List, Optional, Union
-from pydantic import BaseModel, Field, validator, constr, conint
-from pathlib import Path
+from typing import Dict, Any, List, Optional, Union, Annotated
+from pydantic import BaseModel, Field, validator
+try:
+    from pydantic import conint
+except ImportError:
+    # Pydantic v2 doesn't have conint, use Annotated instead
+    conint = None  # type: ignore
 
 
 # ============================================================================
@@ -155,7 +159,7 @@ class K8sApplyInput(BaseModel):
 class K8sScaleInput(BaseModel):
     """Input schema for Kubernetes scale"""
     deployment: str = Field(..., description="Deployment name")
-    replicas: conint(ge=0) = Field(..., description="Number of replicas")
+    replicas: Annotated[int, Field(ge=0)] = Field(..., description="Number of replicas")
     namespace: Optional[str] = Field(None, description="Kubernetes namespace")
 
 
@@ -202,7 +206,7 @@ class AnsiblePlaybookInput(BaseModel):
     extra_vars: Optional[Union[str, Dict[str, Any]]] = Field(None, description="Extra variables")
     check: bool = Field(False, description="Dry run mode")
     diff: bool = Field(False, description="Show diffs")
-    verbose: conint(ge=0, le=4) = Field(0, description="Verbosity level (0-4)")
+    verbose: Annotated[int, Field(ge=0, le=4)] = Field(0, description="Verbosity level (0-4)")
 
 
 class AnsibleAdhocInput(BaseModel):
@@ -225,9 +229,9 @@ class WorkflowStepInput(BaseModel):
     method: str = Field(..., description="Method to execute")
     inputs: Dict[str, Any] = Field(default_factory=dict, description="Method inputs")
     when: Optional[str] = Field(None, description="Conditional expression")
-    retry: conint(ge=0) = Field(0, description="Retry count")
-    retry_delay: conint(ge=0) = Field(1000, description="Retry delay (ms)")
-    timeout: conint(ge=0) = Field(30000, description="Timeout (ms)")
+    retry: Annotated[int, Field(ge=0)] = Field(0, description="Retry count")
+    retry_delay: Annotated[int, Field(ge=0)] = Field(1000, description="Retry delay (ms)")
+    timeout: Annotated[int, Field(ge=0)] = Field(30000, description="Timeout (ms)")
     outputs: Optional[str] = Field(None, description="Output variable name")
 
 
@@ -285,7 +289,7 @@ def validate_and_dict(schema_class: type[BaseModel], data: Dict[str, Any]) -> Di
 # Schema Registry
 # ============================================================================
 
-ADAPTER_SCHEMAS = {
+ADAPTER_SCHEMAS: Dict[str, type[BaseModel]] = {
     # AWS
     "aws.ec2_launch": EC2LaunchInput,
     "aws.s3_upload": S3UploadInput,

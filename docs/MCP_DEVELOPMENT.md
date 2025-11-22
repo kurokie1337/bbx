@@ -493,6 +493,14 @@ class RateLimitedAdapter(MCPAdapter):
 
 ## 📖 See Also
 
-- [BBX Specification](BBX_SPEC.md) - File format details
-- [Runtime Internals](RUNTIME_INTERNALS.md) - Engine architecture
-- [Agent Guide](AGENT_GUIDE.md) - For AI agents
+- **[BBX v6.0 Specification](BBX_SPEC_v6.md)** - Complete workflow format reference
+- **[Universal Adapter Guide](UNIVERSAL_ADAPTER.md)** - Zero-code adapter architecture
+- **[Runtime Internals](RUNTIME_INTERNALS.md)** - Engine implementation details
+- **[Architecture Guide](ARCHITECTURE.md)** - System design
+- **[Getting Started](GETTING_STARTED.md)** - Beginner's guide
+- **[Documentation Index](INDEX.md)** - Complete documentation navigation
+
+---
+
+**Copyright 2025 Ilya Makarov, Krasnoyarsk, Siberia, Russia**
+Licensed under the Apache License, Version 2.0

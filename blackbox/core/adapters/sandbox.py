@@ -20,34 +20,36 @@ Examples:
       inputs:
         command: "python untrusted.py"
         isolation: "container"
-        
+
     # WebAssembly execution
     - id: run_wasm
       mcp: bbx.sandbox
       method: wasm
       inputs:
-        module: "app.wasm"
-        function: "main"
+        module: "program.wasm"
 """
 
-import asyncio
+import os
 import subprocess
-import json
-from typing import Dict, Any, List, Optional
-from pathlib import Path
+from typing import Any, Dict
+
+from blackbox.core.base_adapter import MCPAdapter
 
 
-class SandboxAdapter:
-    """BBX Adapter for sandboxed execution"""
-    
+class SandboxAdapter(MCPAdapter):
+    """Sandbox execution adapter"""
+
     def __init__(self):
+        super().__init__("bbx.sandbox")
+        self.has_docker = False
+        self.has_wasmtime = False
         self._check_sandbox_tools()
-    
+
     def _check_sandbox_tools(self):
         """Check available sandbox tools"""
         self.has_docker = self._check_command("docker")
         self.has_wasmtime = self._check_command("wasmtime")
-    
+
     def _check_command(self, cmd: str) -> bool:
         """Check if command is available"""
         try:
@@ -59,10 +61,10 @@ class SandboxAdapter:
             return True
         except (subprocess.CalledProcessError, FileNotFoundError):
             return False
-    
+
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
         """Execute sandbox method"""
-        
+
         if method == "run":
             return await self._run(inputs)
         elif method == "wasm":
@@ -73,11 +75,11 @@ class SandboxAdapter:
             return await self._status(inputs)
         else:
             raise ValueError(f"Unknown method: {method}")
-    
+
     async def _run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         Run command in sandbox
-        
+
         Inputs:
             command: Command to run
             isolation: Isolation type (container/process/none)
@@ -85,20 +87,20 @@ class SandboxAdapter:
             timeout: Timeout in seconds
             env: Environment variables
         """
-        command = inputs["command"]
+        inputs["command"]
         isolation = inputs.get("isolation", "process")
-        
+
         if isolation == "container" and self.has_docker:
             return await self._run_container(inputs)
         else:
             return await self._run_process(inputs)
-    
+
     async def _run_process(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Run in process sandbox (limited isolation)"""
         command = inputs["command"]
         timeout = inputs.get("timeout", 30)
         env = inputs.get("env", {})
-        
+
         try:
             # On Windows, use shell=True for commands like 'echo'
             result = subprocess.run(
@@ -106,10 +108,10 @@ class SandboxAdapter:
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                env={**subprocess.os.environ, **env},
+                env={**os.environ, **env},
                 shell=True  # Allow shell commands
             )
-            
+
             return {
                 "status": "completed",
                 "exit_code": result.returncode,
@@ -127,37 +129,19 @@ class SandboxAdapter:
                 "status": "error",
                 "error": str(e)
             }
-            
-            return {
-                "status": "completed",
-                "exit_code": result.returncode,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "isolation": "process"
-            }
-        except subprocess.TimeoutExpired:
-            return {
-                "status": "timeout",
-                "error": f"Command timed out after {timeout}s"
-            }
-        except Exception as e:
-            return {
-                "status": "error",
-                "error": str(e)
-            }
-    
+
     async def _run_container(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Run in Docker container (strong isolation)"""
         command = inputs["command"]
         image = inputs.get("image", "python:3.11-alpine")
         timeout = inputs.get("timeout", 30)
-        
+
         if not self.has_docker:
             return {
                 "status": "error",
                 "error": "Docker not available"
             }
-        
+
         docker_cmd = [
             "docker", "run",
             "--rm",
@@ -167,7 +151,7 @@ class SandboxAdapter:
             image,
             "sh", "-c", command
         ]
-        
+
         try:
             result = subprocess.run(
                 docker_cmd,
@@ -175,7 +159,7 @@ class SandboxAdapter:
                 text=True,
                 timeout=timeout
             )
-            
+
             return {
                 "status": "completed",
                 "exit_code": result.returncode,
@@ -194,11 +178,11 @@ class SandboxAdapter:
                 "status": "error",
                 "error": str(e)
             }
-    
+
     async def _wasm(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         Run WebAssembly module (Phase 7 - Future)
-        
+
         Inputs:
             module: Path to .wasm file
             function: Function to call
@@ -210,13 +194,13 @@ class SandboxAdapter:
                 "error": "WebAssembly runtime (wasmtime) not available",
                 "note": "Install: curl https://wasmtime.dev/install.sh -sSf | bash"
             }
-        
+
         module = inputs["module"]
         function = inputs.get("function", "main")
         args = inputs.get("args", [])
-        
+
         cmd = ["wasmtime", "run", module, "--invoke", function] + args
-        
+
         try:
             result = subprocess.run(
                 cmd,
@@ -224,7 +208,7 @@ class SandboxAdapter:
                 text=True,
                 timeout=30
             )
-            
+
             return {
                 "status": "completed",
                 "exit_code": result.returncode,
@@ -237,7 +221,7 @@ class SandboxAdapter:
                 "status": "error",
                 "error": str(e)
             }
-    
+
     async def _status(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Get sandbox capabilities"""
         return {

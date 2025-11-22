@@ -1,21 +1,35 @@
+# Copyright 2025 Ilya Makarov, Krasnoyarsk
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Advanced Monitoring & Observability System for BBX
 Provides comprehensive monitoring, tracing, and observability features
 """
 import logging
 
-logger = logging.getLogger("bbx.observability")
 
 import asyncio
 import json
 import time
-import traceback
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Callable
 from collections import defaultdict, deque
 from dataclasses import dataclass, field, asdict
 import threading
+
+logger = logging.getLogger("bbx.observability")
 
 
 @dataclass
@@ -151,10 +165,10 @@ class MetricsCollector:
         sorted_values = sorted(values)
         k = (len(sorted_values) - 1) * p
         f = int(k)
-        c = f + 1 if c < len(sorted_values) else f
-        if f == c:
+        c_idx = f + 1 if f + 1 < len(sorted_values) else f
+        if f == c_idx:
             return sorted_values[int(k)]
-        return sorted_values[f] * (c - k) + sorted_values[c] * (k - f)
+        return sorted_values[f] * (c_idx - k) + sorted_values[c_idx] * (k - f)
 
 
 class Tracer:

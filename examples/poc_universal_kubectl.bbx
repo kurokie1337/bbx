@@ -1,0 +1,32 @@
+# Proof of Concept: Universal Adapter
+# Demonstrates "Zero-Code" execution of a Docker container.
+
+name: Universal Kubectl PoC
+version: 1.0
+
+steps:
+  - id: check_kubectl_version
+    mcp: universal
+    method: run
+    inputs:
+      # 1. Define Image
+      uses: docker://bitnami/kubectl:latest
+      
+      # 2. Define Command (Jinja2 supported)
+      cmd: 
+        - kubectl
+        - version
+        - --client
+        - -o
+        - json
+        
+      # 3. Define Output Parsing (JMESPath)
+      output_parser:
+        type: json
+        query: "clientVersion.gitVersion"
+
+  - id: log_result
+    mcp: logger
+    method: info
+    inputs:
+      message: "Kubectl Version: ${step.check_kubectl_version.result}"

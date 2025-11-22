@@ -1,0 +1,28 @@
+# GCP Cloud SQL Database Connection Example
+# Uses Universal Adapter to run gcloud commands
+
+name: GCP Database Connection
+version: 1.0
+
+steps:
+  - id: list_instances
+    mcp: universal
+    method: run
+    inputs:
+      uses: docker://google/cloud-sdk:latest
+      auth:
+        type: gcp_credentials
+      cmd:
+        - gcloud
+        - sql
+        - instances
+        - list
+        - --format=json
+      output_parser:
+        type: json
+
+  - id: log_instances
+    mcp: logger
+    method: info
+    inputs:
+      message: "Found ${step.list_instances.result | length} database instances"

@@ -1,12 +1,25 @@
+# Copyright 2025 Ilya Makarov, Krasnoyarsk
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Linode Adapter - Complete Linode cloud automation
 Provides Linode instance management, Kubernetes, networking, and more
 """
-import asyncio
-import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from ..base_adapter import BaseAdapter
+import boto3
 
 
 class LinodeAdapter(BaseAdapter):
@@ -118,7 +131,7 @@ class LinodeAdapter(BaseAdapter):
     async def _linode_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Delete a Linode instance"""
         linode_id = params["linode_id"]
-        result = await self._api_call("DELETE", f"/linode/instances/{linode_id}")
+        await self._api_call("DELETE", f"/linode/instances/{linode_id}")
         return {"status": "deleted", "linode_id": linode_id}
 
     async def _linode_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -178,7 +191,7 @@ class LinodeAdapter(BaseAdapter):
     async def _k8s_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Delete LKE cluster"""
         cluster_id = params["cluster_id"]
-        result = await self._api_call("DELETE", f"/lke/clusters/{cluster_id}")
+        await self._api_call("DELETE", f"/lke/clusters/{cluster_id}")
         return {"status": "deleted", "cluster_id": cluster_id}
 
     async def _k8s_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -227,7 +240,7 @@ class LinodeAdapter(BaseAdapter):
     async def _lb_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Delete NodeBalancer"""
         nb_id = params["nb_id"]
-        result = await self._api_call("DELETE", f"/nodebalancers/{nb_id}")
+        await self._api_call("DELETE", f"/nodebalancers/{nb_id}")
         return {"status": "deleted", "nb_id": nb_id}
 
     async def _lb_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -269,7 +282,7 @@ class LinodeAdapter(BaseAdapter):
     async def _volume_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Delete volume"""
         volume_id = params["volume_id"]
-        result = await self._api_call("DELETE", f"/volumes/{volume_id}")
+        await self._api_call("DELETE", f"/volumes/{volume_id}")
         return {"status": "deleted", "volume_id": volume_id}
 
     # Object Storage Operations
@@ -337,7 +350,7 @@ class LinodeAdapter(BaseAdapter):
         cluster = params.get("cluster", "us-east-1")
         label = params["label"]
 
-        result = await self._api_call("DELETE", f"/object-storage/buckets/{cluster}/{label}")
+        await self._api_call("DELETE", f"/object-storage/buckets/{cluster}/{label}")
         return {"status": "deleted", "bucket": label}
 
     # Firewall Operations
@@ -388,7 +401,7 @@ class LinodeAdapter(BaseAdapter):
     async def _firewall_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Delete firewall"""
         firewall_id = params["firewall_id"]
-        result = await self._api_call("DELETE", f"/networking/firewalls/{firewall_id}")
+        await self._api_call("DELETE", f"/networking/firewalls/{firewall_id}")
         return {"status": "deleted", "firewall_id": firewall_id}
 
     async def _firewall_list(self, params: Dict[str, Any]) -> Dict[str, Any]:

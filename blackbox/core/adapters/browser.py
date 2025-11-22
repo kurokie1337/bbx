@@ -1,10 +1,32 @@
-from typing import Dict, Any, Optional
+# Copyright 2025 Ilya Makarov, Krasnoyarsk
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from typing import Dict, Any, Optional, Callable, TYPE_CHECKING
 from blackbox.core.base_adapter import MCPAdapter
+
+if TYPE_CHECKING:
+    from playwright.async_api import PlaywrightContextManager
 
 try:
     from playwright.async_api import async_playwright, Playwright, Browser, Page
+    PLAYWRIGHT_AVAILABLE = True
 except ImportError:
-    async_playwright = None
+    async_playwright = None  # type: ignore
+    PLAYWRIGHT_AVAILABLE = False
+    Playwright = type(None)  # type: ignore
+    Browser = type(None)  # type: ignore
+    Page = type(None)  # type: ignore
 
 class BrowserAdapter(MCPAdapter):
     """
@@ -58,42 +80,48 @@ class BrowserAdapter(MCPAdapter):
 
     async def _goto(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         await self._ensure_page()
+        assert self.page is not None
         url = inputs.get("url")
         if not url:
             raise ValueError("URL is required")
-            
+
         await self.page.goto(url)
         return {"url": url, "title": await self.page.title()}
 
     async def _click(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         await self._ensure_page()
+        assert self.page is not None
         selector = inputs.get("selector")
         if not selector:
             raise ValueError("Selector is required")
-            
+
         await self.page.click(selector)
         return {"clicked": selector}
 
     async def _type(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         await self._ensure_page()
+        assert self.page is not None
         selector = inputs.get("selector")
         text = inputs.get("text")
         if not selector or text is None:
             raise ValueError("Selector and text are required")
-            
+
         await self.page.fill(selector, text)
         return {"typed": text, "into": selector}
 
     async def _text(self, inputs: Dict[str, Any]) -> str:
         await self._ensure_page()
+        assert self.page is not None
         selector = inputs.get("selector")
         if not selector:
             raise ValueError("Selector is required")
-            
-        return await self.page.text_content(selector)
+
+        result = await self.page.text_content(selector)
+        return result or ""
 
     async def _screenshot(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         await self._ensure_page()
+        assert self.page is not None
         path = inputs.get("path", "screenshot.png")
         await self.page.screenshot(path=path)
         return {"path": path}

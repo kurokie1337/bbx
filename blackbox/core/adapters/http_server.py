@@ -35,13 +35,9 @@ Examples:
             handler: "return {'message': 'Hello from BBX!'}"
 """
 
-import asyncio
 import json
-from typing import Dict, Any, List, Optional
-from pathlib import Path
-import threading
-from http.server import HTTPServer, SimpleHTTPRequestHandler
-import socketserver
+from typing import Dict, Any
+from http.server import SimpleHTTPRequestHandler
 
 
 class BBXHTTPHandler(SimpleHTTPRequestHandler):

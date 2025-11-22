@@ -34,10 +34,9 @@ Examples:
         language: "python"
 """
 
-import asyncio
 import os
 import json
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 import httpx
 
 
@@ -69,7 +68,7 @@ class AIAdapter:
         else:
             raise ValueError(f"Unknown method: {method}")
     
-    async def _call_llm(self, messages: List[Dict[str, str]], temperature: float = 0.7) -> str:
+    async def _call_llm(self, messages: List[Dict[str, str]], temperature: float = 0.7) -> Any:
         """
         Call LLM API
         

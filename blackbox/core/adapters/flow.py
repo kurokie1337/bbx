@@ -1,11 +1,26 @@
+# Copyright 2025 Ilya Makarov, Krasnoyarsk
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 import logging
 
-logger = logging.getLogger("bbx.flow")
 
 from typing import Dict, Any
-from blackbox.core.base_adapter import MCPAdapter
 import os
+from blackbox.core.base_adapter import MCPAdapter
+
+logger = logging.getLogger("bbx.flow")
 
 class FlowAdapter(MCPAdapter):
     """
@@ -39,24 +54,13 @@ class FlowAdapter(MCPAdapter):
             # Let's pass None for now to keep it simple, or maybe we want to see sub-steps?
             # If we pass None, we won't see sub-steps in the main log unless we handle it.
             # But run_file prints to stdout anyway.
+            results = await run_file(path)
 
-            # Check recursion depth
-            depth = inputs.get("_depth", 0)
-            if depth > 10:
-                raise RuntimeError("Maximum recursion depth exceeded (10)")
-
-            # Pass incremented depth to subflow
-            variables["_depth"] = depth + 1
-
-            results = await run_file(path, initial_variables=variables)
-
-            logger.info(f"  ↵ Exiting subflow: {os.path.basename(path)}")
-
-            # Check for errors in subflow
+            # Check for failures
             failed_steps = []
             for step_id, result in results.items():
-                if result.get("status") == "error":
-                    failed_steps.append(f"{step_id}: {result.get('error')}")
+                if isinstance(result, dict) and result.get("status") == "failed":
+                    failed_steps.append(step_id)
 
             if failed_steps:
                 error_msg = f"Subflow failed in steps: {', '.join(failed_steps)}"

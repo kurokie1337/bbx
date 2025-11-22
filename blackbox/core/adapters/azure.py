@@ -43,20 +43,41 @@ Examples:
         runtime: "python"
 """
 
+import os
 from typing import Dict, Any
-from blackbox.core.base_adapter import CLIAdapter, AdapterResponse
+from blackbox.core.base_adapter import DockerizedAdapter, AdapterResponse
 
 
-class AzureAdapter(CLIAdapter):
-    """BBX Adapter for Microsoft Azure using az CLI"""
+class AzureAdapter(DockerizedAdapter):
+    """BBX Adapter for Microsoft Azure using az CLI (Dockerized)"""
 
     def __init__(self):
         super().__init__(
             adapter_name="Azure",
+            docker_image="mcr.microsoft.com/azure-cli",
             cli_tool="az",
             version_args=["version"],
             required=True
         )
+
+    def run_command(self, *args, **kwargs):
+        """Override run_command to inject Azure credentials"""
+        env = kwargs.get("env", {}) or {}
+        
+        # Pass Azure credentials from host environment
+        azure_vars = [
+            "AZURE_CLIENT_ID",
+            "AZURE_CLIENT_SECRET",
+            "AZURE_TENANT_ID",
+            "AZURE_SUBSCRIPTION_ID"
+        ]
+        
+        for var in azure_vars:
+            if os.environ.get(var):
+                env[var] = os.environ[var]
+                
+        kwargs["env"] = env
+        return super().run_command(*args, **kwargs)
 
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
         """Execute Azure method"""

@@ -1,3 +1,17 @@
+# Copyright 2025 Ilya Makarov, Krasnoyarsk
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 BBX Format v6.0 Parser
 
@@ -68,10 +82,10 @@ class BBXv6Parser:
         Returns:
             v5.0 step dictionary
         """
-        v5_step = {
+        v5_step: Dict[str, Any] = {
             "id": step_id
         }
-        
+
         # Parse 'use' field (adapter.method)
         if "use" in step_data:
             parts = step_data["use"].split(".", 1)
@@ -82,8 +96,12 @@ class BBXv6Parser:
                 raise ValueError(f"Invalid 'use' format: {step_data['use']}. Expected 'adapter.method'")
         else:
             # Fallback to explicit mcp/method
-            v5_step["mcp"] = step_data.get("mcp")
-            v5_step["method"] = step_data.get("method")
+            mcp_value = step_data.get("mcp")
+            method_value = step_data.get("method")
+            if mcp_value:
+                v5_step["mcp"] = mcp_value
+            if method_value:
+                v5_step["method"] = method_value
         
         # Convert field names
         field_mapping = {
@@ -127,44 +145,46 @@ class BBXv6Parser:
     def parse_v6(data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Convert v6.0 BBX format to v5.0.
-        
+
         Args:
             data: v6.0 workflow data
-            
+
         Returns:
             v5.0 format data
         """
-        v5_data = {
+        workflow: Dict[str, Any] = {}
+
+        v5_data: Dict[str, Any] = {
             "bbx_version": "5.0",
             "type": "workflow",
-            "workflow": {}
+            "workflow": workflow
         }
-        
+
         # Copy workflow metadata
         if "id" in data:
-            v5_data["workflow"]["id"] = data["id"]
+            workflow["id"] = data["id"]
         if "name" in data:
-            v5_data["workflow"]["name"] = data["name"]
+            workflow["name"] = data["name"]
         if "version" in data:
-            v5_data["workflow"]["version"] = data["version"]
+            workflow["version"] = data["version"]
         if "description" in data:
-            v5_data["workflow"]["description"] = data["description"]
-        
+            workflow["description"] = data["description"]
+
         # Parse steps (v6 uses dict with step IDs as keys)
         if "steps" in data:
             steps_data = data["steps"]
-            
+
             if isinstance(steps_data, dict):
                 # v6 format: steps are a dictionary
                 v5_steps = []
                 for step_id, step_data in steps_data.items():
                     v5_step = BBXv6Parser.parse_step(step_id, step_data)
                     v5_steps.append(v5_step)
-                v5_data["workflow"]["steps"] = v5_steps
+                workflow["steps"] = v5_steps
             else:
                 # v5 format: steps are a list (backward compat)
-                v5_data["workflow"]["steps"] = steps_data
-        
+                workflow["steps"] = steps_data
+
         return v5_data
     
     @staticmethod

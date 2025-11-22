@@ -1,0 +1,18 @@
+# Redis CLI Universal Definition
+id: redis
+uses: docker://redis:alpine
+
+cmd:
+  - redis-cli
+  - -h
+  - {{ inputs.host | default('localhost') }}
+  - -p
+  - {{ inputs.port | default('6379') }}
+  - {% if inputs.command %}{{ inputs.command }}{% endif %}
+  - {% if inputs.args %}{% for arg in inputs.args %}{{ arg }}{% endfor %}{% endif %}
+
+env:
+  REDISCLI_AUTH: "{{ secrets.REDIS_PASSWORD }}"
+
+output_parser:
+  type: text

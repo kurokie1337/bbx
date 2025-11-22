@@ -45,25 +45,80 @@ Examples:
 """
 
 import json
+import os
 from typing import Dict, Any
-from blackbox.core.base_adapter import CLIAdapter, AdapterResponse
+from pathlib import Path
+from blackbox.core.base_adapter import DockerizedAdapter, AdapterResponse
 
 
-class GCPAdapter(CLIAdapter):
-    """BBX Adapter for Google Cloud Platform using gcloud CLI"""
+class GCPAdapter(DockerizedAdapter):
+    """BBX Adapter for Google Cloud Platform using gcloud CLI (Dockerized)"""
 
     def __init__(self):
         super().__init__(
             adapter_name="GCP",
+            docker_image="google/cloud-sdk:latest",
             cli_tool="gcloud",
             version_args=["version"],
             required=True
         )
 
+    def run_command(self, *args, **kwargs):
+        """Execute gcloud command with --format=json and credential injection"""
+        # Inject credentials
+        env = kwargs.get("env", {}) or {}
+        volumes = kwargs.get("volumes", {}) or {}
+        
+        # Pass common GCP env vars
+        gcp_vars = ["CLOUDSDK_CORE_PROJECT", "GOOGLE_APPLICATION_CREDENTIALS"]
+        for var in gcp_vars:
+            if os.environ.get(var):
+                env[var] = os.environ[var]
+
+        # Handle key file mounting if needed
+        creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+        if creds_path and os.path.exists(creds_path):
+            creds_path = Path(creds_path).resolve()
+            # If file is not in workspace (which is already mounted), mount it
+            # We mount it to the same path inside container to keep env var valid
+            # provided the path is absolute.
+            # DockerizedAdapter mounts cwd to /workspace.
+            try:
+                Path(creds_path).relative_to(Path.cwd())
+                # It's in workspace, no extra mount needed if we use relative path?
+                # But env var might be absolute.
+                # If it's absolute path on host, it won't match /workspace path in container.
+                # Simplest: Mount the file directory to the same path in container?
+                # Or just mount the file to a known location and update env var?
+                # Let's try mounting the parent dir to the same absolute path.
+                # This requires the container to allow creating that path.
+                
+                # Safer: Mount to /tmp/gcp_creds.json and update env var in container
+                container_creds_path = "/tmp/gcp_credentials.json"
+                volumes[str(creds_path)] = container_creds_path
+                env["GOOGLE_APPLICATION_CREDENTIALS"] = container_creds_path
+            except ValueError:
+                # Not in cwd, definitely mount
+                container_creds_path = "/tmp/gcp_credentials.json"
+                volumes[str(creds_path)] = container_creds_path
+                env["GOOGLE_APPLICATION_CREDENTIALS"] = container_creds_path
+
+        kwargs["env"] = env
+        kwargs["volumes"] = volumes
+
+        # Handle output format
+        # Remove --output json if present and add --format=json
+        args_list = list(args)
+        if kwargs.get('output_format') == 'json':
+            if '--format=json' not in args_list:
+                args_list.append('--format=json')
+            kwargs.pop('output_format', None)
+
+        return super().run_command(*args_list, **kwargs)
+
     def _run_gcloud(self, *args, **kwargs):
-        """Run gcloud command with format=json"""
-        # Override to add --format=json instead of --output json
-        return super().run_command(*args, **kwargs)
+        """Deprecated helper, mapped to run_command"""
+        return self.run_command(*args, **kwargs)
 
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
         """Execute GCP method"""
@@ -102,20 +157,7 @@ class GCPAdapter(CLIAdapter):
             self.log_error(method, e)
             return AdapterResponse.error_response(error=str(e)).to_dict()
 
-    # Override run_command to use --format=json instead of --output json
-    def run_command(self, *args, **kwargs):
-        """Execute gcloud command with --format=json"""
-        # Remove --output json if present and add --format=json
-        args_list = list(args)
 
-        # Don't add --output json for gcloud
-        if kwargs.get('output_format') == 'json':
-            if '--format=json' not in args_list:
-                args_list.append('--format=json')
-            kwargs.pop('output_format', None)
-
-        # Call parent without output_format
-        return super().run_command(*args_list, **kwargs)
 
     # Compute Engine Operations
 

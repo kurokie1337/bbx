@@ -1,12 +1,25 @@
+# Copyright 2025 Ilya Makarov, Krasnoyarsk
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 DigitalOcean Adapter - Complete DigitalOcean cloud automation
 Provides droplet management, Kubernetes, networking, and more
 """
-import asyncio
-import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from ..base_adapter import BaseAdapter
+import boto3
 
 
 class DigitalOceanAdapter(BaseAdapter):
@@ -117,7 +130,7 @@ class DigitalOceanAdapter(BaseAdapter):
     async def _droplet_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Delete a droplet"""
         droplet_id = params["droplet_id"]
-        result = await self._api_call("DELETE", f"/droplets/{droplet_id}")
+        await self._api_call("DELETE", f"/droplets/{droplet_id}")
         return {"status": "deleted", "droplet_id": droplet_id}
 
     async def _droplet_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -185,7 +198,7 @@ class DigitalOceanAdapter(BaseAdapter):
     async def _k8s_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Delete Kubernetes cluster"""
         cluster_id = params["cluster_id"]
-        result = await self._api_call("DELETE", f"/kubernetes/clusters/{cluster_id}")
+        await self._api_call("DELETE", f"/kubernetes/clusters/{cluster_id}")
         return {"status": "deleted", "cluster_id": cluster_id}
 
     async def _k8s_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -231,7 +244,7 @@ class DigitalOceanAdapter(BaseAdapter):
     async def _lb_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Delete load balancer"""
         lb_id = params["lb_id"]
-        result = await self._api_call("DELETE", f"/load_balancers/{lb_id}")
+        await self._api_call("DELETE", f"/load_balancers/{lb_id}")
         return {"status": "deleted", "lb_id": lb_id}
 
     async def _lb_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -281,7 +294,7 @@ class DigitalOceanAdapter(BaseAdapter):
     async def _volume_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Delete volume"""
         volume_id = params["volume_id"]
-        result = await self._api_call("DELETE", f"/volumes/{volume_id}")
+        await self._api_call("DELETE", f"/volumes/{volume_id}")
         return {"status": "deleted", "volume_id": volume_id}
 
     # Database Operations
@@ -304,7 +317,7 @@ class DigitalOceanAdapter(BaseAdapter):
     async def _db_delete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Delete managed database"""
         db_id = params["db_id"]
-        result = await self._api_call("DELETE", f"/databases/{db_id}")
+        await self._api_call("DELETE", f"/databases/{db_id}")
         return {"status": "deleted", "db_id": db_id}
 
     async def _db_list(self, params: Dict[str, Any]) -> Dict[str, Any]:

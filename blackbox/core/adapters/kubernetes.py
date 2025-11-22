@@ -52,46 +52,64 @@ Examples:
 """
 
 import json
-import subprocess
+import os
+from pathlib import Path
 from typing import Dict, Any
-from blackbox.core.base_adapter import CLIAdapter, AdapterResponse
+from blackbox.core.base_adapter import DockerizedAdapter, AdapterResponse
 
 
-class KubernetesAdapter(CLIAdapter):
-    """BBX Adapter for Kubernetes operations"""
+class KubernetesAdapter(DockerizedAdapter):
+    """BBX Adapter for Kubernetes operations (Dockerized)"""
 
     def __init__(self):
         super().__init__(
             adapter_name="Kubernetes",
+            docker_image="dtzar/helm-kubectl:latest",
             cli_tool="kubectl",
             version_args=["version", "--client"],
             required=True
         )
 
+    def run_command(self, *args, **kwargs):
+        """Override run_command to handle kubectl/helm and auth"""
+        # Inject Kubeconfig
+        env = kwargs.get("env", {}) or {}
+        volumes = kwargs.get("volumes", {}) or {}
+        
+        # Mount ~/.kube if it exists
+        home = Path.home()
+        kube_dir = home / ".kube"
+        if kube_dir.exists():
+            # Mount to /root/.kube (container runs as root usually)
+            # or /home/argocd/.kube depending on image user.
+            # dtzar/helm-kubectl runs as root? Let's assume root for now.
+            volumes[str(kube_dir)] = "/root/.kube"
+            
+        # Pass KUBECONFIG env var if set
+        if os.environ.get("KUBECONFIG"):
+            env["KUBECONFIG"] = os.environ["KUBECONFIG"]
+            # If KUBECONFIG points to a file, we might need to mount it if not in ~/.kube
+            # For simplicity, assume standard ~/.kube setup or user handles mounts via env
+            
+        kwargs["env"] = env
+        kwargs["volumes"] = volumes
+        
+        # Handle command prefixing
+        # If args[0] is not helm or kubectl, prepend kubectl
+        # This allows self.run_command("apply", ...) to work as "kubectl apply ..."
+        args_list = list(args)
+        if args_list:
+            cmd = args_list[0]
+            if cmd not in ["kubectl", "helm"]:
+                args_list.insert(0, "kubectl")
+                
+        return super().run_command(*args_list, **kwargs)
+
     def _run_helm_command(self, *args, timeout=300):
-        """Run helm command (separate from kubectl)"""
-        cmd = ["helm"] + list(args)
-
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout
-            )
-
-            return AdapterResponse(
-                success=result.returncode == 0,
-                data=result.stdout.strip(),
-                error=result.stderr.strip() if result.returncode != 0 else None,
-                metadata={"exit_code": result.returncode}
-            )
-        except subprocess.TimeoutExpired:
-            return AdapterResponse.error_response(
-                error=f"Command timed out after {timeout}s"
-            )
-        except Exception as e:
-            return AdapterResponse.error_response(error=str(e))
+        """Run helm command using Dockerized execution"""
+        # args usually start with subcommand like "install", "upgrade"
+        # We prepend "helm" and call run_command
+        return self.run_command("helm", *args, timeout=timeout)
 
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
         """Execute Kubernetes method"""

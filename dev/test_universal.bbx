@@ -1,0 +1,34 @@
+# Test Universal Adapters
+name: Universal Adapter Verification
+version: 1.0
+
+nodes:
+  - id: test_aws
+    adapter: universal
+    # In a real integration, the registry would load 'aws_cli' from library
+    # Here we embed the definition or reference it.
+    # For this test, we assume the runtime can load from library/aws_cli.yaml
+    definition: "blackbox/library/aws_cli.yaml"
+    inputs:
+      service: s3
+      action: list-buckets
+      args: {}
+
+  - id: test_k8s
+    adapter: universal
+    definition: "blackbox/library/k8s_apply.yaml"
+    inputs:
+      file: "deployment.yaml"
+      namespace: "default"
+    # Mocking the file existence for the test
+    
+  - id: test_tf
+    adapter: universal
+    definition: "blackbox/library/tf_plan.yaml"
+    inputs:
+      working_dir: "./terraform"
+      variables:
+        region: "us-east-1"
+
+# Note: This workflow requires the Runtime to support 'adapter: universal'
+# and loading definitions. We need to patch the runtime or write a specific test script.

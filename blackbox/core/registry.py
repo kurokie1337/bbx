@@ -20,7 +20,7 @@ all adapters at startup (performance optimization).
 """
 
 import logging
-from typing import Dict, Any, Optional, Type, Callable
+from typing import Dict, Optional, Callable
 from blackbox.core.base_adapter import MCPAdapter
 
 
@@ -113,6 +113,12 @@ class MCPRegistry:
             lambda: self._import_adapter("blackbox.core.adapters.http_server", "HTTPServerAdapter")
         )
 
+        # Universal Adapter (God Mode)
+        self.register_lazy(
+            ["universal", "bbx.universal"],
+            lambda: self._import_adapter_universal()
+        )
+
         # Cloud Providers - AWS
         self.register_lazy(
             ["bbx.aws", "aws"],
@@ -201,6 +207,31 @@ class MCPRegistry:
         except Exception as e:
             logger.error(f"Failed to instantiate {class_name}: {e}")
             raise
+
+    def _import_adapter_universal(self) -> MCPAdapter:
+        """Import and instantiate UniversalAdapter"""
+        # We need to pass the definition, but registry expects 0-arg constructor for lazy loading?
+        # Wait, UniversalAdapter requires 'definition'.
+        # This means UniversalAdapter cannot be a standard registered adapter in the same way
+        # unless we have a 'UniversalAdapterFactory' or similar.
+        # For now, let's register a 'GenericUniversalAdapter' that can load definitions dynamically?
+        # Or better: The Runtime should handle 'adapter: universal' specially.
+        
+        # Actually, for the 'universal' adapter type in YAML:
+        # - id: my_step
+        #   adapter: universal
+        #   definition: path/to/def.yaml
+        
+        # The runtime needs to instantiate it with the definition.
+        # So 'universal' in registry should probably return a Factory or a special wrapper.
+        
+        # Let's import the class so it's available, but maybe we don't instantiate it fully here.
+        from blackbox.core.universal import UniversalAdapter
+        # We return the class itself? No, registry expects an instance.
+        
+        # HACK: Return a dummy instance or handle in runtime.
+        # Let's make UniversalAdapter accept optional definition for registration.
+        return UniversalAdapter({})
 
     def register(self, name: str, adapter: MCPAdapter):
         """

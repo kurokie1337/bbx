@@ -37,7 +37,7 @@ def cleanup_containers(docker_adapter):
     for name in test_containers:
         try:
             asyncio.run(docker_adapter.execute("remove", {"name": name, "force": True}))
-        except:
+        except Exception:
             pass
 
 
@@ -100,7 +100,7 @@ async def test_docker_methods_exist(docker_adapter):
         try:
             # Will fail with missing inputs, but that's OK
             await docker_adapter.execute(method, {})
-        except (KeyError, ValueError) as e:
+        except (KeyError, ValueError):
             # Expected - missing required inputs
             pass
         except Exception as e:

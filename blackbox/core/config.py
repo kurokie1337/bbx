@@ -37,9 +37,11 @@ try:
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
-    BaseModel = object
-    Field = lambda *args, **kwargs: None
-    validator = lambda *args, **kwargs: lambda f: f
+    BaseModel = object  # type: ignore
+    def Field(*args, **kwargs):  # type: ignore
+        return None
+    def validator(*args, **kwargs):  # type: ignore
+        return lambda f: f
 
 
 # ============================================================================
@@ -264,7 +266,7 @@ if PYDANTIC_AVAILABLE:
 else:
     # Fallback dataclass implementation without Pydantic
     @dataclass
-    class PathsConfig:
+    class PathsConfig:  # type: ignore
         """Path configuration (no validation)"""
         bbx_home: Path = field(default_factory=lambda: Path.home() / ".bbx")
         cache_dir: Path = field(default_factory=lambda: Path.home() / ".bbx" / "cache")
@@ -276,7 +278,7 @@ else:
 
 
     @dataclass
-    class RuntimeConfig:
+    class RuntimeConfig:  # type: ignore
         """Runtime configuration (no validation)"""
         default_timeout_ms: int = 30000
         max_parallel_steps: int = 10
@@ -288,7 +290,7 @@ else:
 
 
     @dataclass
-    class ObservabilityConfig:
+    class ObservabilityConfig:  # type: ignore
         """Observability configuration (no validation)"""
         enable_metrics: bool = True
         enable_tracing: bool = True
@@ -301,7 +303,7 @@ else:
 
 
     @dataclass
-    class AdapterConfig:
+    class AdapterConfig:  # type: ignore
         """Adapter configuration (no validation)"""
         aws_region: Optional[str] = None
         gcp_project: Optional[str] = None
@@ -312,7 +314,7 @@ else:
 
 
     @dataclass
-    class SecurityConfig:
+    class SecurityConfig:  # type: ignore
         """Security configuration (no validation)"""
         enable_sandbox: bool = False
         allowed_adapters: Optional[List[str]] = None
@@ -323,7 +325,7 @@ else:
 
 
     @dataclass
-    class BBXConfig:
+    class BBXConfig:  # type: ignore
         """Complete BBX configuration (no validation)"""
         paths: PathsConfig = field(default_factory=PathsConfig)
         runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
@@ -342,59 +344,96 @@ class ConfigLoader:
     @staticmethod
     def load_from_env() -> Dict[str, Any]:
         """Load configuration from environment variables"""
-        config = {}
+        config: Dict[str, Any] = {}
 
         # Paths
-        if os.getenv("BBX_HOME"):
-            config.setdefault("paths", {})["bbx_home"] = os.getenv("BBX_HOME")
-        if os.getenv("BBX_CACHE_DIR"):
-            config.setdefault("paths", {})["cache_dir"] = os.getenv("BBX_CACHE_DIR")
-        if os.getenv("BBX_STATE_DIR"):
-            config.setdefault("paths", {})["state_dir"] = os.getenv("BBX_STATE_DIR")
-        if os.getenv("BBX_BUNDLE_DIR"):
-            config.setdefault("paths", {})["bundle_dir"] = os.getenv("BBX_BUNDLE_DIR")
-        if os.getenv("BBX_OUTPUT_DIR"):
-            config.setdefault("paths", {})["output_dir"] = os.getenv("BBX_OUTPUT_DIR")
-        if os.getenv("BBX_TEMP_DIR"):
-            config.setdefault("paths", {})["temp_dir"] = os.getenv("BBX_TEMP_DIR")
-        if os.getenv("BBX_LOG_DIR"):
-            config.setdefault("paths", {})["log_dir"] = os.getenv("BBX_LOG_DIR")
+        bbx_home = os.getenv("BBX_HOME")
+        if bbx_home:
+            config.setdefault("paths", {})["bbx_home"] = bbx_home
+
+        bbx_cache_dir = os.getenv("BBX_CACHE_DIR")
+        if bbx_cache_dir:
+            config.setdefault("paths", {})["cache_dir"] = bbx_cache_dir
+
+        bbx_state_dir = os.getenv("BBX_STATE_DIR")
+        if bbx_state_dir:
+            config.setdefault("paths", {})["state_dir"] = bbx_state_dir
+
+        bbx_bundle_dir = os.getenv("BBX_BUNDLE_DIR")
+        if bbx_bundle_dir:
+            config.setdefault("paths", {})["bundle_dir"] = bbx_bundle_dir
+
+        bbx_output_dir = os.getenv("BBX_OUTPUT_DIR")
+        if bbx_output_dir:
+            config.setdefault("paths", {})["output_dir"] = bbx_output_dir
+
+        bbx_temp_dir = os.getenv("BBX_TEMP_DIR")
+        if bbx_temp_dir:
+            config.setdefault("paths", {})["temp_dir"] = bbx_temp_dir
+
+        bbx_log_dir = os.getenv("BBX_LOG_DIR")
+        if bbx_log_dir:
+            config.setdefault("paths", {})["log_dir"] = bbx_log_dir
 
         # Runtime
-        if os.getenv("BBX_TIMEOUT"):
-            config.setdefault("runtime", {})["default_timeout_ms"] = int(os.getenv("BBX_TIMEOUT"))
-        if os.getenv("BBX_MAX_PARALLEL"):
-            config.setdefault("runtime", {})["max_parallel_steps"] = int(os.getenv("BBX_MAX_PARALLEL"))
-        if os.getenv("BBX_ENABLE_CACHE"):
-            config.setdefault("runtime", {})["enable_caching"] = os.getenv("BBX_ENABLE_CACHE").lower() == "true"
-        if os.getenv("BBX_CACHE_TTL"):
-            config.setdefault("runtime", {})["cache_ttl_seconds"] = int(os.getenv("BBX_CACHE_TTL"))
+        bbx_timeout = os.getenv("BBX_TIMEOUT")
+        if bbx_timeout:
+            config.setdefault("runtime", {})["default_timeout_ms"] = int(bbx_timeout)
+
+        bbx_max_parallel = os.getenv("BBX_MAX_PARALLEL")
+        if bbx_max_parallel:
+            config.setdefault("runtime", {})["max_parallel_steps"] = int(bbx_max_parallel)
+
+        bbx_enable_cache = os.getenv("BBX_ENABLE_CACHE")
+        if bbx_enable_cache:
+            config.setdefault("runtime", {})["enable_caching"] = bbx_enable_cache.lower() == "true"
+
+        bbx_cache_ttl = os.getenv("BBX_CACHE_TTL")
+        if bbx_cache_ttl:
+            config.setdefault("runtime", {})["cache_ttl_seconds"] = int(bbx_cache_ttl)
 
         # Observability
-        if os.getenv("BBX_LOG_LEVEL"):
-            config.setdefault("observability", {})["log_level"] = os.getenv("BBX_LOG_LEVEL")
-        if os.getenv("BBX_ENABLE_METRICS"):
-            config.setdefault("observability", {})["enable_metrics"] = os.getenv("BBX_ENABLE_METRICS").lower() == "true"
-        if os.getenv("BBX_ENABLE_TRACING"):
-            config.setdefault("observability", {})["enable_tracing"] = os.getenv("BBX_ENABLE_TRACING").lower() == "true"
+        bbx_log_level = os.getenv("BBX_LOG_LEVEL")
+        if bbx_log_level:
+            config.setdefault("observability", {})["log_level"] = bbx_log_level
+
+        bbx_enable_metrics = os.getenv("BBX_ENABLE_METRICS")
+        if bbx_enable_metrics:
+            config.setdefault("observability", {})["enable_metrics"] = bbx_enable_metrics.lower() == "true"
+
+        bbx_enable_tracing = os.getenv("BBX_ENABLE_TRACING")
+        if bbx_enable_tracing:
+            config.setdefault("observability", {})["enable_tracing"] = bbx_enable_tracing.lower() == "true"
 
         # Adapters
-        if os.getenv("AWS_REGION"):
-            config.setdefault("adapters", {})["aws_region"] = os.getenv("AWS_REGION")
-        if os.getenv("GCP_PROJECT"):
-            config.setdefault("adapters", {})["gcp_project"] = os.getenv("GCP_PROJECT")
-        if os.getenv("AZURE_SUBSCRIPTION_ID"):
-            config.setdefault("adapters", {})["azure_subscription"] = os.getenv("AZURE_SUBSCRIPTION_ID")
-        if os.getenv("BBX_HTTP_TIMEOUT"):
-            config.setdefault("adapters", {})["http_timeout"] = int(os.getenv("BBX_HTTP_TIMEOUT"))
+        aws_region = os.getenv("AWS_REGION")
+        if aws_region:
+            config.setdefault("adapters", {})["aws_region"] = aws_region
+
+        gcp_project = os.getenv("GCP_PROJECT")
+        if gcp_project:
+            config.setdefault("adapters", {})["gcp_project"] = gcp_project
+
+        azure_sub = os.getenv("AZURE_SUBSCRIPTION_ID")
+        if azure_sub:
+            config.setdefault("adapters", {})["azure_subscription"] = azure_sub
+
+        bbx_http_timeout = os.getenv("BBX_HTTP_TIMEOUT")
+        if bbx_http_timeout:
+            config.setdefault("adapters", {})["http_timeout"] = int(bbx_http_timeout)
 
         # Security
-        if os.getenv("BBX_SANDBOX"):
-            config.setdefault("security", {})["enable_sandbox"] = os.getenv("BBX_SANDBOX").lower() == "true"
-        if os.getenv("BBX_ALLOWED_ADAPTERS"):
-            config.setdefault("security", {})["allowed_adapters"] = os.getenv("BBX_ALLOWED_ADAPTERS").split(",")
-        if os.getenv("BBX_BLOCKED_ADAPTERS"):
-            config.setdefault("security", {})["blocked_adapters"] = os.getenv("BBX_BLOCKED_ADAPTERS").split(",")
+        bbx_sandbox = os.getenv("BBX_SANDBOX")
+        if bbx_sandbox:
+            config.setdefault("security", {})["enable_sandbox"] = bbx_sandbox.lower() == "true"
+
+        bbx_allowed = os.getenv("BBX_ALLOWED_ADAPTERS")
+        if bbx_allowed:
+            config.setdefault("security", {})["allowed_adapters"] = bbx_allowed.split(",")
+
+        bbx_blocked = os.getenv("BBX_BLOCKED_ADAPTERS")
+        if bbx_blocked:
+            config.setdefault("security", {})["blocked_adapters"] = bbx_blocked.split(",")
 
         return config
 
@@ -418,7 +457,7 @@ class ConfigLoader:
     @staticmethod
     def merge_configs(*configs: Dict[str, Any]) -> Dict[str, Any]:
         """Deep merge multiple configuration dictionaries"""
-        result = {}
+        result: Dict[str, Any] = {}
         for config in configs:
             for key, value in config.items():
                 if key in result and isinstance(result[key], dict) and isinstance(value, dict):
@@ -602,3 +641,7 @@ def get_log_file(filename: str) -> Path:
 def get_temp_file(filename: str) -> Path:
     """Get path to a temporary file"""
     return get_config().paths.temp_dir / filename
+
+
+# Alias for backward compatibility
+get_settings = get_config

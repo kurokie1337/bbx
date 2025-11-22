@@ -12,31 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Blackbox API Server - Enhanced Production Version
-Provides REST API for executing workflows with metrics, health checks, and validation.
-"""
-
-from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 import sys
+import os
 import time
 import uuid
 import logging
+import tempfile
+import yaml
+from typing import Dict, Any, Optional
 
-sys.path.insert(0, 'c:\\Users\\User\\Desktop\\Новая папка\\workflow_test')
+# Add project root to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
+from pydantic import BaseModel, Field
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+import uvicorn
 
 from blackbox.core import run_file
 from blackbox.core.config import get_settings
 from blackbox.core.validation import validate_workflow
 from blackbox.core.exceptions import WorkflowValidationError
 from blackbox.core.metrics import init_metrics
-import tempfile
-import os
-import yaml
 
 # Initialize settings
 settings = get_settings()
@@ -54,9 +54,6 @@ app = FastAPI(
     version="1.0.0",
     description="Workflow automation engine API"
 )
-
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
 
 # Enable CORS
 app.add_middleware(
@@ -116,17 +113,7 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-@app.get("/")
-def root():
-    """Root endpoint."""
-    return {
-        "message": "Blackbox API Server",
-        "version": "1.0.0",
-        "status": "running",
-        "docs": "/docs",
-        "health": "/health",
-        "metrics": "/metrics"
-    }
+
 
 
 @app.get("/health", response_model=HealthResponse)

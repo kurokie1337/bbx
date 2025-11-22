@@ -153,7 +153,7 @@ BBX follows a clean, modular architecture designed for extensibility and reliabi
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/blackbox-workflow.git
+git clone https://github.com/kurokie1337/bbx.git
 cd blackbox-workflow
 
 # Create virtual environment
@@ -866,10 +866,41 @@ workflow:
 
 ## 🛠️ Development
 
+### Python SDK
+
+BBX includes an official Python SDK for programmatic workflow management:
+
+```python
+from bbx_sdk import BlackboxClient, WorkflowCreate
+
+# Connect to BBX API
+client = BlackboxClient("http://localhost:8000")
+client.authenticate("username", "password")
+
+# Create and execute workflow
+workflow = WorkflowCreate(
+    name="My Workflow",
+    bbx_yaml=workflow_definition
+)
+created = client.create_workflow(workflow)
+execution = client.execute_workflow(created.id)
+```
+
+See [bbx-sdk/README.md](bbx-sdk/README.md) for full documentation.
+
+---
+
 ### Project Structure
 
 ```
 blackbox-workflow/
+├── bbx-sdk/                     # Python SDK for API
+│   ├── client.py                # HTTP client
+│   ├── models.py                # Pydantic models
+│   ├── sync.py                  # Workflow sync utility
+│   ├── config.py                # Configuration
+│   ├── examples/                # Usage examples
+│   └── README.md                # SDK documentation
 ├── blackbox/
 │   ├── core/
 │   │   ├── runtime.py           # Core execution engine
@@ -927,7 +958,7 @@ blackbox-workflow/
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/blackbox-workflow.git
+git clone https://github.com/kurokie1337/bbx.git
 cd blackbox-workflow
 
 # Create virtual environment
@@ -1019,13 +1050,18 @@ spec:
 
 ## 📚 Documentation
 
-- **[Getting Started Guide](GETTING_STARTED.md)** - Complete walkthrough for beginners
-- **[Tutorial](TUTORIAL.md)** - Step-by-step learning path with examples
-- **[BBX Specification](docs/BBX_SPEC.md)** - Complete workflow format reference
-- **[Architecture Guide](docs/ARCHITECTURE_2_0.md)** - System design and internals
-- **[Adapter Development](docs/MCP_DEVELOPMENT.md)** - How to build custom adapters
+- **[Documentation Index](docs/INDEX.md)** - Complete documentation navigation
+- **[Getting Started](docs/GETTING_STARTED.md)** - Complete beginner's guide
+- **[BBX v6.0 Specification](docs/BBX_SPEC_v6.md)** - Complete workflow format reference
+- **[Universal Adapter Guide](docs/UNIVERSAL_ADAPTER.md)** - Execute any CLI tool without code
+- **[API Reference](docs/API_REFERENCE.md)** - All adapters and methods
+- **[MCP Development](docs/MCP_DEVELOPMENT.md)** - Create custom adapters
+- **[Architecture Guide](docs/ARCHITECTURE.md)** - System design and internals
+- **[Runtime Internals](docs/RUNTIME_INTERNALS.md)** - Engine implementation
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment strategies
-- **[FAQ](FAQ.md)** - Frequently asked questions
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Agent Guide](docs/AGENT_GUIDE.md)** - BBX for AI agents
+- **[Python SDK](bbx-sdk/README.md)** - Official Python client library
 - **[Changelog](CHANGELOG.md)** - Version history and release notes
 
 ---
@@ -1136,10 +1172,32 @@ Every contribution, no matter how small, is deeply appreciated.
 
 ---
 
+### ❓ FAQ & Troubleshooting
+
+#### Common Questions
+
+**Q: Can I use BBX commercially?**
+A: Yes! BBX is licensed under Apache 2.0, which permits both personal and commercial use at no cost. For enterprise support, consulting, or custom development, contact the author.
+
+**Q: Can steps run in parallel?**
+A: Yes! Use `parallel: true` in your step definition and ensure dependencies are correctly set with `depends_on`.
+
+**Q: What if I get "Unknown MCP type: http"?**
+A: Ensure you are using supported adapter names: `http`, `logger`, `telegram`, etc. Check `docs/ADAPTERS.md` for the full list.
+
+#### Troubleshooting
+
+- **Telegram not working?** Check your bot token, ensure you've sent `/start` to the bot, and verified the chat ID.
+- **Variable substitution fails?** Use `save:` to capture outputs and reference them as `${step.step_id.field}`.
+- **Timeout errors?** Increase the step timeout: `timeout: 30s`.
+- **VS Code IntelliSense not working?** Run `python cli.py schema` to generate the schema and add it to your `.vscode/settings.json`.
+
+---
+
 ### 📞 Contact & Community
 
-- **Issues & Bug Reports**: [GitHub Issues](https://github.com/yourusername/blackbox-workflow/issues)
-- **Feature Requests**: [GitHub Discussions](https://github.com/yourusername/blackbox-workflow/discussions)
+- **Issues & Bug Reports**: [GitHub Issues](https://github.com/kurokie1337/bbx/issues)
+- **Feature Requests**: [GitHub Discussions](https://github.com/kurokie1337/bbx/discussions)
 - **Documentation**: [docs/](docs/)
 - **Examples**: [workflows/examples/](workflows/examples/)
 

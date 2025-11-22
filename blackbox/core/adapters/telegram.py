@@ -1,22 +1,38 @@
+# Copyright 2025 Ilya Makarov, Krasnoyarsk
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Telegram MCP Adapter for Blackbox
 Send messages via Telegram Bot API
 """
 
 import httpx
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from blackbox.core.base_adapter import MCPAdapter
 
 
-class TelegramAdapter:
+class TelegramAdapter(MCPAdapter):
     """Telegram Bot API adapter"""
-    
-    def __init__(self, bot_token: str = None):
+
+    def __init__(self, bot_token: Optional[str] = None):
         """
         Initialize Telegram adapter
-        
+
         Args:
             bot_token: Telegram bot token (or pass in inputs)
         """
+        super().__init__("telegram")
         self.bot_token = bot_token
         self.client = httpx.AsyncClient()
     

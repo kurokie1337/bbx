@@ -83,7 +83,7 @@ def test_e2e_full_generation_successful(unique_project_name, cleanup_project):
 @pytest.mark.e2e
 def test_e2e_all_directories_created(unique_project_name, cleanup_project):
     """TEST 2: All required directories exist"""
-    print(f"\n🧪 TEST 2: Directory structure validation")
+    print("\n🧪 TEST 2: Directory structure validation")
     
     run_app_generator(unique_project_name)
     project_path = Path(unique_project_name)
@@ -119,7 +119,7 @@ def test_e2e_all_directories_created(unique_project_name, cleanup_project):
 @pytest.mark.e2e
 def test_e2e_all_files_generated(unique_project_name, cleanup_project):
     """TEST 3: All critical files generated"""
-    print(f"\n🧪 TEST 3: File generation validation")
+    print("\n🧪 TEST 3: File generation validation")
     
     run_app_generator(unique_project_name)
     project_path = Path(unique_project_name)
@@ -147,7 +147,7 @@ def test_e2e_all_files_generated(unique_project_name, cleanup_project):
 @pytest.mark.e2e
 def test_e2e_typescript_syntax_valid(unique_project_name, cleanup_project):
     """TEST 4: Generated TypeScript has valid syntax"""
-    print(f"\n🧪 TEST 4: TypeScript syntax validation")
+    print("\n🧪 TEST 4: TypeScript syntax validation")
     
     run_app_generator(unique_project_name)
     project_path = Path(unique_project_name)
@@ -169,7 +169,7 @@ def test_e2e_typescript_syntax_valid(unique_project_name, cleanup_project):
 @pytest.mark.e2e
 def test_e2e_python_syntax_compiles(unique_project_name, cleanup_project):
     """TEST 5: Generated Python code compiles"""
-    print(f"\n🧪 TEST 5: Python syntax compilation")
+    print("\n🧪 TEST 5: Python syntax compilation")
     
     run_app_generator(unique_project_name)
     project_path = Path(unique_project_name)
@@ -190,7 +190,7 @@ def test_e2e_python_syntax_compiles(unique_project_name, cleanup_project):
 @pytest.mark.e2e
 def test_e2e_json_files_parseable(unique_project_name, cleanup_project):
     """TEST 6: JSON files are valid"""
-    print(f"\n🧪 TEST 6: JSON validation")
+    print("\n🧪 TEST 6: JSON validation")
     
     run_app_generator(unique_project_name)
     project_path = Path(unique_project_name)
@@ -209,7 +209,7 @@ def test_e2e_json_files_parseable(unique_project_name, cleanup_project):
 @pytest.mark.e2e
 def test_e2e_yaml_files_parseable(unique_project_name, cleanup_project):
     """TEST 7: YAML files are valid"""
-    print(f"\n🧪 TEST 7: YAML validation")
+    print("\n🧪 TEST 7: YAML validation")
     
     run_app_generator(unique_project_name)
     project_path = Path(unique_project_name)
@@ -229,7 +229,7 @@ def test_e2e_yaml_files_parseable(unique_project_name, cleanup_project):
 @pytest.mark.e2e
 def test_e2e_bbx_workflow_valid(unique_project_name, cleanup_project):
     """TEST 8: Generated BBX  workflow is valid"""
-    print(f"\n🧪 TEST 8: BBX workflow validation")
+    print("\n🧪 TEST 8: BBX workflow validation")
     
     run_app_generator(unique_project_name)
     project_path = Path(unique_project_name)
@@ -253,7 +253,7 @@ def test_e2e_bbx_workflow_valid(unique_project_name, cleanup_project):
 @pytest.mark.e2e
 def test_e2e_content_quality(unique_project_name, cleanup_project):
     """TEST 9: Generated content quality checks"""
-    print(f"\n🧪 TEST 9: Content quality validation")
+    print("\n🧪 TEST 9: Content quality validation")
     
     run_app_generator(unique_project_name)
     project_path = Path(unique_project_name)
@@ -286,7 +286,7 @@ def test_e2e_content_quality(unique_project_name, cleanup_project):
 @pytest.mark.performance
 def test_e2e_performance_benchmark(unique_project_name, cleanup_project):
     """TEST 10: Performance benchmarks"""
-    print(f"\n🧪 TEST 10: Performance benchmark")
+    print("\n🧪 TEST 10: Performance benchmark")
     
     result = run_app_generator(unique_project_name)
     
@@ -307,7 +307,7 @@ def test_e2e_performance_benchmark(unique_project_name, cleanup_project):
 @pytest.mark.e2e
 def test_e2e_complete_validation_suite(unique_project_name, cleanup_project):
     """TEST 11: COMPREHENSIVE - All validations in one test"""
-    print(f"\n🧪 TEST 11: COMPREHENSIVE VALIDATION")
+    print("\n🧪 TEST 11: COMPREHENSIVE VALIDATION")
     print("=" * 80)
     
     # Generate
@@ -326,7 +326,7 @@ def test_e2e_complete_validation_suite(unique_project_name, cleanup_project):
     dirs = [d for d in all_items if d.is_dir()]
     total_size = sum(f.stat().st_size for f in files)
     
-    print(f"\n📊 Statistics:")
+    print("\n📊 Statistics:")
     print(f"   Directories: {len(dirs)}")
     print(f"   Files: {len(files)}")
     print(f"   Total size: {total_size:,} bytes")
@@ -338,7 +338,7 @@ def test_e2e_complete_validation_suite(unique_project_name, cleanup_project):
     yml_files = list(project_path.glob("**/*.yml"))
     bbx_files = list(project_path.glob("**/*.bbx"))
     
-    print(f"\n📝 File types:")
+    print("\n📝 File types:")
     print(f"   TypeScript: {len(tsx_files)}")
     print(f"   Python: {len(py_files)}")
     print(f"   JSON: {len(json_files)}")

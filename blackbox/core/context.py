@@ -1,10 +1,10 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import re
 import os
 
 class WorkflowContext:
-    def __init__(self, inputs: Dict[str, Any] = None):
-        self.variables = {
+    def __init__(self, inputs: Optional[Dict[str, Any]] = None):
+        self.variables: Dict[str, Any] = {
             "env": {},
             "step": {},
             "inputs": inputs or {}
@@ -41,19 +41,20 @@ class WorkflowContext:
                     secret_key = parts[1]
                     # Try to get from env, default to empty string or raise error?
                     # For safety, let's return a masked string if not found or the actual value
-                    value = os.environ.get(secret_key, f"MISSING_SECRET_{secret_key}")
-                    
+                    secret_value = os.environ.get(secret_key, f"MISSING_SECRET_{secret_key}")
+
                     # Replace and continue (secrets are usually strings)
-                    expression = expression.replace(f"${{{match}}}", value)
+                    expression = expression.replace(f"${{{match}}}", secret_value)
                     continue
                 else:
                     # ${secrets} usage is invalid
                     continue
 
             # Determine the starting point
+            value: Any
             if first_part in self.variables:
                 value = self.variables
-            elif first_part in self.variables["step"]:
+            elif first_part in self.variables.get("step", {}):
                 value = self.variables["step"]
             else:
                 # If not found, leave it as is or return empty?
@@ -67,11 +68,11 @@ class WorkflowContext:
                     else:
                         # Handle object attributes if needed, or just fail
                         value = {}
-                
+
                 # If the expression is JUST the variable, return the raw value
                 if expression == f"${{{match}}}":
                     return value
-                
+
                 # Otherwise replace in string
                 expression = expression.replace(f"${{{match}}}", str(value))
             except Exception:

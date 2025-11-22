@@ -1,3 +1,17 @@
+# Copyright 2025 Ilya Makarov, Krasnoyarsk
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 BBX Bundler - Create single-file executable .bbx app bundles
 Packages workflows with dependencies into standalone executables
@@ -5,8 +19,6 @@ Packages workflows with dependencies into standalone executables
 import asyncio
 import json
 import zipfile
-import tarfile
-import base64
 import hashlib
 import logging
 from pathlib import Path
@@ -303,11 +315,11 @@ class BundleExtractor:
 
     async def run(self, inputs: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Run the bundled workflow"""
-        from .runtime import BBXRuntime
+        from .runtime import BBXRuntime  # type: ignore
 
         workflow = self.get_workflow()
 
-        runtime = BBXRuntime()
+        runtime = BBXRuntime()  # type: ignore
         runtime.load_workflow(workflow)
 
         if inputs:
@@ -335,9 +347,9 @@ def create_executable_bundle(
     if platform == "current":
         # Use PyInstaller to create executable
         try:
-            import PyInstaller.__main__
+            import PyInstaller.__main__  # type: ignore
 
-            PyInstaller.__main__.run([
+            PyInstaller.__main__.run([  # type: ignore
                 str(bundle_path),
                 '--onefile',
                 '--name', bundle_path.stem,

@@ -1,5 +1,9 @@
-Blackbox - Universal Workflow Engine
-Copyright 2025 Ilya Makarov, Krasnoyarsk
+Blackbox Workflow Engine (BBX)
+Copyright 2025 Ilya Makarov, Krasnoyarsk, Siberia, Russia
+
+First Public Release: November 22, 2025 06:00 UTC+7
+
+This product includes software developed by Ilya Makarov.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -12,3 +16,50 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+================================================================================
+
+This software includes the following third-party components:
+
+FastAPI (MIT License)
+  - Modern, fast web framework for building APIs
+  - Copyright (c) 2018 Sebastián Ramírez
+  - https://fastapi.tiangolo.com
+
+Pydantic (MIT License)
+  - Data validation using Python type annotations
+  - Copyright (c) 2017 Samuel Colvin
+  - https://pydantic-docs.helpmanual.io
+
+Click (BSD-3-Clause License)
+  - Command-line interface creation kit
+  - Copyright (c) 2014 Pallets
+  - https://click.palletsprojects.com
+
+PyYAML (MIT License)
+  - YAML parser and emitter for Python
+  - Copyright (c) 2017-2021 Ingy döt Net, Kirill Simonov
+  - https://pyyaml.org
+
+Docker SDK for Python (Apache License 2.0)
+  - Python library for the Docker Engine API
+  - Copyright (c) 2016 Docker, Inc.
+  - https://github.com/docker/docker-py
+
+Prometheus Client (Apache License 2.0)
+  - Prometheus instrumentation library for Python
+  - Copyright 2015 The Prometheus Authors
+  - https://github.com/prometheus/client_python
+
+================================================================================
+
+ATTRIBUTION NOTICE:
+
+This project's authorship and origin are permanently documented in README.md
+(lines 1112-1119) with timestamp November 22, 2025 06:00 UTC+7. This timestamp
+represents the official first public release and serves as an immutable record
+of the project's creation.
+
+All contributions to this project are made under the Apache License 2.0 and
+become part of the collective work, while original authorship credit remains  
+with Ilya Makarov as the creator and maintainer.

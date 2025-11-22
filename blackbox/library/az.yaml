@@ -1,0 +1,19 @@
+# Azure CLI Universal Definition
+id: az
+uses: docker://mcr.microsoft.com/azure-cli:latest
+
+cmd:
+  - az
+  - {{ inputs.service }}
+  - {{ inputs.action }}
+  - {% for arg in inputs.args %}{{ arg }}{% endfor %}
+  - --output=json
+
+env:
+  AZURE_SUBSCRIPTION_ID: "{{ secrets.AZURE_SUBSCRIPTION_ID }}"
+  AZURE_TENANT_ID: "{{ secrets.AZURE_TENANT_ID }}"
+  AZURE_CLIENT_ID: "{{ secrets.AZURE_CLIENT_ID }}"
+  AZURE_CLIENT_SECRET: "{{ secrets.AZURE_CLIENT_SECRET }}"
+
+output_parser:
+  type: json

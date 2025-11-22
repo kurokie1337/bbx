@@ -48,18 +48,17 @@ Examples:
 """
 
 import json
-import subprocess
 from typing import Dict, Any
-from pathlib import Path
-from blackbox.core.base_adapter import CLIAdapter, AdapterResponse
+from blackbox.core.base_adapter import DockerizedAdapter, AdapterResponse
 
 
-class TerraformAdapter(CLIAdapter):
-    """BBX Adapter for Terraform operations"""
+class TerraformAdapter(DockerizedAdapter):
+    """BBX Adapter for Terraform operations (Dockerized)"""
 
     def __init__(self):
         super().__init__(
             adapter_name="Terraform",
+            docker_image="hashicorp/terraform:latest",
             cli_tool="terraform",
             version_args=["-version"],
             required=True
@@ -67,29 +66,17 @@ class TerraformAdapter(CLIAdapter):
 
     def _run_tf_command(self, *args, working_dir=None, timeout=600):
         """Run terraform command with working directory support"""
-        cmd = [self.cli_tool] + list(args)
-
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=working_dir,
-                timeout=timeout
-            )
-
-            return AdapterResponse(
-                success=result.returncode == 0,
-                data=result.stdout.strip(),
-                error=result.stderr.strip() if result.returncode != 0 else None,
-                metadata={"exit_code": result.returncode}
-            )
-        except subprocess.TimeoutExpired:
-            return AdapterResponse.error_response(
-                error=f"Command timed out after {timeout}s"
-            )
-        except Exception as e:
-            return AdapterResponse.error_response(error=str(e))
+        # We don't need to manually construct cmd with self.cli_tool here
+        # because DockerizedAdapter.run_command handles it (appending args to image)
+        
+        # working_dir is passed to run_command which sets -w in Docker
+        
+        return self.run_command(
+            *args,
+            working_dir=working_dir,
+            timeout=timeout,
+            output_format="json" if "-json" in args else "text"
+        )
 
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
         """Execute Terraform method"""

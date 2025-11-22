@@ -1,0 +1,26 @@
+# Kubernetes Universal Adapter Definition
+id: k8s
+uses: docker://dtzar/helm-kubectl:latest
+auth:
+  type: kubeconfig
+
+# This definition uses a "router" pattern where the 'cmd' template
+# switches based on the 'method' input.
+# However, for simplicity in v1, we might define separate adapters for separate actions
+# OR we use a clever Jinja template.
+
+# Let's try the clever template approach for the "apply" method.
+# In a real system, we might have k8s.apply, k8s.get as separate YAMLs or a multi-method schema.
+# For this Proof of Concept, we define "k8s_apply" as a single atomic capability.
+
+cmd:
+  - kubectl
+  - apply
+  - -f
+  - {{ inputs.file }}
+  - {% if inputs.namespace %}-n={{ inputs.namespace }}{% endif %}
+  - -o
+  - json
+
+output_parser:
+  type: json

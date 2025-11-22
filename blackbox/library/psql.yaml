@@ -1,0 +1,20 @@
+# PostgreSQL Client Universal Definition
+id: psql
+uses: docker://postgres:15-alpine
+
+# Supports both interactive queries and file execution
+cmd:
+  - psql
+  - --host={{ inputs.host }}
+  - --port={{ inputs.port | default('5432') }}
+  - --username={{ inputs.username }}
+  - --dbname={{ inputs.database }}
+  - {% if inputs.file %}--file={{ inputs.file }}{% endif %}
+  - {% if inputs.command %}--command={{ inputs.command }}{% endif %}
+  - {% if inputs.output_format %}--{{ inputs.output_format }}{% endif %}
+
+env:
+  PGPASSWORD: "{{ secrets.DB_PASSWORD }}"
+
+output_parser:
+  type: text

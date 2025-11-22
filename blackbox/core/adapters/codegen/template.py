@@ -42,8 +42,8 @@ class TemplateAdapter(MCPAdapter):
             template_dir: Default directory for template files. If None, uses ./templates
         """
         self.template_dir = template_dir or os.path.join(os.getcwd(), "templates")
-        self._env = None
-    
+        self._env: Optional[Environment] = None
+
     @property
     def env(self) -> Environment:
         """Lazy-load Jinja2 environment"""
@@ -59,6 +59,9 @@ class TemplateAdapter(MCPAdapter):
             else:
                 # No template directory, use basic environment
                 self._env = Environment(autoescape=False)
+
+        # This is safe because _env is always assigned above
+        assert self._env is not None
         return self._env
     
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:

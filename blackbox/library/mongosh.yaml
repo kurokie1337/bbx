@@ -1,0 +1,19 @@
+# MongoDB Shell Universal Definition
+id: mongosh
+uses: docker://mongo:latest
+
+cmd:
+  - mongosh
+  - {{ inputs.connection_string }}
+  - {% if inputs.database %}--db={{ inputs.database }}{% endif %}
+  - {% if inputs.eval %}--eval={{ inputs.eval }}{% endif %}
+  - {% if inputs.file %}--file={{ inputs.file }}{% endif %}
+  - --quiet
+  - --json=relaxed
+
+env:
+  MONGO_INITDB_ROOT_USERNAME: "{{ secrets.MONGO_USERNAME }}"
+  MONGO_INITDB_ROOT_PASSWORD: "{{ secrets.MONGO_PASSWORD }}"
+
+output_parser:
+  type: json

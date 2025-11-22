@@ -27,7 +27,8 @@ import logging
 import subprocess
 import json
 import shutil
-from typing import Dict, Any, Optional, List, Union, Type
+import platform
+from typing import Dict, Any, Optional, List, Union, Type, Callable
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, asdict
 from enum import Enum
@@ -37,8 +38,8 @@ try:
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
-    BaseModel = None
-    ValidationError = None
+    BaseModel = type(object)  # type: ignore
+    ValidationError = type(Exception)  # type: ignore
 
 
 # Configure module logger
@@ -102,7 +103,7 @@ class MCPAdapter(ABC):
     Provides standard interface for workflow runtime integration.
     """
 
-    def __init__(self, adapter_name: str = None):
+    def __init__(self, adapter_name: Optional[str] = None):
         self.adapter_name = adapter_name or self.__class__.__name__
         self.logger = logging.getLogger(f"bbx.adapters.{self.adapter_name}")
 
@@ -193,11 +194,11 @@ class BaseAdapter(MCPAdapter):
     - Response formatting
     """
 
-    def __init__(self, adapter_name: str = None):
+    def __init__(self, adapter_name: Optional[str] = None):
         super().__init__(adapter_name)
-        self._methods: Dict[str, callable] = {}
+        self._methods: Dict[str, Callable] = {}
 
-    def register_method(self, name: str, handler: callable):
+    def register_method(self, name: str, handler: Callable):
         """Register a method handler"""
         self._methods[name] = handler
 
@@ -242,7 +243,7 @@ class CLIAdapter(BaseAdapter):
         self,
         adapter_name: str,
         cli_tool: str,
-        version_args: List[str] = None,
+        version_args: Optional[List[str]] = None,
         required: bool = True
     ):
         super().__init__(adapter_name)
@@ -303,7 +304,7 @@ class CLIAdapter(BaseAdapter):
         timeout: int = 300,
         output_format: str = "json",
         check: bool = False,
-        env: Dict[str, str] = None
+        env: Optional[Dict[str, str]] = None
     ) -> AdapterResponse:
         """
         Execute CLI command with standard error handling.
@@ -397,11 +398,128 @@ class CLIAdapter(BaseAdapter):
         )
 
 
+class DockerizedAdapter(MCPAdapter):
+    """
+    Base adapter for running commands inside Docker containers.
+
+    Provides Docker execution capabilities for adapters that need
+    containerized environments (Universal Adapter, Terraform, GCP, etc.)
+    """
+
+    def __init__(
+        self,
+        adapter_name: str,
+        docker_image: Optional[str] = None,
+        cli_tool: Optional[str] = None,  # For compatibility with CLIAdapter calls
+        required: bool = True  # For compatibility with CLIAdapter calls
+    ):
+        super().__init__(adapter_name)
+        self.docker_image = docker_image
+        self.cli_tool = cli_tool  # Store but may not use
+        self.required = required  # Store but may not use
+
+    def run_command(
+        self,
+        *args: str,
+        working_dir: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+        volumes: Optional[Dict[str, str]] = None,
+        output_format: str = "text"
+    ) -> AdapterResponse:
+        """
+        Run command inside Docker container.
+
+        Args:
+            *args: Command and arguments to run
+            working_dir: Working directory inside container
+            env: Environment variables
+            volumes: Volume mounts (host_path: container_path)
+            output_format: Output format
+
+        Returns:
+            AdapterResponse with command results
+        """
+        if not self.docker_image:
+            return AdapterResponse.error_response(
+                error="No Docker image specified",
+                error_type=AdapterErrorType.CONFIGURATION_ERROR
+            )
+
+        # Build docker run command
+        docker_cmd = ["docker", "run", "--rm"]
+
+        # Add volume mounts
+        if volumes:
+            for host_path, container_path in volumes.items():
+                docker_cmd.extend(["-v", f"{host_path}:{container_path}"])
+
+        # Add environment variables
+        if env:
+            for key, value in env.items():
+                docker_cmd.extend(["-e", f"{key}={value}"])
+
+        # Set working directory
+        if working_dir:
+            docker_cmd.extend(["-w", working_dir])
+
+        # Add user mapping (Linux only)
+        if platform.system() != "Windows":
+            try:
+                import os
+                if hasattr(os, 'getuid') and hasattr(os, 'getgid'):
+                    docker_cmd.extend(["-u", f"{os.getuid()}:{os.getgid()}"])  # type: ignore
+            except Exception:
+                pass
+
+        # Add image and command
+        docker_cmd.append(self.docker_image)
+        docker_cmd.extend(args)
+
+        # Execute
+        try:
+            result = subprocess.run(
+                docker_cmd,
+                capture_output=True,
+                text=True,
+                timeout=300
+            )
+
+            if result.returncode == 0:
+                return AdapterResponse.success_response(
+                    data={"stdout": result.stdout, "stderr": result.stderr, "exit_code": 0}
+                )
+            else:
+                return AdapterResponse.error_response(
+                    error=f"Command failed: {result.stderr}",
+                    error_type=AdapterErrorType.EXECUTION_ERROR,
+                    stdout=result.stdout,
+                    stderr=result.stderr,
+                    exit_code=result.returncode
+                )
+        except subprocess.TimeoutExpired:
+            return AdapterResponse.error_response(
+                error="Command timed out",
+                error_type=AdapterErrorType.TIMEOUT_ERROR
+            )
+        except Exception as e:
+            return AdapterResponse.error_response(
+                error=str(e),
+                error_type=AdapterErrorType.EXECUTION_ERROR
+            )
+
+    async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
+        """Execute method - must be implemented by subclasses"""
+        raise NotImplementedError(
+            f"{self.adapter_name} must implement execute() method"
+        )
+
+
 # Export all base classes
 __all__ = [
     "MCPAdapter",
     "BaseAdapter",
     "CLIAdapter",
+    "DockerizedAdapter",
     "AdapterResponse",
     "AdapterErrorType"
 ]

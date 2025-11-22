@@ -17,9 +17,7 @@ This is the KILLER DEMO test - proves code generation works end-to-end!
 """
 
 import pytest
-import asyncio
 import subprocess
-import os
 import json
 import yaml as yaml_lib
 from pathlib import Path
@@ -87,7 +85,7 @@ def test_app_generator_workflow_execution(test_project_name, cleanup_project):
     
     This validates the workflow runs without errors
     """
-    print(f"\n🚀 Testing: app_generator.bbx execution...")
+    print("\n🚀 Testing: app_generator.bbx execution...")
     print(f"Project name: {test_project_name}")
     
     result = run_bbx_workflow_with_inputs(
@@ -125,7 +123,7 @@ def test_app_generator_creates_structure(test_project_name, cleanup_project):
     - Proper nesting of subdirectories
     - No unexpected directories
     """
-    print(f"\n📁 Testing: Directory structure creation...")
+    print("\n📁 Testing: Directory structure creation...")
     
     # Generate application
     result = run_bbx_workflow_with_inputs(
@@ -140,7 +138,7 @@ def test_app_generator_creates_structure(test_project_name, cleanup_project):
     project_path = cwd / test_project_name
     
     assert project_path.exists(), f"Project directory not created: {project_path}"
-    assert project_path.is_dir(), f"Project path is not a directory"
+    assert project_path.is_dir(), "Project path is not a directory"
     
     # Check main directories
     required_dirs = [
@@ -190,7 +188,7 @@ def test_app_generator_creates_files(test_project_name, cleanup_project):
     - Documentation (README.md)
     - BBX workflows
     """
-    print(f"\n📄 Testing: File generation...")
+    print("\n📄 Testing: File generation...")
     
     # Generate application
     result = run_bbx_workflow_with_inputs(
@@ -240,7 +238,7 @@ def test_app_generator_typescript_syntax(test_project_name, cleanup_project):
     
     Uses basic syntax checking (could import parser, but file content check is enough)
     """
-    print(f"\n⚛️  Testing: TypeScript code syntax...")
+    print("\n⚛️  Testing: TypeScript code syntax...")
     
     result = run_bbx_workflow_with_inputs(
         "workflows/generators/app_generator.bbx",
@@ -275,7 +273,7 @@ def test_app_generator_python_syntax(test_project_name, cleanup_project):
     
     Actually compiles the Python code to verify syntax
     """
-    print(f"\n🐍 Testing: Python code syntax...")
+    print("\n🐍 Testing: Python code syntax...")
     
     result = run_bbx_workflow_with_inputs(
         "workflows/generators/app_generator.bbx",
@@ -331,7 +329,7 @@ def test_app_generator_json_valid(test_project_name, cleanup_project):
     """
     Test that generated JSON files are valid
     """
-    print(f"\n📋 Testing: JSON validation...")
+    print("\n📋 Testing: JSON validation...")
     
     result = run_bbx_workflow_with_inputs(
         "workflows/generators/app_generator.bbx",
@@ -366,7 +364,7 @@ def test_app_generator_yaml_valid(test_project_name, cleanup_project):
     """
     Test that generated YAML files are valid
     """
-    print(f"\n📝 Testing: YAML validation...")
+    print("\n📝 Testing: YAML validation...")
     
     result = run_bbx_workflow_with_inputs(
         "workflows/generators/app_generator.bbx",
@@ -401,7 +399,7 @@ def test_app_generator_bbx_workflows_valid(test_project_name, cleanup_project):
     """
     Test that generated BBX workflows are valid YAML and have correct structure
     """
-    print(f"\n🔧 Testing: Generated BBX workflows...")
+    print("\n🔧 Testing: Generated BBX workflows...")
     
     result = run_bbx_workflow_with_inputs(
         "workflows/generators/app_generator.bbx",
@@ -452,7 +450,7 @@ def test_app_generator_complete_validation(test_project_name, cleanup_project):
     - Configuration
     - Workflows
     """
-    print(f"\n🚀 COMPREHENSIVE VALIDATION: Complete app generation...")
+    print("\n🚀 COMPREHENSIVE VALIDATION: Complete app generation...")
     print("=" * 80)
     
     cwd = Path(__file__).parent.parent
@@ -534,7 +532,7 @@ def test_app_generator_complete_validation(test_project_name, cleanup_project):
     print(f"\nGenerated application '{test_project_name}' is PRODUCTION-READY!")
     print(f"- All {file_count} files created")
     print(f"- All {dir_count} directories structured")
-    print(f"- All code syntax validated")
-    print(f"- All configurations valid")
-    print(f"- All BBX workflows ready")
+    print("- All code syntax validated")
+    print("- All configurations valid")
+    print("- All BBX workflows ready")
     print("\n✅ Application generator works end-to-end! 🚀")

@@ -1,3 +1,17 @@
+# Copyright 2025 Ilya Makarov, Krasnoyarsk
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import pytest
 from blackbox.core.dag import should_use_dag, DAGError, create_dag
 
@@ -55,20 +69,20 @@ def test_should_use_dag():
     steps1 = [
         {"id": "step1", "mcp": "http", "method": "get"},
     ]
-    assert should_use_dag(steps1) == False
+    assert not should_use_dag(steps1)
     
     # Has dependencies
     steps2 = [
         {"id": "step1", "mcp": "http", "method": "get"},
         {"id": "step2", "mcp": "http", "method": "get", "depends_on": ["step1"]},
     ]
-    assert should_use_dag(steps2) == True
+    assert should_use_dag(steps2)
     
     # Has parallel flag
     steps3 = [
         {"id": "step1", "mcp": "http", "method": "get", "parallel": True},
     ]
-    assert should_use_dag(steps3) == True
+    assert should_use_dag(steps3)
 
 def test_complex_dag():
     """Test complex DAG with multiple levels"""

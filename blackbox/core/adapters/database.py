@@ -33,12 +33,10 @@ Examples:
         steps: 1
 """
 
-import asyncio
 import subprocess
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 from pathlib import Path
 import hashlib
-import json
 
 
 class DatabaseMigrationAdapter:
@@ -130,7 +128,7 @@ class DatabaseMigrationAdapter:
         sql = migration_file.read_text()
         
         # Calculate hash
-        migration_hash = hashlib.sha256(sql.encode()).hexdigest()
+        hashlib.sha256(sql.encode()).hexdigest()
         
         # Check if already applied
         # (In production, query migration table)
@@ -244,8 +242,8 @@ class DatabaseMigrationAdapter:
             connection: Connection string
             steps: Number of migrations to rollback (default: 1)
         """
-        database = inputs["database"]
-        connection = inputs["connection"]
+        inputs["database"]
+        inputs["connection"]
         steps = inputs.get("steps", 1)
         
         # In production, would:
@@ -353,7 +351,7 @@ class DatabaseMigrationAdapter:
                 "error": f"Seed file not found: {seed_file}"
             }
         
-        sql = seed_file.read_text()
+        seed_file.read_text()
         
         result = await self._apply_migration(database, connection, seed_file)
         

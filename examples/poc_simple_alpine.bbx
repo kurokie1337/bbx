@@ -1,0 +1,21 @@
+# Proof of Concept: Universal Adapter (Fast Test)
+# Uses alpine:latest (5MB) to avoid long Docker pull
+
+name: Universal Alpine PoC
+version: 1.0
+
+steps:
+  - id: test_alpine
+    mcp: universal
+    method: run
+    inputs:
+      uses: docker://alpine:latest
+      cmd: 
+        - echo
+        - "Hello from Universal Adapter!"
+
+  - id: log_result
+    mcp: logger
+    method: info
+    inputs:
+message: "Result: ${step.test_alpine.result}"

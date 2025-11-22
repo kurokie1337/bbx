@@ -1,0 +1,24 @@
+name: Verify Docker Adapters
+description: Test Terraform and AWS adapters running in Docker
+version: 1.0
+
+steps:
+  - id: check_terraform_version
+    mcp: bbx.terraform
+    method: execute
+    inputs:
+      command: version
+      working_dir: "."
+
+  - id: check_aws_version
+    mcp: bbx.aws
+    method: execute
+    inputs:
+      command: --version
+      working_dir: "."
+
+  - id: log_success
+    mcp: bbx.logger
+    method: info
+    inputs:
+      message: "Docker adapters verification completed successfully"

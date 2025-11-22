@@ -1,0 +1,20 @@
+# Terraform Plan Universal Adapter Definition
+id: tf_plan
+uses: docker://hashicorp/terraform:latest
+auth:
+  type: aws_credentials # Assuming AWS backend/provider
+
+# Working directory handling is done by UniversalAdapter logic
+# which mounts inputs.working_dir to /workspace
+
+cmd:
+  - terraform
+  - plan
+  - -input=false
+  - -json
+  - {% if inputs.var_file %}-var-file={{ inputs.var_file }}{% endif %}
+  # Loop for variables map
+  - {% for k, v in inputs.variables.items() %}-var={{ k }}={{ v }}{% endfor %}
+
+output_parser:
+  type: json

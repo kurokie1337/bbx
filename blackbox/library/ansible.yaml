@@ -1,0 +1,21 @@
+# Ansible Playbook Universal Definition
+id: ansible
+uses: docker://willhallonline/ansible:latest
+
+cmd:
+  - ansible-playbook
+  - {{ inputs.playbook }}
+  - {% if inputs.inventory %}--inventory={{ inputs.inventory }}{% endif %}
+  - {% if inputs.limit %}--limit={{ inputs.limit }}{% endif %}
+  - {% if inputs.tags %}--tags={{ inputs.tags }}{% endif %}
+  - {% if inputs.extra_vars %}--extra-vars={{ inputs.extra_vars | tojson }}{% endif %}
+  - {% if inputs.verbose %}--{{ inputs.verbose }}{% endif %}
+
+env:
+  ANSIBLE_HOST_KEY_CHECKING: "{{ inputs.host_key_checking | default('False') }}"
+
+volumes:
+  ~/.ssh: /root/.ssh
+
+output_parser:
+  type: text

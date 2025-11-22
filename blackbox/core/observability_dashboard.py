@@ -1,15 +1,23 @@
+# Copyright 2025 Ilya Makarov, Krasnoyarsk
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Real-time Observability Dashboard
 Web-based dashboard for monitoring BBX workflows
 """
-import asyncio
-import json
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, Any
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from .observability import get_observability
@@ -392,20 +400,6 @@ async def get_metrics():
 @app.get("/api/traces")
 async def get_traces():
     """Get all traces"""
-    obs = get_observability()
-    return {"traces": [span.__dict__ for span in obs.tracer.spans.values()]}
-
-
-@app.get("/api/logs")
-async def get_logs(
-    level: str = None,
-    limit: int = 100
-):
-    """Get logs with optional filtering"""
-    obs = get_observability()
-    logs = obs.logger.query(level=level)
-    return {"logs": [log.__dict__ for log in logs[-limit:]]}
-
 
 @app.get("/api/export/{format}")
 async def export_data(format: str):
@@ -428,7 +422,7 @@ async def export_data(format: str):
 
 def start_dashboard(host: str = "0.0.0.0", port: int = 8000):
     """Start the observability dashboard"""
-    print(f"\n🚀 Starting BBX Observability Dashboard")
+    print("\n🚀 Starting BBX Observability Dashboard")
     print(f"📊 Dashboard: http://{host}:{port}")
     print(f"📈 Metrics API: http://{host}:{port}/api/metrics")
     print(f"🔍 Traces API: http://{host}:{port}/api/traces")

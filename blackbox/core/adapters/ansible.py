@@ -44,48 +44,42 @@ Examples:
 """
 
 import json
-import subprocess
-from typing import Dict, Any
 from pathlib import Path
-from blackbox.core.base_adapter import CLIAdapter, AdapterResponse
+from typing import Dict, Any
+from blackbox.core.base_adapter import DockerizedAdapter, AdapterResponse
 
 
-class AnsibleAdapter(CLIAdapter):
-    """BBX Adapter for Ansible operations"""
+class AnsibleAdapter(DockerizedAdapter):
+    """BBX Adapter for Ansible operations (Dockerized)"""
 
     def __init__(self):
         super().__init__(
             adapter_name="Ansible",
+            docker_image="willhallonline/ansible:latest",
             cli_tool="ansible",
             version_args=["--version"],
             required=True
         )
 
+    def run_command(self, *args, **kwargs):
+        """Override run_command to mount SSH keys"""
+        volumes = kwargs.get("volumes", {}) or {}
+        
+        # Mount ~/.ssh if it exists
+        home = Path.home()
+        ssh_dir = home / ".ssh"
+        if ssh_dir.exists():
+            # Mount to /root/.ssh (container runs as root usually)
+            volumes[str(ssh_dir)] = "/root/.ssh"
+            
+        kwargs["volumes"] = volumes
+        return super().run_command(*args, **kwargs)
+
     def _run_ansible_cmd(self, *args, timeout=600):
-        """Run generic ansible command (not just 'ansible')"""
-        # First arg is the actual command (ansible, ansible-playbook, etc.)
-        cmd = list(args)
-
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout
-            )
-
-            return AdapterResponse(
-                success=result.returncode == 0,
-                data=result.stdout.strip(),
-                error=result.stderr.strip() if result.returncode != 0 else None,
-                metadata={"exit_code": result.returncode}
-            )
-        except subprocess.TimeoutExpired:
-            return AdapterResponse.error_response(
-                error=f"Command timed out after {timeout}s"
-            )
-        except Exception as e:
-            return AdapterResponse.error_response(error=str(e))
+        """Run generic ansible command using Dockerized execution"""
+        # args is the full command list e.g. ["ansible-playbook", ...]
+        # DockerizedAdapter appends args to image
+        return self.run_command(*args, timeout=timeout)
 
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
         """Execute Ansible method"""

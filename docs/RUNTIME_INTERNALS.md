@@ -74,9 +74,9 @@ Manages workflow state and variable resolution:
 class WorkflowContext:
     def __init__(self):
         self.variables = {
-            "step": {},    # Step outputs
+            "steps": {},   # Step outputs (BBX v6.0)
             "env": {},     # Environment variables
-            "input": {}    # Workflow inputs
+            "inputs": {}   # Workflow inputs (BBX v6.0)
         }
     
     def resolve(self, template: str) -> str:
@@ -108,16 +108,16 @@ def resolve(self, template: str) -> str:
 
 ```python
 context.variables = {
-    "step": {
+    "steps": {
         "fetch": {
             "status": "success",
-            "data": {"price": 42}
+            "output": {"price": 42}
         }
     }
 }
 
 # Resolution
-context.resolve("Price: ${step.fetch.data.price}")
+context.resolve("Price: ${steps.fetch.output.price}")
 # Result: "Price: 42"
 ```
 
@@ -145,10 +145,10 @@ class MCPRegistry:
 
 ```python
 registry = MCPRegistry()
-registry.register("http", LocalHttpAdapter())
-registry.register("sql", SQLAdapter())
+registry.register("bbx.http", HttpAdapter())
+registry.register("bbx.database", DatabaseAdapter())
 
-adapter = registry.get_adapter("http")
+adapter = registry.get_adapter("bbx.http")
 result = await adapter.execute("get", {"url": "..."})
 ```
 
@@ -224,12 +224,12 @@ def _resolve_value(value: str, context: Dict[str, Any]) -> Any:
 
 ```python
 context = {
-    "step": {"fetch": {"price": 100}},
+    "steps": {"fetch": {"output": {"price": 100}}},
     "threshold": 50
 }
 
 # Expression evaluation
-SafeExpr.evaluate("step.fetch.price > threshold", context)
+SafeExpr.evaluate("steps.fetch.output.price > threshold", context)
 # Result: True (100 > 50)
 ```
 
@@ -308,24 +308,24 @@ class MCPAdapter:
 ### HTTP Adapter Implementation
 
 ```python
-class LocalHttpAdapter(MCPAdapter):
+class HttpAdapter(MCPAdapter):
     def __init__(self):
         self.client = httpx.AsyncClient()
-    
+
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
         url = inputs.get("url")
         headers = inputs.get("headers", {})
-        
+
         if method == "get":
             response = await self.client.get(url, headers=headers)
         elif method == "post":
             json_data = inputs.get("json")
             response = await self.client.post(url, headers=headers, json=json_data)
         # ... other methods
-        
+
         return {
-            "status": response.status_code,
-            "data": response.json() if response.headers.get("content-type") == "application/json" else response.text
+            "status_code": response.status_code,
+            "data": response.json() if "application/json" in response.headers.get("content-type", "") else response.text
         }
 ```
 
@@ -471,6 +471,13 @@ with tracer.start_as_current_span("workflow.execute"):
 
 ## 📚 See Also
 
-- [BBX Specification](BBX_SPEC.md) - File format details
-- [Agent Guide](AGENT_GUIDE.md) - For AI agents
-- [MCP Development](MCP_DEVELOPMENT.md) - Creating adapters
+- **[BBX v6.0 Specification](BBX_SPEC_v6.md)** - Complete workflow format reference
+- **[Architecture Guide](ARCHITECTURE.md)** - System design and components
+- **[Agent Guide](AGENT_GUIDE.md)** - BBX for AI agents
+- **[MCP Development](MCP_DEVELOPMENT.md)** - Creating custom adapters
+- **[Getting Started](GETTING_STARTED.md)** - Beginner's guide
+
+---
+
+**Copyright 2025 Ilya Makarov, Krasnoyarsk, Siberia, Russia**
+Licensed under the Apache License, Version 2.0

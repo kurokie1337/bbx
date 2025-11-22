@@ -224,7 +224,6 @@ async def test_force_kill(process_adapter):
 async def test_process_with_cwd(process_adapter):
     """Test starting process with custom working directory"""
     import tempfile
-    import os
     
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create a test file
@@ -234,7 +233,7 @@ async def test_process_with_cwd(process_adapter):
         # Start process in that directory
         result = await process_adapter.execute("start", {
             "name": "test_cwd",
-            "command": f"python -c \"import os; print(os.getcwd())\"",
+            "command": "python -c \"import os; print(os.getcwd())\"",
             "cwd": tmpdir
         })
         
