@@ -1,0 +1,166 @@
+# BBX-Only Coding Demo
+# This workflow demonstrates file and string operations without writing Python code
+
+id: bbx-only-demo
+name: BBX-Only Coding Demo
+version: "1.0.0"
+description: |
+  Demonstrates BBX-only coding using file and string adapters.
+  No Python code needed - everything is done via adapters!
+
+inputs:
+  input_file:
+    type: string
+    default: "input.txt"
+  output_dir:
+    type: string
+    default: "output"
+
+steps:
+  # 1. Create output directory
+  create_output_dir:
+    use: file.mkdir
+    args:
+      path: ${inputs.output_dir}
+      parents: true
+
+  # 2. Check if input file exists
+  check_input:
+    use: file.exists
+    args:
+      path: ${inputs.input_file}
+    depends_on:
+      - create_output_dir
+
+  # 3. If input doesn't exist, create sample data
+  create_sample_input:
+    use: file.write
+    when: ${steps.check_input.exists} == false
+    args:
+      path: ${inputs.input_file}
+      content: |
+        Name: BBX Framework
+        Version: 1.0.0
+        Type: Workflow Engine
+        Features: Multi-Agent, MCP, A2A Protocol
+        License: BSL 1.1
+    depends_on:
+      - check_input
+
+  # 4. Read the input file
+  read_input:
+    use: file.read
+    args:
+      path: ${inputs.input_file}
+      lines: true
+    depends_on:
+      - create_sample_input
+      - check_input
+
+  # 5. Parse each line (extract key-value pairs)
+  log_parsing:
+    use: logger.info
+    args:
+      message: "Parsing ${steps.read_input.count} lines from input file"
+    depends_on:
+      - read_input
+
+  # 6. Convert content to JSON format
+  format_as_json:
+    use: string.json_encode
+    args:
+      value:
+        lines: ${steps.read_input.content}
+        total_lines: ${steps.read_input.count}
+        source_file: ${inputs.input_file}
+      indent: 2
+    depends_on:
+      - read_input
+
+  # 7. Generate a slug from the first line
+  generate_slug:
+    use: string.slug
+    args:
+      text: "BBX Output Report"
+    depends_on:
+      - log_parsing
+
+  # 8. Encode content as base64 (for backup)
+  backup_encode:
+    use: string.base64_encode
+    args:
+      text: ${steps.format_as_json.result}
+    depends_on:
+      - format_as_json
+
+  # 9. Write JSON output
+  write_json_output:
+    use: file.write
+    args:
+      path: ${inputs.output_dir}/result.json
+      content: ${steps.format_as_json.result}
+    depends_on:
+      - format_as_json
+      - generate_slug
+
+  # 10. Write backup file (base64 encoded)
+  write_backup:
+    use: file.write
+    args:
+      path: ${inputs.output_dir}/backup.b64
+      content: ${steps.backup_encode.result}
+    depends_on:
+      - backup_encode
+
+  # 11. Create a markdown report
+  create_report:
+    use: file.write
+    args:
+      path: ${inputs.output_dir}/report.md
+      content: |
+        # BBX Processing Report
+
+        ## Summary
+        - Input file: ${inputs.input_file}
+        - Lines processed: ${steps.read_input.count}
+        - Slug: ${steps.generate_slug.result}
+
+        ## Output Files
+        - result.json - Structured data
+        - backup.b64 - Base64 encoded backup
+
+        ## Status
+        Processing complete!
+    depends_on:
+      - write_json_output
+      - write_backup
+
+  # 12. List generated files
+  list_output:
+    use: file.list
+    args:
+      path: ${inputs.output_dir}
+      files_only: true
+    depends_on:
+      - create_report
+
+  # 13. Final log
+  log_complete:
+    use: logger.info
+    args:
+      message: "BBX-Only workflow complete! Generated ${steps.list_output.count} files in ${inputs.output_dir}"
+    depends_on:
+      - list_output
+
+  # 14. Save summary to state
+  save_summary:
+    use: state.set
+    args:
+      key: bbx_only_demo_result
+      value:
+        input_file: ${inputs.input_file}
+        output_dir: ${inputs.output_dir}
+        files_generated: ${steps.list_output.count}
+        success: true
+    depends_on:
+      - log_complete

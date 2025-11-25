@@ -1,0 +1,25 @@
+id: api_demo
+name: "API Integration Demo"
+version: 1.0.0
+description: "Fetch a random joke from an API and log it"
+
+steps:
+  fetch_joke:
+    use: http.get
+    timeout: 10s
+    retry: 2
+    args:
+      url: "https://official-joke-api.appspot.com/random_joke"
+    save: joke
+  
+  log_setup:
+    use: logger.info
+    depends_on: [fetch_joke]
+    args:
+      message: "😄 ${step.fetch_joke.joke.setup}"
+  
+  log_punchline:
+    use: logger.info
+    depends_on: [log_setup]
+    args:
+      message: "→ ${step.fetch_joke.joke.punchline}"

@@ -1,0 +1,69 @@
+# Container Pipeline Example
+# Demonstrates multi-container orchestration with dependencies
+
+id: pipeline_cicd
+name: CI/CD Pipeline
+version: 1.0
+
+steps:
+  - id: build_pipeline
+    mcp: pipeline
+    method: execute
+    inputs:
+      steps:
+        # Step 1: Lint code
+        - name: lint
+          image: python:3.11-alpine
+          command:
+            - sh
+            - -c
+            - "pip install flake8 && flake8 ."
+          depends_on: []
+          
+        # Step 2: Run tests (depends on lint)
+        - name: test
+          image: python:3.11
+          command:
+            - sh
+            - -c
+            - "pip install pytest && pytest tests/"
+          depends_on: ["lint"]
+          
+        # Step 3a: Build Docker image (parallel with docs)
+        - name: build
+          image: docker:latest
+          command:
+            - docker
+            - build
+            - -t
+            - myapp:latest
+            - .
+          env:
+            DOCKER_BUILDKIT: "1"
+          depends_on: ["test"]
+          parallel: true
+          
+        # Step 3b: Build documentation (parallel with build)
+        - name: docs
+          image: python:3.11-alpine
+          command:
+            - sh
+            - -c
+            - "pip install sphinx && sphinx-build docs build/docs"
+          depends_on: ["test"]
+          parallel: true
+          
+        # Step 4: Deploy (depends on both build and docs)
+        - name: deploy
+          image: python:3.11-alpine
+          command:
+            - sh
+            - -c
+            - "echo 'Deploying to production...'"
+          depends_on: ["build", "docs"]
+
+  - id: log_result
+    mcp: logger
+    method: info
+    inputs:
+      message: "Pipeline completed: ${step.build_pipeline.steps_executed} steps"

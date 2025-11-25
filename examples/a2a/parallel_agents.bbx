@@ -1,0 +1,124 @@
+# Parallel A2A Agents Example
+#
+# Demonstrates calling multiple A2A agents in parallel using BBX DAG execution.
+# All analysis tasks run simultaneously, then results are aggregated.
+#
+# Requires running demo agents:
+#   python examples/a2a/demo_agents.py analyst  # port 8001
+#   python examples/a2a/demo_agents.py writer   # port 8002
+#
+# Run: bbx run examples/a2a/parallel_agents.bbx
+
+id: parallel_agents
+name: Parallel Agent Calls
+version: "1.0.0"
+description: Call multiple A2A agents in parallel with DAG execution
+
+inputs:
+  texts:
+    type: array
+    default:
+      - "The quick brown fox jumps over the lazy dog."
+      - "Artificial Intelligence is revolutionizing technology."
+      - "Climate change poses significant challenges globally."
+
+steps:
+  # ===== Parallel Analysis (no dependencies = parallel execution) =====
+
+  analyze_text_1:
+    use: a2a.call
+    args:
+      agent: http://localhost:8001
+      skill: analyze_text
+      input:
+        text: "The quick brown fox jumps over the lazy dog."
+
+  analyze_text_2:
+    use: a2a.call
+    args:
+      agent: http://localhost:8001
+      skill: analyze_text
+      input:
+        text: "Artificial Intelligence is revolutionizing technology."
+
+  analyze_text_3:
+    use: a2a.call
+    args:
+      agent: http://localhost:8001
+      skill: analyze_text
+      input:
+        text: "Climate change poses significant challenges globally."
+
+  # These also run in parallel with the analysis
+  extract_entities_1:
+    use: a2a.call
+    args:
+      agent: http://localhost:8001
+      skill: extract_entities
+      input:
+        text: "The quick brown fox jumps over the lazy dog."
+
+  extract_entities_2:
+    use: a2a.call
+    args:
+      agent: http://localhost:8001
+      skill: extract_entities
+      input:
+        text: "Artificial Intelligence is revolutionizing technology."
+
+  # ===== Aggregation (waits for all parallel tasks) =====
+
+  aggregate_results:
+    use: logger.info
+    args:
+      message: |
+        Parallel analysis complete!
+        Text 1 sentiment: ${steps.analyze_text_1.outputs.output.analysis.sentiment}
+        Text 2 sentiment: ${steps.analyze_text_2.outputs.output.analysis.sentiment}
+        Text 3 sentiment: ${steps.analyze_text_3.outputs.output.analysis.sentiment}
+    depends_on:
+      - analyze_text_1
+      - analyze_text_2
+      - analyze_text_3
+
+  # ===== Generate Summary Report =====
+
+  generate_summary:
+    use: a2a.call
+    args:
+      agent: http://localhost:8002
+      skill: write_report
+      input:
+        title: "Multi-Text Analysis Summary"
+        data:
+          analysis_1: ${steps.analyze_text_1.outputs.output}
+          analysis_2: ${steps.analyze_text_2.outputs.output}
+          analysis_3: ${steps.analyze_text_3.outputs.output}
+          entities_1: ${steps.extract_entities_1.outputs.output}
+          entities_2: ${steps.extract_entities_2.outputs.output}
+    depends_on:
+      - analyze_text_1
+      - analyze_text_2
+      - analyze_text_3
+      - extract_entities_1
+      - extract_entities_2
+
+  # ===== Save Results =====
+
+  save_results:
+    use: state.set
+    args:
+      key: parallel_analysis_results
+      value:
+        analyses:
+          - ${steps.analyze_text_1.outputs.output}
+          - ${steps.analyze_text_2.outputs.output}
+          - ${steps.analyze_text_3.outputs.output}
+        summary: ${steps.generate_summary.outputs.output}
+    depends_on: [generate_summary]
+
+  log_complete:
+    use: logger.info
+    args:
+      message: "Parallel analysis complete! Report: ${steps.generate_summary.outputs.output.word_count} words"
+    depends_on: [generate_summary]

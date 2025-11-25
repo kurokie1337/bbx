@@ -1,0 +1,259 @@
+# ============================================================================
+# Blackbox Workflow Engine - .gitignore
+# Copyright 2025 Ilya Makarov, Krasnoyarsk, Siberia, Russia
+# ============================================================================
+
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Keep BBX lib/ directory (workflow libraries)
+!lib/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Virtual Environments
+venv/
+ENV/
+env/
+.venv
+.env.venv
+
+# IDEs and Editors
+.vscode/
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+.vs/
+.claude/
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+*.cover
+*.py,cover
+coverage.xml
+*.log
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# BBX Runtime Files
+.bbx/
+.bbx_bundle/
+.bbx_extracted_*/
+*.db
+blackbox.db
+
+# BBX Outputs
+output/
+observability/
+*.bbx.output
+*.bbx.state
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+.cache/
+
+# Refactoring backups (internal development only)
+blackbox/core/.refactor_backup/
+*.backup
+*.bak
+*.old
+
+# OS specific
+Thumbs.db
+.DS_Store
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Secrets and credentials
+.env
+.env.local
+.env.*.local
+credentials.json
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+.secrets/
+
+# Cloud provider configs
+.aws/
+.gcp/
+.azure/
+service-account.json
+kubeconfig
+*.kubeconfig
+
+# Docker
+docker-compose.override.yml
+.dockerignore.local
+
+# Node (if using frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Frontend build
+frontend/dist/
+frontend/build/
+*.min.js
+*.min.css
+
+# Database
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Redis dumps
+dump.rdb
+
+# Generated files
+*.generated.*
+.generated/
+
+# Backup files from text editors
+*~
+*.swp
+*.swo
+.*.swp
+.*.swo
+
+# Development databases
+dev.db
+test.db
+local.db
+
+# Coverage reports
+.coverage
+coverage/
+.nyc_output
+
+# Documentation builds
+docs/_build/
+site/
+
+# Local development
+.local/
+local/
+scratch/
+playground/
+DemoAnimeApp/
+
+# BBX Workspace (runtime installations and apps)
+workspace/
+
+# Development/testing scripts (not for production)
+demo_*.py
+demo_*.html
+validate_*.py
+refactor_*.py
+recursion_test.bbx
+python
+
+# macOS
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Windows
+[Tt]humbs.db
+[Dd]esktop.ini
+
+# Linux
+.directory
+.Trash-*
+
+# Exclude sensitive workflow files if needed
+# workflows/secrets/
+# workflows/production/
+
+# Keep example files and docs
+!examples/
+!workflows/examples/
+!docs/
+
+# Keep important config examples
+!.env.example
+!config.example.yaml
+!.vscode/settings.json.example
+# SDK node_modules (but keep SDK code itself)
+sdks/nodejs/node_modules/
+sdks/go/vendor/
+
+# Archives and old documentation (not for publication)
+docs/archive/
+docs/reports/
+docs/research/archive/
+
+# Claude Code directory
+.claude/

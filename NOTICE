@@ -1,0 +1,91 @@
+BBX - Operating System for AI Agents
+Copyright 2025 Ilya Makarov
+
+First Public Release: November 26, 2025, 06:00 UTC+7 (Krasnoyarsk Time)
+
+================================================================================
+
+Licensed under the Business Source License 1.1 (the "License");
+you may not use this file except in compliance with the License.
+
+This software will automatically convert to Apache License 2.0 on November 5, 2028.
+
+For commercial licensing inquiries:
+GitHub: https://github.com/kurokie1337/bbx
+
+================================================================================
+
+ORIGINAL WORK
+
+The following components are original works by Ilya Makarov:
+
+  Core Architecture:
+  - BBX v6.0 Workflow Format Specification
+  - DAG-based Parallel Execution Engine
+  - Adapter Registry with Lazy Loading
+  - Expression Parser with Safe Interpolation
+  - Workspace & State Management System
+
+  Adapters (14 built-in):
+  - File Adapter (13 operations)
+  - String Adapter (35+ operations)
+  - A2A Adapter (Agent-to-Agent Protocol v0.3)
+  - Workflow Adapter (nested execution)
+  - State Adapter (persistent storage)
+  - System/Shell Adapter
+  - HTTP Adapter
+  - Docker Adapter
+  - Python Adapter
+  - Logger Adapter
+  - Process Adapter
+  - Transform Adapter
+  - Database Adapter
+  - Storage Adapter
+
+  Integrations:
+  - MCP Server (40 tools for AI agents)
+  - MCP Client (external server integration)
+  - Universal Docker Adapter
+  - A2A Protocol Implementation
+  - BBX Bundler (.bbxpkg format)
+  - Secrets Management (Fernet encryption)
+
+================================================================================
+
+THIRD-PARTY COMPONENTS
+
+This software includes the following third-party components:
+
+FastAPI (MIT License)
+  Copyright (c) 2018 Sebastian Ramirez
+  https://fastapi.tiangolo.com
+
+Pydantic (MIT License)
+  Copyright (c) 2017 Samuel Colvin
+  https://pydantic-docs.helpmanual.io
+
+Click (BSD-3-Clause License)
+  Copyright (c) 2014 Pallets
+  https://click.palletsprojects.com
+
+PyYAML (MIT License)
+  Copyright (c) 2017-2021 Ingy dot Net, Kirill Simonov
+  https://pyyaml.org
+
+Docker SDK for Python (Apache License 2.0)
+  Copyright (c) 2016 Docker, Inc.
+  https://github.com/docker/docker-py
+
+HTTPX (BSD-3-Clause License)
+  Copyright (c) 2019 Encode OSS Ltd
+  https://www.python-httpx.org
+
+MCP SDK (MIT License)
+  Copyright (c) 2024 Anthropic
+  https://github.com/modelcontextprotocol
+
+Cryptography (Apache License 2.0 / BSD-3-Clause)
+  Copyright (c) Individual contributors
+  https://cryptography.io
+
+================================================================================

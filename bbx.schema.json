@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Blackbox Workflow",
+  "description": "Configuration for Blackbox Workflow Engine",
+  "type": "object",
+  "required": [
+    "steps"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the workflow"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name"
+    },
+    "version": {
+      "type": "string",
+      "description": "Workflow version"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of what the workflow does"
+    },
+    "steps": {
+      "type": "object",
+      "description": "Dictionary of workflow steps",
+      "patternProperties": {
+        "^[a-zA-Z0-9_-]+$": {
+          "$ref": "#/definitions/step"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "step": {
+      "type": "object",
+      "required": [
+        "use"
+      ],
+      "properties": {
+        "use": {
+          "type": "string",
+          "description": "Adapter and method to use (e.g., 'http.get')",
+          "enum": [
+            "browser.click",
+            "browser.close",
+            "browser.goto",
+            "browser.open",
+            "browser.screenshot",
+            "browser.text",
+            "browser.type",
+            "firebase.*",
+            "github.*",
+            "http.delete",
+            "http.get",
+            "http.post",
+            "http.put",
+            "linear.*",
+            "logger.debug",
+            "logger.error",
+            "logger.info",
+            "logger.warning",
+            "mongodb.*",
+            "neon.*",
+            "notion.*",
+            "prisma.*",
+            "redis.*",
+            "stripe.*",
+            "supabase.*",
+            "system.fs.delete",
+            "system.fs.list",
+            "system.shell",
+            "telegram.send",
+            "transform.extract",
+            "transform.filter",
+            "transform.format",
+            "transform.map",
+            "transform.merge",
+            "transform.reduce"
+          ]
+        },
+        "args": {
+          "type": "object",
+          "description": "Arguments for the adapter method"
+        },
+        "when": {
+          "type": "string",
+          "description": "Condition to execute this step"
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of step IDs this step depends on"
+        },
+        "timeout": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "description": "Timeout duration (e.g., '5s', 5000)"
+        },
+        "retry": {
+          "type": "integer",
+          "description": "Number of retries"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,86 @@
+id: transform_demo
+name: "Transform Adapter Demo"
+version: 1.0.0
+description: "Demonstrates transform adapter capabilities: merge, filter, map, extract"
+
+steps:
+  # Create some test data
+  log_start:
+    use: logger.info
+    args:
+      message: "🔄 Transform Demo Starting..."
+  
+  # Demo 1: Merge objects
+  merge_data:
+    use: transform.merge
+    depends_on: [log_start]
+    args:
+      objects:
+        - name: "John"
+          age: 30
+        - city: "New York"
+          country: "USA"
+        - occupation: "Developer"
+    save: merged
+  
+  log_merged:
+    use: logger.info
+    depends_on: [merge_data]
+    args:
+      message: "✅ Merged: ${step.merge_data.merged}"
+  
+  # Demo 2: Filter array
+  filter_numbers:
+    use: transform.filter
+    depends_on: [log_merged]
+    args:
+      array: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      condition: "x > 5"
+    save: filtered
+  
+  log_filtered:
+    use: logger.info
+    depends_on: [filter_numbers]  
+    args:
+      message: "✅ Filtered (> 5): ${step.filter_numbers.filtered}"
+  
+  # Demo 3: Reduce sum
+  sum_numbers:
+    use: transform.reduce  
+    depends_on: [log_filtered]
+    args:
+      array: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      operation: "sum"
+    save: total
+  
+  log_sum:
+    use: logger.info
+    depends_on: [sum_numbers]
+    args:
+      message: "✅ Sum of 1-10: ${step.sum_numbers.total}"
+  
+  # Demo 4: Extract nested field
+  extract_field:
+    use: transform.extract
+    depends_on: [log_sum]
+    args:
+      object:
+        user:
+          profile:
+            name: "Alice"
+            email: "alice@example.com"
+      path: "user.profile.name"
+    save: extracted_name
+  
+  log_extract:
+    use: logger.info
+    depends_on: [extract_field]
+    args:
+      message: "✅ Extracted name: ${step.extract_field.extracted_name}"
+  
+  # Final message
+  log_complete:
+    use: logger.info
+    depends_on: [log_extract]
+    args:
+      message: "🎉 Transform Demo Complete!"

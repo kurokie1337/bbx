@@ -1,0 +1,116 @@
+# A2A Agent Pipeline Example
+#
+# Demonstrates a sequential pipeline of A2A agents:
+# Text -> Analyst (analyze) -> Writer (report) -> Checker (validate)
+#
+# Requires running all demo agents:
+#   python examples/a2a/demo_agents.py analyst  # port 8001
+#   python examples/a2a/demo_agents.py writer   # port 8002
+#   python examples/a2a/demo_agents.py checker  # port 8003
+#
+# Run: bbx run examples/a2a/agent_pipeline.bbx
+
+id: agent_pipeline
+name: Multi-Agent Pipeline
+version: "1.0.0"
+description: Sequential pipeline processing through multiple A2A agents
+
+inputs:
+  text:
+    type: string
+    default: "Artificial Intelligence is transforming how businesses operate. Machine Learning models are being deployed across industries from healthcare to finance."
+  analyst_url:
+    type: string
+    default: "http://localhost:8001"
+  writer_url:
+    type: string
+    default: "http://localhost:8002"
+  checker_url:
+    type: string
+    default: "http://localhost:8003"
+
+steps:
+  # ===== Stage 1: Analysis =====
+  log_start:
+    use: logger.info
+    args:
+      message: "Starting multi-agent pipeline..."
+
+  analyze_text:
+    use: a2a.call
+    args:
+      agent: ${inputs.analyst_url}
+      skill: analyze_text
+      input:
+        text: ${inputs.text}
+      wait: true
+    depends_on: [log_start]
+
+  extract_entities:
+    use: a2a.call
+    args:
+      agent: ${inputs.analyst_url}
+      skill: extract_entities
+      input:
+        text: ${inputs.text}
+      wait: true
+    depends_on: [log_start]
+
+  log_analysis:
+    use: logger.info
+    args:
+      message: "Analysis complete: sentiment=${steps.analyze_text.outputs.output.analysis.sentiment}"
+    depends_on: [analyze_text]
+
+  # ===== Stage 2: Report Generation =====
+  write_report:
+    use: a2a.call
+    args:
+      agent: ${inputs.writer_url}
+      skill: write_report
+      input:
+        title: "Text Analysis Report"
+        data:
+          original_text: ${inputs.text}
+          analysis: ${steps.analyze_text.outputs.output}
+          entities: ${steps.extract_entities.outputs.output}
+      wait: true
+    depends_on: [analyze_text, extract_entities]
+
+  log_report:
+    use: logger.info
+    args:
+      message: "Report generated: ${steps.write_report.outputs.output.word_count} words"
+    depends_on: [write_report]
+
+  # ===== Stage 3: Validation =====
+  validate_report:
+    use: a2a.call
+    args:
+      agent: ${inputs.checker_url}
+      skill: validate
+      input:
+        data: ${steps.write_report.outputs.output}
+        rules:
+          - "report_not_empty"
+          - "has_conclusion"
+      wait: true
+    depends_on: [write_report]
+
+  # ===== Final: Save Results =====
+  save_pipeline_result:
+    use: state.set
+    args:
+      key: pipeline_result
+      value:
+        analysis: ${steps.analyze_text.outputs.output}
+        entities: ${steps.extract_entities.outputs.output}
+        report: ${steps.write_report.outputs.output}
+        validation: ${steps.validate_report.outputs.output}
+    depends_on: [validate_report]
+
+  log_complete:
+    use: logger.info
+    args:
+      message: "Pipeline complete! Validation result: valid=${steps.validate_report.outputs.output.valid}"
+    depends_on: [validate_report]

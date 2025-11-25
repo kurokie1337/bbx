@@ -1,0 +1,58 @@
+# Multi-Step Terraform Deployment Example
+# Demonstrates multi-step command execution
+
+name: Terraform Multi-Step Deployment
+version: 1.0
+
+steps:
+  - id: terraform_deploy
+    mcp: universal
+    method: run
+    inputs:
+      uses: docker://hashicorp/terraform:latest
+      auth:
+        type: aws_credentials
+      working_dir: ./terraform
+      
+      # Multi-step execution
+      steps:
+        - name: "Initialize Terraform"
+          cmd:
+            - terraform
+            - init
+            - -input=false
+          continue_on_error: false
+          
+        - name: "Validate Configuration"
+          cmd:
+            - terraform
+            - validate
+            - -json
+          continue_on_error: false
+          
+        - name: "Plan Changes"
+          cmd:
+            - terraform
+            - plan
+            - -out=tfplan
+            - -input=false
+          continue_on_error: false
+          
+        - name: "Apply Changes"
+          cmd:
+            - terraform
+            - apply
+            - -auto-approve
+            - tf plan
+            - -input=false
+      
+      # Resource limits
+      resources:
+        cpu: "2"
+        memory: "1g"
+
+  - id: log_result
+    mcp: logger
+    method: info
+    inputs:
+      message: "Terraform deployment completed: ${step.terraform_deploy.steps | length} steps executed"

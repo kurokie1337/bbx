@@ -1,0 +1,17 @@
+include README.md
+include LICENSE
+include requirements.txt
+include pyproject.toml
+
+recursive-include blackbox *.py *.typed
+recursive-include examples *.bbx *.yaml *.yml
+recursive-include docs *.md
+
+exclude .gitignore
+exclude *.pyc
+exclude __pycache__
+
+prune tests
+prune .git
+prune .venv
+prune workspace

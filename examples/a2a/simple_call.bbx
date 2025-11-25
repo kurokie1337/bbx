@@ -1,0 +1,59 @@
+# Simple A2A Call Example
+#
+# Demonstrates calling a single A2A agent from a BBX workflow.
+# Requires: python examples/a2a/demo_agents.py analyst
+#
+# Run: bbx run examples/a2a/simple_call.bbx
+
+id: simple_a2a_call
+name: Simple A2A Call
+version: "1.0.0"
+description: Call an A2A agent to analyze text
+
+inputs:
+  text:
+    type: string
+    default: "BBX is an Operating System for AI Agents. It enables multi-agent collaboration through the A2A protocol."
+  agent_url:
+    type: string
+    default: "http://localhost:8001"
+
+steps:
+  # Step 1: Discover agent capabilities
+  discover:
+    use: a2a.discover
+    args:
+      agent: ${inputs.agent_url}
+
+  # Step 2: Log discovered skills
+  log_skills:
+    use: logger.info
+    args:
+      message: "Discovered agent: ${steps.discover.outputs.name} with ${steps.discover.outputs.skills} skills"
+    depends_on: [discover]
+
+  # Step 3: Call the analyze_text skill
+  analyze:
+    use: a2a.call
+    args:
+      agent: ${inputs.agent_url}
+      skill: analyze_text
+      input:
+        text: ${inputs.text}
+      wait: true
+    depends_on: [discover]
+
+  # Step 4: Log results
+  log_results:
+    use: logger.info
+    args:
+      message: "Analysis complete: sentiment=${steps.analyze.outputs.output.analysis.sentiment}, keywords=${steps.analyze.outputs.output.analysis.keywords}"
+    depends_on: [analyze]
+
+  # Step 5: Save result to state
+  save_result:
+    use: state.set
+    args:
+      key: last_analysis
+      value: ${steps.analyze.outputs.output}
+    depends_on: [analyze]
