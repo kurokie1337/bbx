@@ -1,12 +1,14 @@
-# BBX - Operating System for AI Agents
+# BBX — Operating System for AI Agents
 
 > **The first operating system designed specifically for AI agents.**
-> Run workflows, manage processes, persist state - just like Linux, but for AI.
+> Run workflows, manage processes, persist state, and orchestrate intelligence — just like Linux, but for the age of AI.
 
 [![License](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.9+-green.svg)](https://python.org)
-[![MCP](https://img.shields.io/badge/MCP%20Tools-40-brightgreen.svg)](#mcp-server-40-tools)
-[![A2A](https://img.shields.io/badge/A2A-v0.3-orange.svg)](#a2a-protocol)
+[![Architecture](https://img.shields.io/badge/Architecture-4--Level-purple.svg)](#-4-level-architecture)
+[![Status](https://img.shields.io/badge/Status-Testing-orange.svg)](#-project-status)
+[![MCP](https://img.shields.io/badge/MCP%20Tools-40+-brightgreen.svg)](#-mcp-server-integration)
+[![A2A](https://img.shields.io/badge/A2A-v0.3-blue.svg)](#-agent-to-agent-protocol-a2a)
 
 ```
 BBX - Operating System for AI Agents
@@ -16,351 +18,268 @@ First Release: November 26, 2025
 
 ---
 
-## Why BBX?
+## ⚠️ Project Status
 
-When AI agents (Claude, GPT, etc.) work on complex tasks, they need infrastructure:
-
-| Problem | Linux Solution | BBX Solution |
-|---------|---------------|--------------|
-| Isolated environments | `/home/user` | Workspaces |
-| Long-running tasks | `command &` | `bbx run --background` |
-| Monitor processes | `ps`, `kill` | `bbx ps`, `bbx kill` |
-| Persistent memory | `env`, config files | `bbx state` |
-| Spawn child processes | `fork()` | Nested workflows |
-| Automation | Shell scripts | `.bbx` workflows |
-
-**BBX provides this infrastructure through 40 MCP tools that any AI agent can use.**
+> **CURRENT STATUS: TESTING & DEVELOPMENT**
+> This project is currently in active development. While the core architecture is stable and **patent-pending**, we are refining the system for production release.
+>
+> **Use with caution in critical environments.** We are building the future, and the paint is still wet.
 
 ---
 
-## Quick Start
+## 🌌 The Vision
 
-```bash
-# Clone and install
-git clone https://github.com/kurokie1337/bbx.git
-cd bbx
-pip install -r requirements.txt
+When AI agents (Claude, GPT, etc.) work on complex tasks, they need more than just a chat interface. They need **infrastructure**.
 
-# Run your first workflow
-python cli.py run examples/hello_world.bbx
+Linux gave humans:
+*   **Filesystems** for storage
+*   **Processes** for execution
+*   **Shells** for automation
+*   **Kernels** for resource management
 
-# Or create a workspace
-python cli.py workspace create my-project
-python cli.py workspace set ~/.bbx/workspaces/my_project
-python cli.py run  # Runs main.bbx
-```
+**BBX gives AI agents:**
+*   **Workspaces** for isolated environments (`/home/agent`)
+*   **State** for persistent memory (Key-Value Store)
+*   **AgentRing** for high-performance batch operations
+*   **ContextTiering** for infinite memory management
+*   **A2A Protocol** for multi-agent collaboration
 
 ---
 
-## Core Features
+## 💎 The Core Idea: BBX Workflow Format
 
-### 1. Workspaces
-Isolated environments for each project:
-```bash
-python cli.py workspace create ai-assistant
-# Creates: main.bbx, config.yaml, state/, logs/, workflows/
-```
+At the heart of BBX is the **`.bbx` file format** — a **declarative, YAML-based workflow language** for AI agents.
 
-### 2. Background Execution
-Run workflows without blocking:
-```bash
-python cli.py run deploy.bbx --background
-python cli.py ps                    # List running
-python cli.py logs <id> --follow    # Stream logs
-python cli.py kill <id>             # Stop execution
-```
+### Why This Matters
+Traditional AI agents write **imperative code** (Python, JavaScript). This creates:
+*   **Security risks**: Agents have full system access.
+*   **Debugging nightmares**: Code is hard to trace and reproduce.
+*   **No isolation**: One bad agent can break everything.
 
-### 3. Persistent State
-Memory that survives between sessions:
-```bash
-python cli.py state set counter 0
-python cli.py state get counter
-python cli.py state list
-```
-
-### 4. Nested Workflows
-Workflows can spawn other workflows:
+**BBX solves this** by making agents write **declarative workflows** instead:
 ```yaml
-steps:
-  deploy:
-    use: workflow.run
-    args:
-      path: workflows/deploy.bbx
-      background: true
-```
-
----
-
-## Workflow Format (BBX v6.0)
-
-```yaml
-id: example_workflow
-name: Example Workflow
-version: "1.0.0"
-
-inputs:
-  message:
-    type: string
-    default: "Hello"
+# hello_world.bbx
+id: hello_world
+name: "My First Workflow"
+version: 1.0.0
 
 steps:
   greet:
     use: logger.info
     args:
-      message: "${inputs.message} from BBX!"
+      message: "Hello from BBX!"
+```
 
+This is **not code** — it's a **data structure**. BBX safely executes it through the runtime.
+
+### BBX Format Philosophy
+1.  **Declarative over Imperative**: Agents describe *what* to do, not *how*.
+2.  **Adapter-Based**: All actions go through safe, audited adapters.
+3.  **DAG Execution**: Steps run in parallel when possible, sequentially when needed.
+4.  **Human-Readable**: YAML format is easy to read, debug, and version-control.
+5.  **Reproducible**: Same workflow = same result, every time.
+
+### BBX Workflow Anatomy
+```yaml
+# Metadata
+id: my_workflow
+name: "Descriptive Name"
+version: 1.0.0
+description: "What this workflow does"
+
+# Inputs (optional)
+inputs:
+  api_key:
+    type: string
+    required: true
+  max_results:
+    type: integer
+    default: 10
+
+# Steps (the core)
+steps:
   fetch_data:
     use: http.get
     args:
       url: "https://api.example.com/data"
-
+      headers:
+        Authorization: "Bearer ${inputs.api_key}"
+    
   process:
-    use: logger.info
+    use: python.run
     args:
-      message: "Got: ${steps.fetch_data.output}"
+      code: |
+        data = steps.fetch_data.output.json()
+        return [item['title'] for item in data[:${inputs.max_results}]]
     depends_on: [fetch_data]
-```
-
-**Key concepts:**
-- Steps run in parallel by default
-- Use `depends_on` for sequential execution
-- Variables: `${inputs.*}`, `${steps.*}`, `${env.*}`
-
----
-
-## Built-in Adapters (14)
-
-| Adapter | Description | Methods |
-|---------|-------------|---------|
-| `logger` | Logging | info, warn, error, debug |
-| `system` | Shell commands | exec |
-| `http` | HTTP requests | get, post, put, delete |
-| `file` | File operations | read, write, copy, delete, exists, list, mkdir, glob |
-| `string` | String manipulation | split, join, replace, regex, encode, decode, hash |
-| `state` | Persistent state | get, set, delete, list, increment, append |
-| `workflow` | Nested workflows | run, wait, status, kill |
-| `a2a` | Agent-to-Agent | discover, call, status, cancel, wait |
-| `docker` | Containers | run, build, push |
-| `python` | Python execution | exec, eval |
-| `process` | Process management | start, stop, status |
-| `transform` | Data transformation | merge, filter, map |
-| `database` | SQL operations | query, migrate |
-| `storage` | Key-value storage | get, set, list |
-
----
-
-## MCP Server (40 Tools)
-
-BBX exposes 40 MCP tools for AI agents like Claude Code.
-
-### Setup for Claude Code
-
-```bash
-# Add BBX as MCP server
-claude mcp add bbx -- python -m blackbox.mcp.server
-
-# Restart Claude Code, then verify
-claude mcp list
-# Should show: bbx - Connected
-```
-
-### Available Tools
-
-**Workspace Management:**
-- `bbx_workspace_create` - Create isolated environment
-- `bbx_workspace_set` - Set active workspace
-- `bbx_workspace_list` - List all workspaces
-
-**Process Management:**
-- `bbx_run` - Execute workflow
-- `bbx_run_background` - Run in background
-- `bbx_ps` - List executions
-- `bbx_kill` - Kill execution
-- `bbx_wait` - Wait for completion
-- `bbx_logs` - Get execution logs
-
-**State Management:**
-- `bbx_state_get` - Get value
-- `bbx_state_set` - Set value
-- `bbx_state_list` - List all keys
-- `bbx_state_delete` - Delete key
-- `bbx_state_increment` - Atomic increment
-- `bbx_state_append` - Append to list
-
-**And 25+ more tools for workflows, MCP integration, versioning, etc.**
-
----
-
-## A2A Protocol
-
-BBX implements Google's Agent2Agent (A2A) Protocol v0.3 for multi-agent communication.
-
-```yaml
-# Call another A2A agent from workflow
-steps:
-  analyze:
-    use: a2a.call
-    args:
-      agent: http://analyst:8001
-      skill: analyze_text
-      input:
-        text: "${inputs.data}"
-      wait: true
-
-  report:
-    use: a2a.call
-    args:
-      agent: http://writer:8002
-      skill: write_report
-      input:
-        data: "${steps.analyze.output}"
-    depends_on: [analyze]
-```
-
-### A2A CLI Commands
-```bash
-python cli.py a2a serve --port 8000    # Start A2A server
-python cli.py a2a discover <url>       # Discover agent
-python cli.py a2a call <url> <skill>   # Call skill
-```
-
----
-
-## BBX-Only Coding
-
-Write workflows without Python using file and string adapters:
-
-```yaml
-id: process_files
-steps:
-  read:
-    use: file.read
-    args:
-      path: input.txt
-      lines: true
-
-  transform:
-    use: string.json_encode
-    args:
-      value:
-        lines: ${steps.read.content}
-        count: ${steps.read.count}
-    depends_on: [read]
-
+    
   save:
     use: file.write
     args:
-      path: output.json
-      content: ${steps.transform.result}
-    depends_on: [transform]
+      path: "results.txt"
+      content: "${steps.process.output}"
+    depends_on: [process]
 ```
+
+**Key Features:**
+*   **Variable Interpolation**: `${inputs.api_key}`, `${steps.fetch_data.output}`
+*   **Dependencies**: `depends_on` creates a DAG (Directed Acyclic Graph).
+*   **Type Safety**: Inputs have types, defaults, and validation.
+*   **Adapters**: `http.get`, `python.run`, `file.write` — all sandboxed.
 
 ---
 
-## Project Structure
+## 🏗️ 4-Level Architecture
 
-```
-bbx/
-├── blackbox/           # Core package
-│   ├── core/           # Runtime, adapters, parsers
-│   ├── mcp/            # MCP server & client
-│   ├── a2a/            # A2A protocol implementation
-│   └── cli/            # CLI helpers
-├── examples/           # Example workflows
-├── docs/               # Documentation
-├── tests/              # Test suite
-├── cli.py              # CLI entry point
-└── requirements.txt    # Dependencies
-```
+BBX is built on a robust 4-level architecture, mimicking a traditional OS but optimized for AI:
+
+### Level 1: Kernel (Runtime)
+The core Python engine (`blackbox.core`) that executes code, manages threads, and handles low-level I/O. It is the "CPU" of the agent system.
+*   **Async Execution**: Native `asyncio` support for high concurrency.
+*   **DAG Engine**: Directed Acyclic Graph execution for complex dependencies.
+*   **Sandboxing**: Secure execution environment.
+*   **State Isolation**: Each execution has its own context.
+
+### Level 2: BBX Base (Standard Library)
+A rich set of **15+ Adapters** that provide standardized interfaces for agents. Instead of writing raw code, agents use these safe, atomic tools:
+*   `http`: Network requests (GET, POST, PUT, DELETE).
+*   `file`: Safe filesystem access (read, write, append, list).
+*   `docker`: Container management (run, exec, pull, build).
+*   `system`: OS command execution (with timeout, sandboxing).
+*   `state`: Persistent memory (get, set, delete, increment, append).
+*   `process`: Background process control (spawn, monitor, kill).
+*   `a2a`: Agent communication (call other agents via A2A protocol).
+*   `python`: Code execution (sandboxed Python interpreter).
+*   `database`: SQL operations (PostgreSQL, MySQL, SQLite).
+*   `logger`, `string`, `transform`, `workflow`, `storage`, `os_abstraction`.
+
+### Level 3: OS Layer (System Services)
+The "User Space" for agents, managed via the **CLI**:
+*   **Workspaces**: Isolated project environments (like `/home/user`).
+    *   `bbx workspace create`, `bbx workspace set`, `bbx workspace info`
+*   **Process Manager**: Background execution and monitoring (like `systemd`).
+    *   `bbx run --background`, `bbx ps`, `bbx kill`, `bbx logs`, `bbx wait`
+*   **State Management**: Persistent key-value memory (like `env` vars but persistent).
+    *   `bbx state set`, `bbx state get`, `bbx state list`, `bbx state delete`
+*   **System Health**: Docker integration and self-checks.
+    *   `bbx system`, `bbx adapters`
+*   **Version Control**: Workflow version management.
+    *   `bbx version-ctrl create`, `bbx version-ctrl list`, `bbx version-ctrl rollback`
+
+### Level 4: Agent System (Intelligence)
+The high-level cognitive layer:
+*   **A2A Protocol**: Standardized Agent-to-Agent communication (v0.3).
+*   **MCP Integration**: Full Model Context Protocol support (Server & Client).
+*   **AI Models**: Local model management for workflow generation.
+    *   `bbx model download qwen-1.8b`, `bbx generate "task description"`
+*   **Tool Learning**: Auto-learn CLI tools by parsing `--help`.
+    *   `bbx learn tool kubectl`, `bbx learned_tools`
 
 ---
 
-## Documentation
+## 🚀 Key Innovations (The "Secret Sauce")
 
-| Document | Description |
-|----------|-------------|
-| [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) | Quick start guide |
-| [docs/BBX_SPEC_v6.md](docs/BBX_SPEC_v6.md) | Workflow format specification |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common issues and solutions |
+BBX 2.0 introduces revolutionary concepts adapted from modern Linux kernel development:
+
+### 1. AgentRing (inspired by `io_uring`)
+*   **Problem**: Agents make thousands of small API calls (HTTP, File), creating massive overhead.
+*   **Solution**: A ring-buffer architecture for **batch operation submission**. Agents submit 100 operations in one call, and the kernel processes them asynchronously.
+*   **Result**: 10-100x reduction in overhead and latency.
+
+### 2. BBX Hooks (inspired by `eBPF`)
+*   **Problem**: Modifying workflows for logging, security, or metrics requires rewriting code.
+*   **Solution**: Dynamic code injection. "Attach" hooks to any step of a workflow (pre-execution, post-execution) to enforce security policies or gather metrics without touching the workflow logic.
+*   **Use Case**: "Block all network calls to non-internal IPs" — enforced by a hook, not the agent.
+
+### 3. ContextTiering (inspired by `MGLRU`)
+*   **Problem**: LLM context windows are finite and expensive.
+*   **Solution**: Multi-Generation LRU memory management.
+    *   **Hot (Gen 0)**: Immediate RAM (current task).
+    *   **Warm (Gen 1)**: Compressed RAM (recent history).
+    *   **Cool (Gen 2)**: NVMe/Disk (session history).
+    *   **Cold (Gen 3)**: Vector DB (long-term archive).
+*   **Result**: Infinite effective memory with optimal performance.
+
+### 4. StateSnapshots (inspired by `XFS Reflink`)
+*   **Problem**: Forking an agent or rolling back state is slow and data-heavy.
+*   **Solution**: Copy-on-Write (CoW) state management. Creating a snapshot is instant (O(1)).
+*   **Result**: Instant "Save Game" and "Load Game" for agents.
 
 ---
 
-## CLI Reference
+## � Ecosystem & Connectivity
+
+### MCP Server Integration
+BBX exposes **40+ MCP tools** for AI agents (like Claude Code, Cursor, Windsurf).
+Add BBX as an MCP server to give your agent full OS capabilities.
+
+**Tool Categories:**
+*   **Core**: `bbx_run`, `bbx_validate`, `bbx_generate`
+*   **Workspace**: `bbx_workspace_create`, `bbx_workspace_set`
+*   **Process**: `bbx_ps`, `bbx_kill`, `bbx_logs`, `bbx_run_background`
+*   **State**: `bbx_state_set`, `bbx_state_get`, `bbx_state_list`
+*   **MCP Client**: `bbx_mcp_call`, `bbx_mcp_discover` (Connect to *other* MCP servers!)
+*   **Versioning**: `bbx_version_create`, `bbx_version_rollback`
+
+### Agent-to-Agent Protocol (A2A)
+BBX implements the **Google Agent2Agent Protocol v0.3**.
+*   **Agent Card**: `/.well-known/agent-card.json` for capability discovery.
+*   **Task Lifecycle**: Pending -> In Progress -> Completed/Failed.
+*   **Artifacts**: Exchange files, code, and data between agents.
+
+---
+
+## 🛠️ Quick Start
 
 ```bash
-# Workflows
-python cli.py run [file.bbx]           # Run workflow
-python cli.py run --background         # Background execution
-python cli.py validate file.bbx        # Validate syntax
-
-# Workspaces
-python cli.py workspace create <name>
-python cli.py workspace set <path>
-python cli.py workspace info
-
-# State
-python cli.py state get <key>
-python cli.py state set <key> <value>
-python cli.py state list
-
-# Process Management
-python cli.py ps                       # List executions
-python cli.py logs <id>                # View logs
-python cli.py kill <id>                # Kill execution
-
-# A2A
-python cli.py a2a serve --port 8000
-python cli.py a2a discover <url>
-python cli.py a2a call <url> <skill>
-
-# Tools
-python cli.py adapters                 # List adapters
-python cli.py schema                   # Generate JSON schema
-```
-
----
-
-## Requirements
-
-- Python 3.9+
-- Docker (optional, for container operations)
-
-```bash
+# 1. Clone and install
+git clone https://github.com/kurokie1337/bbx.git
+cd bbx
 pip install -r requirements.txt
-```
+
+# 2. Create a Workspace (Your Project Home)
+python cli.py workspace create my-project
+python cli.py workspace set ~/.bbx/workspaces/my_project
+
+# 3. Generate a Workflow with AI
+python cli.py generate "Scrape hacker news and save top 5 titles to a file"
+
+# 4. Run it
+
+### 🤖 For Agents (AI)
+*   **[Agent Guide](docs/guides/AGENT_GUIDE.md)**: **<-- READ THIS FIRST IF YOU ARE AN AGENT.** Context injection and operating manual.
+
+### 📖 Reference
+*   **[Workflow Format](docs/reference/WORKFLOW_FORMAT.md)**: Complete specification for `.bbx` files.
+
+### 🔬 Research & Internal
+*   **[Manifesto](docs/research/MANIFESTO.md)**: The vision behind BBX 2.0.
+*   **[Roadmap](docs/research/ROADMAP.md)**: Future development plans.
+*   **[Architecture Report](docs/research/ARCHITECTURE_REPORT.md)**: Deep dive into system design.
+*   **[Technical Spec](docs/internal/TECHNICAL_SPEC.md)**: Implementation details.
 
 ---
 
-## License
+## ⚖️ License & Usage
 
 BBX is licensed under the **Business Source License 1.1**.
 
-### What This Means
+### 🟢 Personal & Non-Commercial Use
+**You are free to use BBX for:**
+*   Personal projects
+*   Learning and research
+*   Non-profit development
+*   Testing and evaluation
 
-**You CAN:**
-- Use BBX for development, testing, and evaluation
-- Study and learn from the source code
-- Fork and modify for non-production use
-- Contribute improvements back to the project
+### 🔴 Commercial Use
+**You must obtain a license for:**
+*   Using BBX in a commercial production environment
+*   Building commercial products on top of BBX
+*   Offering BBX as a service
 
-**You CANNOT (without a commercial license):**
-- Offer BBX as a hosted/SaaS service to third parties
-- Use BBX in production for commercial purposes
-- Sell BBX-based products commercially
+> *Note: We do not publicly list pricing or contact emails. If you are a business interested in licensing, you know how to find us.*
 
 **On November 5, 2028**, BBX automatically converts to **Apache License 2.0**.
-
-### Commercial Use
-
-For production/commercial use, please contact us to discuss licensing terms.
-
-### Why BSL?
-
-1. **Protect Innovation** - Prevent unfair competition from large cloud providers
-2. **Fund Development** - Support full-time development of BBX
-3. **Ensure Openness** - Guarantee BBX becomes fully open source in 3 years
-
-See [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
 
 ---
 

@@ -1859,5 +1859,17 @@ def adapters_list(format: str):
         click.echo(f"Total registered: {len(all_adapters)}")
 
 
+# =============================================================================
+# BBX 2.0 Commands
+# =============================================================================
+
+# Import and register BBX 2.0 commands
+try:
+    from blackbox.cli.v2 import v2_cli
+    cli.add_command(v2_cli)
+except ImportError:
+    pass  # BBX 2.0 not available
+
+
 if __name__ == "__main__":
     cli()

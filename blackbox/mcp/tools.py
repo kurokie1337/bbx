@@ -1913,3 +1913,43 @@ TOOL_HANDLERS = {
     "bbx_workflow_run": handle_bbx_workflow_run,
     "bbx_workflow_status": handle_bbx_workflow_status,
 }
+
+
+# === BBX 2.0 Tools Integration ===
+
+def get_all_bbx_tools() -> List[Dict[str, Any]]:
+    """
+    Get all BBX tools including v2 tools.
+
+    Returns:
+        Combined list of BBX 1.0 and BBX 2.0 tools
+    """
+    tools = get_bbx_tools()
+
+    # Add BBX 2.0 tools
+    try:
+        from blackbox.mcp.tools_v2 import get_bbx_v2_tools
+        tools.extend(get_bbx_v2_tools())
+    except ImportError:
+        pass  # BBX 2.0 not available
+
+    return tools
+
+
+def get_all_tool_handlers() -> Dict[str, Any]:
+    """
+    Get all tool handlers including v2 handlers.
+
+    Returns:
+        Combined dictionary of BBX 1.0 and BBX 2.0 handlers
+    """
+    handlers = TOOL_HANDLERS.copy()
+
+    # Add BBX 2.0 handlers
+    try:
+        from blackbox.mcp.tools_v2 import V2_TOOL_HANDLERS
+        handlers.update(V2_TOOL_HANDLERS)
+    except ImportError:
+        pass  # BBX 2.0 not available
+
+    return handlers

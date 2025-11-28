@@ -12,7 +12,13 @@ from blackbox.cli.help import (
     get_group_schema,
 )
 
+from blackbox.cli.v2 import (
+    v2_cli,
+    register_v2_commands,
+)
+
 __all__ = [
+    # Help utilities
     "AgentCommand",
     "AgentGroup",
     "agent_command",
@@ -21,4 +27,7 @@ __all__ = [
     "generate_full_cli_schema",
     "get_command_schema",
     "get_group_schema",
+    # BBX 2.0 CLI
+    "v2_cli",
+    "register_v2_commands",
 ]
