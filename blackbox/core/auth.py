@@ -21,8 +21,9 @@ import base64
 import hashlib
 import os
 import secrets as secrets_module
+from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from blackbox.core.secrets import get_secrets_manager
 
@@ -336,3 +337,108 @@ def get_auth_manager() -> AuthManager:
     if _auth_manager is None:
         _auth_manager = AuthManager()
     return _auth_manager
+
+
+# === Auth Registry for Universal Adapter ===
+
+class AuthInjectionProvider(ABC):
+    """Base class for auth injection providers."""
+
+    @abstractmethod
+    def inject(self, config: Dict[str, Any]) -> Tuple[Dict[str, str], Dict[str, str]]:
+        """
+        Inject authentication into environment and volumes.
+
+        Returns:
+            Tuple of (env_vars, volume_mounts)
+        """
+        pass
+
+
+class TokenAuthInjector(AuthInjectionProvider):
+    """Token-based auth injection."""
+
+    def inject(self, config: Dict[str, Any]) -> Tuple[Dict[str, str], Dict[str, str]]:
+        env = {}
+        volumes = {}
+
+        token_key = config.get("token_key", "API_TOKEN")
+        token_value = config.get("token")
+
+        if not token_value:
+            # Try to get from environment
+            secrets = get_secrets_manager()
+            result = secrets.get(token_key)
+            if result.get("status") == "success":
+                token_value = result.get("value")
+
+        if token_value:
+            env[token_key] = token_value
+
+        return env, volumes
+
+
+class BasicAuthInjector(AuthInjectionProvider):
+    """HTTP Basic auth injection."""
+
+    def inject(self, config: Dict[str, Any]) -> Tuple[Dict[str, str], Dict[str, str]]:
+        env = {}
+        volumes = {}
+
+        username = config.get("username")
+        password = config.get("password")
+
+        if username:
+            env["AUTH_USERNAME"] = username
+        if password:
+            env["AUTH_PASSWORD"] = password
+
+        return env, volumes
+
+
+class FileAuthInjector(AuthInjectionProvider):
+    """File-based auth injection (e.g., service account keys)."""
+
+    def inject(self, config: Dict[str, Any]) -> Tuple[Dict[str, str], Dict[str, str]]:
+        env = {}
+        volumes = {}
+
+        file_path = config.get("file")
+        mount_path = config.get("mount_path", "/auth/credentials.json")
+        env_var = config.get("env_var", "CREDENTIALS_FILE")
+
+        if file_path and os.path.exists(file_path):
+            volumes[file_path] = mount_path
+            env[env_var] = mount_path
+
+        return env, volumes
+
+
+class AuthRegistry:
+    """
+    Registry for authentication injection providers.
+    Used by Universal Adapter for Docker container auth injection.
+    """
+
+    _providers: Dict[str, AuthInjectionProvider] = {
+        "token": TokenAuthInjector(),
+        "basic": BasicAuthInjector(),
+        "file": FileAuthInjector(),
+    }
+
+    @classmethod
+    def get_provider(cls, provider_name: Optional[str]) -> Optional[AuthInjectionProvider]:
+        """Get auth provider by name."""
+        if not provider_name:
+            return None
+        return cls._providers.get(provider_name)
+
+    @classmethod
+    def register_provider(cls, name: str, provider: AuthInjectionProvider) -> None:
+        """Register a custom auth provider."""
+        cls._providers[name] = provider
+
+    @classmethod
+    def list_providers(cls) -> List[str]:
+        """List available auth providers."""
+        return list(cls._providers.keys())

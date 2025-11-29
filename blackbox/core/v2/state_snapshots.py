@@ -62,6 +62,7 @@ class SnapshotType(Enum):
     AUTO = "auto"               # Auto-created (e.g., before risky op)
     CHECKPOINT = "checkpoint"   # Periodic checkpoint
     BRANCH = "branch"           # Branch point
+    SHUTDOWN = "shutdown"       # Created on system shutdown
 
 
 class TransactionState(Enum):
@@ -524,6 +525,11 @@ class StateSnapshotEngine:
                 # Create main branch
                 self._current_branch[agent_id] = "main"
             return self._agent_states[agent_id]
+
+    def set_state(self, agent_id: str, key: str, value: Any):
+        """Set a state value for an agent"""
+        state = self.get_state(agent_id)
+        state.set(key, value)
 
     def create_snapshot(
         self,

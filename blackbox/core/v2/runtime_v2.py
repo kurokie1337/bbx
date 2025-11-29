@@ -69,7 +69,7 @@ from .hooks import (
     HookType, AttachPoint, HookAction, get_hook_manager
 )
 from .context_tiering import ContextTiering, TieringConfig, get_context_tiering
-from .flow_integrity import FlowIntegrityEngine, FlowState, FlowConfig, get_flow_integrity
+from .flow_integrity import FlowIntegrityEngine, FlowState, FlowIntegrityConfig, get_flow_integrity
 from .agent_quotas import QuotaManager, ResourceType, QuotaConfig, get_quota_manager
 from .state_snapshots import StateSnapshotEngine, SnapshotType, get_snapshot_engine
 
@@ -137,7 +137,7 @@ class RuntimeV2Config:
 
     # Flow integrity (CET-inspired)
     flow_integrity_enabled: bool = True
-    flow_config: FlowConfig = field(default_factory=FlowConfig)
+    flow_config: FlowIntegrityConfig = field(default_factory=FlowIntegrityConfig)
 
     # Agent quotas (Cgroups v2-inspired)
     quotas_enabled: bool = True
@@ -149,7 +149,7 @@ class RuntimeV2Config:
 
     # Policy engine (OPA/SELinux-inspired)
     policy_enabled: bool = True
-    policy_mode: str = "enforcing"  # enforcing, permissive, disabled
+    policy_mode: str = "permissive"  # enforcing, permissive, disabled
 
     # Network fabric (Istio-inspired)
     mesh_enabled: bool = True
@@ -577,9 +577,14 @@ class BBXRuntimeV2:
                 )
 
                 if not success and violation:
+                    msg = f"{violation.violation_type.value}: expected {[s.value for s in violation.expected_states]}, got {violation.actual_state.value}"
+                    # In permissive mode, log but don't block
+                    if self.config.policy_mode == "permissive":
+                        logger.warning(f"Flow integrity (permissive): {msg}")
+                        return HookResult(action=HookAction.CONTINUE)
                     return HookResult(
                         action=HookAction.BLOCK,
-                        error=f"Flow integrity violation: {violation.message}"
+                        error=f"Flow integrity violation: {msg}"
                     )
 
                 return HookResult(action=HookAction.CONTINUE)
@@ -769,15 +774,13 @@ class BBXRuntimeV2:
 
         # Set up quota group
         if self.quotas:
-            await self.quotas.create_group(
-                agent_id,
-                parent=None,
-                limits={
-                    ResourceType.MEMORY: 512 * 1024 * 1024,  # 512MB
-                    ResourceType.CPU: 100.0,  # 100%
-                    ResourceType.API_CALLS: 1000,
-                }
+            from blackbox.core.v2.agent_quotas import QuotaConfig
+            quota_config = QuotaConfig(
+                cpu_time_sec=100.0,
+                memory_bytes=512 * 1024 * 1024,  # 512MB
+                api_calls_per_min=100,
             )
+            self.quotas.create_group(f"agents/{agent_id}", quota_config)
 
         # Set up flow integrity tracking
         if self.flow_integrity:

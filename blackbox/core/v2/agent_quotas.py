@@ -404,6 +404,26 @@ class QuotaManager:
 
         return current
 
+    async def delete_group(self, path: str) -> bool:
+        """Delete a quota group by path"""
+        parts = path.split("/")
+        if len(parts) < 1:
+            return False
+
+        # Navigate to parent
+        parent = self.root
+        for part in parts[:-1]:
+            if part not in parent.children:
+                return False
+            parent = parent.children[part]
+
+        # Delete the target
+        target_name = parts[-1]
+        if target_name in parent.children:
+            del parent.children[target_name]
+            return True
+        return False
+
     def assign_agent(self, agent_id: str, group_path: str):
         """Assign an agent to a quota group"""
         group = self.get_group(group_path)

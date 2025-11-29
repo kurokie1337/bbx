@@ -647,6 +647,10 @@ class AAL:
             "failovers": 0,
         }
 
+    async def start(self) -> bool:
+        """Start the AAL (alias for initialize)."""
+        return await self.initialize()
+
     async def initialize(self) -> bool:
         """Initialize all backends."""
         logger.info("Initializing Agent Abstraction Layer...")
@@ -683,6 +687,10 @@ class AAL:
         """Shutdown all backends."""
         for backend in self._all_backends:
             await backend.shutdown()
+
+    async def stop(self):
+        """Stop the AAL (alias for shutdown)."""
+        await self.shutdown()
 
     def register_backend(self, provider_type: str, backend: Backend):
         """Register a custom backend."""

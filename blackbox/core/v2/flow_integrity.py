@@ -60,6 +60,7 @@ class FlowState(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     SUSPENDED = "suspended"
+    TERMINATED = "terminated"  # Agent terminated (cleanup)
 
 
 class TransitionType(Enum):

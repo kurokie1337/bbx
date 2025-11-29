@@ -2691,70 +2691,6 @@ V2_TOOL_HANDLERS = {
     "bbx_v2_executive_stop": handle_bbx_v2_executive_stop,
     "bbx_v2_executive_syscall": handle_bbx_v2_executive_syscall,
     "bbx_v2_executive_bugcheck": handle_bbx_v2_executive_bugcheck,
-
-    # =========================================================================
-    # Enhanced Components (Production-ready)
-    # =========================================================================
-
-    # === Enhanced Ring (WAL, Idempotency, Circuit Breaker) ===
-    "bbx_v2_enhanced_ring_stats": handle_bbx_v2_enhanced_ring_stats,
-    "bbx_v2_enhanced_ring_submit": handle_bbx_v2_enhanced_ring_submit,
-    "bbx_v2_enhanced_ring_circuit_breaker": handle_bbx_v2_enhanced_ring_cb,
-
-    # === Enhanced Context Tiering (ML Scoring, Prefetch) ===
-    "bbx_v2_enhanced_context_stats": handle_bbx_v2_enhanced_context_stats,
-    "bbx_v2_enhanced_context_prefetch": handle_bbx_v2_enhanced_context_prefetch,
-    "bbx_v2_enhanced_context_pin": handle_bbx_v2_enhanced_context_pin,
-
-    # === Enforced Quotas (Cgroups, GPU) ===
-    "bbx_v2_enforced_quotas_stats": handle_bbx_v2_enforced_quotas_stats,
-    "bbx_v2_enforced_quotas_check": handle_bbx_v2_enforced_quotas_check,
-    "bbx_v2_enforced_quotas_gpu": handle_bbx_v2_enforced_quotas_gpu,
-
-    # === Distributed Snapshots (S3, Redis, Replication) ===
-    "bbx_v2_distributed_snapshot_create": handle_bbx_v2_distributed_snapshot_create,
-    "bbx_v2_distributed_snapshot_restore": handle_bbx_v2_distributed_snapshot_restore,
-    "bbx_v2_distributed_snapshot_branch": handle_bbx_v2_distributed_snapshot_branch,
-    "bbx_v2_distributed_snapshot_stats": handle_bbx_v2_distributed_snapshot_stats,
-
-    # === Enhanced Flow Integrity (Anomaly Detection, OPA) ===
-    "bbx_v2_enhanced_flow_verify": handle_bbx_v2_enhanced_flow_verify,
-    "bbx_v2_enhanced_flow_anomalies": handle_bbx_v2_enhanced_flow_anomalies,
-    "bbx_v2_enhanced_flow_audit": handle_bbx_v2_enhanced_flow_audit,
-
-    # === Semantic Memory (RAG, Qdrant) ===
-    "bbx_v2_memory_store": handle_bbx_v2_memory_store,
-    "bbx_v2_memory_recall": handle_bbx_v2_memory_recall,
-    "bbx_v2_memory_search": handle_bbx_v2_memory_search,
-    "bbx_v2_memory_forget": handle_bbx_v2_memory_forget,
-
-    # === Message Bus (Redis Streams, Kafka) ===
-    "bbx_v2_bus_publish": handle_bbx_v2_bus_publish,
-    "bbx_v2_bus_subscribe": handle_bbx_v2_bus_subscribe,
-    "bbx_v2_bus_status": handle_bbx_v2_bus_status,
-
-    # === Goal Engine (LLM Planner) ===
-    "bbx_v2_goal_create": handle_bbx_v2_goal_create,
-    "bbx_v2_goal_execute": handle_bbx_v2_goal_execute,
-    "bbx_v2_goal_status": handle_bbx_v2_goal_status,
-    "bbx_v2_goal_list": handle_bbx_v2_goal_list,
-
-    # === Authentication ===
-    "bbx_v2_auth_create_token": handle_bbx_v2_auth_create_token,
-    "bbx_v2_auth_verify_token": handle_bbx_v2_auth_verify_token,
-    "bbx_v2_auth_create_api_key": handle_bbx_v2_auth_create_api_key,
-    "bbx_v2_auth_authorize": handle_bbx_v2_auth_authorize,
-
-    # === Monitoring ===
-    "bbx_v2_monitoring_metrics": handle_bbx_v2_monitoring_metrics,
-    "bbx_v2_monitoring_trace": handle_bbx_v2_monitoring_trace,
-    "bbx_v2_monitoring_alerts": handle_bbx_v2_monitoring_alerts,
-    "bbx_v2_monitoring_dashboard": handle_bbx_v2_monitoring_dashboard,
-
-    # === Deployment ===
-    "bbx_v2_deploy_dockerfile": handle_bbx_v2_deploy_dockerfile,
-    "bbx_v2_deploy_helm": handle_bbx_v2_deploy_helm,
-    "bbx_v2_deploy_k8s": handle_bbx_v2_deploy_k8s,
 }
 
 
@@ -2998,3 +2934,70 @@ async def handle_bbx_v2_deploy_k8s(args: Dict[str, Any]) -> Dict[str, Any]:
     """Generate Kubernetes manifests"""
     agent_name = args.get("agent_name")
     return {"status": "ok", "agent_name": agent_name, "manifests": ["crd.yaml", "operator.yaml"]}
+
+
+# =============================================================================
+# Update V2_TOOL_HANDLERS with Enhanced Components
+# =============================================================================
+
+V2_TOOL_HANDLERS.update({
+    # === Enhanced Ring (WAL, Idempotency, Circuit Breaker) ===
+    "bbx_v2_enhanced_ring_stats": handle_bbx_v2_enhanced_ring_stats,
+    "bbx_v2_enhanced_ring_submit": handle_bbx_v2_enhanced_ring_submit,
+    "bbx_v2_enhanced_ring_circuit_breaker": handle_bbx_v2_enhanced_ring_cb,
+
+    # === Enhanced Context Tiering (ML Scoring, Prefetch) ===
+    "bbx_v2_enhanced_context_stats": handle_bbx_v2_enhanced_context_stats,
+    "bbx_v2_enhanced_context_prefetch": handle_bbx_v2_enhanced_context_prefetch,
+    "bbx_v2_enhanced_context_pin": handle_bbx_v2_enhanced_context_pin,
+
+    # === Enforced Quotas (Cgroups, GPU) ===
+    "bbx_v2_enforced_quotas_stats": handle_bbx_v2_enforced_quotas_stats,
+    "bbx_v2_enforced_quotas_check": handle_bbx_v2_enforced_quotas_check,
+    "bbx_v2_enforced_quotas_gpu": handle_bbx_v2_enforced_quotas_gpu,
+
+    # === Distributed Snapshots (S3, Redis, Replication) ===
+    "bbx_v2_distributed_snapshot_create": handle_bbx_v2_distributed_snapshot_create,
+    "bbx_v2_distributed_snapshot_restore": handle_bbx_v2_distributed_snapshot_restore,
+    "bbx_v2_distributed_snapshot_branch": handle_bbx_v2_distributed_snapshot_branch,
+    "bbx_v2_distributed_snapshot_stats": handle_bbx_v2_distributed_snapshot_stats,
+
+    # === Enhanced Flow Integrity (Anomaly Detection, OPA) ===
+    "bbx_v2_enhanced_flow_verify": handle_bbx_v2_enhanced_flow_verify,
+    "bbx_v2_enhanced_flow_anomalies": handle_bbx_v2_enhanced_flow_anomalies,
+    "bbx_v2_enhanced_flow_audit": handle_bbx_v2_enhanced_flow_audit,
+
+    # === Semantic Memory (RAG, Qdrant) ===
+    "bbx_v2_memory_store": handle_bbx_v2_memory_store,
+    "bbx_v2_memory_recall": handle_bbx_v2_memory_recall,
+    "bbx_v2_memory_search": handle_bbx_v2_memory_search,
+    "bbx_v2_memory_forget": handle_bbx_v2_memory_forget,
+
+    # === Message Bus (Redis Streams, Kafka) ===
+    "bbx_v2_bus_publish": handle_bbx_v2_bus_publish,
+    "bbx_v2_bus_subscribe": handle_bbx_v2_bus_subscribe,
+    "bbx_v2_bus_status": handle_bbx_v2_bus_status,
+
+    # === Goal Engine (LLM Planner) ===
+    "bbx_v2_goal_create": handle_bbx_v2_goal_create,
+    "bbx_v2_goal_execute": handle_bbx_v2_goal_execute,
+    "bbx_v2_goal_status": handle_bbx_v2_goal_status,
+    "bbx_v2_goal_list": handle_bbx_v2_goal_list,
+
+    # === Authentication ===
+    "bbx_v2_auth_create_token": handle_bbx_v2_auth_create_token,
+    "bbx_v2_auth_verify_token": handle_bbx_v2_auth_verify_token,
+    "bbx_v2_auth_create_api_key": handle_bbx_v2_auth_create_api_key,
+    "bbx_v2_auth_authorize": handle_bbx_v2_auth_authorize,
+
+    # === Monitoring ===
+    "bbx_v2_monitoring_metrics": handle_bbx_v2_monitoring_metrics,
+    "bbx_v2_monitoring_trace": handle_bbx_v2_monitoring_trace,
+    "bbx_v2_monitoring_alerts": handle_bbx_v2_monitoring_alerts,
+    "bbx_v2_monitoring_dashboard": handle_bbx_v2_monitoring_dashboard,
+
+    # === Deployment ===
+    "bbx_v2_deploy_dockerfile": handle_bbx_v2_deploy_dockerfile,
+    "bbx_v2_deploy_helm": handle_bbx_v2_deploy_helm,
+    "bbx_v2_deploy_k8s": handle_bbx_v2_deploy_k8s,
+})

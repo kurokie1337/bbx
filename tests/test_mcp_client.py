@@ -443,7 +443,7 @@ class TestMCPTools:
 
         tools = get_bbx_tools()
 
-        assert len(tools) == 4
+        assert len(tools) >= 4  # At least 4 core tools, more with v2
         tool_names = [t["name"] for t in tools]
         assert "bbx_generate" in tool_names
         assert "bbx_validate" in tool_names

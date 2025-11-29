@@ -104,6 +104,12 @@ class Operation:
     submitted_at: Optional[datetime] = None
     user_data: Any = None
 
+    def __lt__(self, other: "Operation") -> bool:
+        """Comparison for PriorityQueue - higher priority and lower sequence_num first"""
+        if self.priority.value != other.priority.value:
+            return self.priority.value > other.priority.value
+        return self.sequence_num < other.sequence_num
+
 
 @dataclass
 class Completion:
@@ -445,6 +451,51 @@ class AgentRing:
                     if op:
                         priority = -op.priority.value
                         await self._submission_queue.put((priority, op.sequence_num, op))
+
+    def get_stats(self) -> "ExtendedRingStats":
+        """Get extended ring statistics"""
+        return ExtendedRingStats(
+            operations_submitted=self.stats.total_submitted,
+            operations_completed=self.stats.total_completed,
+            operations_failed=self.stats.total_failed,
+            operations_cancelled=self.stats.total_cancelled,
+            operations_timeout=self.stats.total_timeout,
+            pending_count=self.stats.pending_count,
+            processing_count=self.stats.processing_count,
+            active_workers=self.stats.active_workers,
+            worker_pool_size=self.config.max_workers,
+            submission_queue_size=self._submission_queue.qsize(),
+            completion_queue_size=self._completion_queue.qsize(),
+            # Default latency values (would need actual tracking)
+            throughput_ops_sec=0.0,
+            avg_latency_ms=0.0,
+            p50_latency_ms=0.0,
+            p95_latency_ms=0.0,
+            p99_latency_ms=0.0,
+            worker_utilization=self.stats.active_workers / max(self.config.max_workers, 1) * 100,
+        )
+
+
+@dataclass
+class ExtendedRingStats:
+    """Extended statistics for AgentRing (for CLI display)"""
+    operations_submitted: int = 0
+    operations_completed: int = 0
+    operations_failed: int = 0
+    operations_cancelled: int = 0
+    operations_timeout: int = 0
+    pending_count: int = 0
+    processing_count: int = 0
+    active_workers: int = 0
+    worker_pool_size: int = 0
+    submission_queue_size: int = 0
+    completion_queue_size: int = 0
+    throughput_ops_sec: float = 0.0
+    avg_latency_ms: float = 0.0
+    p50_latency_ms: float = 0.0
+    p95_latency_ms: float = 0.0
+    p99_latency_ms: float = 0.0
+    worker_utilization: float = 0.0
 
 
 # =============================================================================

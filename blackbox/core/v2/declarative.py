@@ -159,7 +159,7 @@ class BBXConfig:
         config.name = data.get("name", "bbx-config")
         config.description = data.get("description", "")
 
-        # Parse agents
+        # Parse agents (new format)
         for agent_id, agent_data in data.get("agents", {}).items():
             quotas = None
             if "quotas" in agent_data:
@@ -171,6 +171,29 @@ class BBXConfig:
                 type=agent_data.get("type", "worker"),
                 adapters=agent_data.get("adapters", []),
                 hooks=agent_data.get("hooks", []),
+                workflows=agent_data.get("workflows", []),
+                quotas=quotas,
+                enabled=agent_data.get("enabled", True),
+                description=agent_data.get("description", ""),
+                tags=agent_data.get("tags", []),
+            )
+
+        # Backward compatibility: support "agent" (singular) format
+        if "agent" in data and not config.agents:
+            agent_data = data["agent"]
+            quotas = None
+            if "quotas" in data:
+                quotas = QuotaConfig(**data["quotas"])
+            elif "quotas" in agent_data:
+                quotas = QuotaConfig(**agent_data["quotas"])
+
+            agent_name = agent_data.get("name", "default")
+            config.agents[agent_name] = AgentConfig(
+                id=agent_name,
+                name=agent_name,
+                type=agent_data.get("type", "worker"),
+                adapters=list(data.get("adapters", {}).keys()),
+                hooks=list(data.get("hooks", {}).keys()),
                 workflows=agent_data.get("workflows", []),
                 quotas=quotas,
                 enabled=agent_data.get("enabled", True),
@@ -220,6 +243,38 @@ class BBXConfig:
         """Get configuration hash for change detection"""
         content = json.dumps(self.to_dict(), sort_keys=True)
         return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    def validate(self) -> List[str]:
+        """Validate configuration and return list of errors"""
+        errors = []
+        if not self.agents:
+            errors.append("No agents defined in configuration")
+        return errors
+
+    # Backward compatibility properties
+    @property
+    def agent(self) -> Optional[AgentConfig]:
+        """Get first agent (backward compatibility)"""
+        if self.agents:
+            return next(iter(self.agents.values()))
+        return None
+
+    @property
+    def quotas(self) -> Optional[QuotaConfig]:
+        """Get first agent's quotas (backward compatibility)"""
+        if self.agent and self.agent.quotas:
+            return self.agent.quotas
+        return QuotaConfig()
+
+    @property
+    def adapters(self) -> Dict[str, AdapterConfig]:
+        """Get adapters from first agent (backward compatibility)"""
+        return {a: AdapterConfig(enabled=True) for a in (self.agent.adapters if self.agent else [])}
+
+    @property
+    def hooks(self) -> Dict[str, HookConfig]:
+        """Get hooks from first agent (backward compatibility)"""
+        return {h: HookConfig() for h in (self.agent.hooks if self.agent else [])}
 
 
 # =============================================================================
@@ -541,6 +596,46 @@ class DeclarativeManager:
     def diff_generations(self, gen1: int, gen2: int) -> Dict[str, Any]:
         """Show differences between generations"""
         return self.generation_manager.diff(gen1, gen2)
+
+    def get_current_config(self) -> Optional[BBXConfig]:
+        """Get current active configuration"""
+        if self._current_config:
+            return self._current_config
+        # Try to load from active generation
+        active = self.generation_manager.get_active()
+        if active:
+            return active.config
+        return None
+
+    def get_current_generation_id(self) -> Optional[int]:
+        """Get current generation ID"""
+        active = self.generation_manager.get_active()
+        return active.id if active else None
+
+    def diff_configs(self, config1: BBXConfig, config2: BBXConfig) -> List[Dict[str, Any]]:
+        """Diff two configurations"""
+        diff = []
+        # Compare agents
+        c1_agents = set(config1.agents.keys())
+        c2_agents = set(config2.agents.keys())
+
+        for agent_id in c1_agents - c2_agents:
+            diff.append({"type": "removed", "path": f"agents.{agent_id}", "value": config1.agents[agent_id]})
+        for agent_id in c2_agents - c1_agents:
+            diff.append({"type": "added", "path": f"agents.{agent_id}", "value": config2.agents[agent_id]})
+        for agent_id in c1_agents & c2_agents:
+            if config1.agents[agent_id] != config2.agents[agent_id]:
+                diff.append({"type": "changed", "path": f"agents.{agent_id}",
+                            "old": config1.agents[agent_id], "new": config2.agents[agent_id]})
+
+        # Compare top-level agent config
+        if hasattr(config1, 'agent') and hasattr(config2, 'agent'):
+            if config1.agent and config2.agent:
+                if config1.agent.name != config2.agent.name:
+                    diff.append({"type": "changed", "path": "agent.name",
+                                "old": config1.agent.name, "new": config2.agent.name})
+
+        return diff
 
 
 # =============================================================================

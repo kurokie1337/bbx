@@ -57,6 +57,7 @@ class HookType(Enum):
     TRANSFORM = auto()    # Modify data
     SECURITY = auto()     # Enforce policies
     SCHEDULER = auto()    # Custom scheduling
+    GUARD = auto()        # Policy enforcement guards
 
 
 class AttachPoint(Enum):
@@ -373,6 +374,14 @@ class HookManager:
 
         logger.info(f"Unregistered hook: {hook_id}")
         return True
+
+    def list_hooks(self) -> List[HookDefinition]:
+        """List all registered hooks"""
+        return list(self._registry.values())
+
+    def get_hook(self, hook_id: str) -> Optional[HookDefinition]:
+        """Get a hook by ID"""
+        return self._registry.get(hook_id)
 
     async def trigger(
         self,

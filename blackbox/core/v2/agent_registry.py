@@ -393,7 +393,7 @@ class SearchQuery:
     """Search query for packages."""
 
     keywords: str = ""
-    field: SearchField = SearchField.NAME_DESC
+    search_field: SearchField = SearchField.NAME_DESC
     sort_by: SortBy = SortBy.POPULARITY
     sort_asc: bool = False
 

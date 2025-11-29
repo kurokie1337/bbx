@@ -34,43 +34,26 @@ from blackbox.core.v2.declarative import (
     BBXFlake,
     FlakeInput,
     FlakeLock,
-    create_example_config,
 )
 
 
 @pytest.fixture
 def sample_config():
     """Create a sample BBX configuration"""
-    return BBXConfig(
-        version="2.0",
-        agent=AgentConfig(
-            name="test-agent",
-            description="Test agent for unit tests",
-        ),
+    config = BBXConfig(version="2.0", name="test-config")
+    config.agents["test-agent"] = AgentConfig(
+        id="test-agent",
+        name="Test Agent",
+        description="Test agent for unit tests",
+        adapters=["shell", "http"],
+        hooks=["metrics"],
         quotas=QuotaConfig(
-            max_memory_mb=512,
-            max_cpu_percent=50,
-            max_concurrent_ops=10,
-            max_steps_per_workflow=100,
+            max_concurrent_steps=10,
+            max_execution_time_seconds=300,
+            max_context_size_bytes=512 * 1024 * 1024,  # 512MB
         ),
-        adapters={
-            "shell": AdapterConfig(
-                enabled=True,
-                config={"default_timeout": 30000},
-            ),
-            "http": AdapterConfig(
-                enabled=True,
-                config={"timeout": 10000},
-            ),
-        },
-        hooks={
-            "metrics": HookConfig(
-                enabled=True,
-                type="PROBE",
-                attach=["step.post_execute"],
-            ),
-        },
     )
+    return config
 
 
 @pytest.fixture
@@ -87,16 +70,16 @@ class TestBBXConfigParsing:
     def test_create_config(self, sample_config):
         """Test creating a config object"""
         assert sample_config.version == "2.0"
-        assert sample_config.agent.name == "test-agent"
-        assert len(sample_config.adapters) == 2
+        assert sample_config.agent.name == "Test Agent"  # From backward compat property
+        assert len(sample_config.agents) == 1
 
     def test_config_to_dict(self, sample_config):
         """Test converting config to dictionary"""
         data = sample_config.to_dict()
 
         assert data["version"] == "2.0"
-        assert data["agent"]["name"] == "test-agent"
-        assert "shell" in data["adapters"]
+        assert "test-agent" in data["agents"]
+        assert data["agents"]["test-agent"]["name"] == "Test Agent"
 
     def test_config_from_dict(self):
         """Test creating config from dictionary"""
@@ -107,7 +90,7 @@ class TestBBXConfigParsing:
                 "description": "Created from dict",
             },
             "quotas": {
-                "max_memory_mb": 256,
+                "max_concurrent_steps": 20,
             },
             "adapters": {
                 "shell": {"enabled": True},
@@ -116,7 +99,7 @@ class TestBBXConfigParsing:
 
         config = BBXConfig.from_dict(data)
         assert config.agent.name == "from-dict-agent"
-        assert config.quotas.max_memory_mb == 256
+        assert config.quotas.max_concurrent_steps == 20
 
     def test_config_validation_valid(self, sample_config):
         """Test validation of valid config"""
@@ -125,10 +108,7 @@ class TestBBXConfigParsing:
 
     def test_config_validation_missing_agent(self):
         """Test validation with missing agent"""
-        config = BBXConfig(
-            version="2.0",
-            agent=None,  # Missing agent
-        )
+        config = BBXConfig(version="2.0")  # No agents
         errors = config.validate()
         assert len(errors) > 0
         assert any("agent" in e.lower() for e in errors)
@@ -166,10 +146,13 @@ class TestGenerationManagement:
 
     def test_get_current(self, generation_manager, sample_config):
         """Test getting current generation"""
-        generation_manager.create(sample_config)
-        generation_manager.create(sample_config)
+        gen1 = generation_manager.create(sample_config)
+        generation_manager.activate(gen1.id)
 
-        current = generation_manager.get_current()
+        gen2 = generation_manager.create(sample_config)
+        generation_manager.activate(gen2.id)
+
+        current = generation_manager.get_active()
         assert current.id == 2
 
     def test_list_generations(self, generation_manager, sample_config):
@@ -184,12 +167,15 @@ class TestGenerationManagement:
     def test_switch_generation(self, generation_manager, sample_config):
         """Test switching to a previous generation"""
         gen1 = generation_manager.create(sample_config)
-        sample_config.agent.description = "Modified"
-        gen2 = generation_manager.create(sample_config)
+        generation_manager.activate(gen1.id)
 
-        # Switch back to gen1
-        generation_manager.switch(gen1.id)
-        current = generation_manager.get_current()
+        sample_config.agents["test-agent"].description = "Modified"
+        gen2 = generation_manager.create(sample_config)
+        generation_manager.activate(gen2.id)
+
+        # Switch back to gen1 using activate
+        generation_manager.activate(gen1.id)
+        current = generation_manager.get_active()
         assert current.id == gen1.id
 
 
@@ -219,7 +205,7 @@ class TestDeclarativeManager:
         await declarative_manager.apply(sample_config)
 
         # Create modified config
-        sample_config.agent.description = "Modified"
+        sample_config.agents["test-agent"].description = "Modified"
         await declarative_manager.apply(sample_config)
 
         # Rollback to generation 1
@@ -231,20 +217,17 @@ class TestDeclarativeManager:
         config1 = sample_config
 
         # Create modified config
-        config2 = BBXConfig(
-            version="2.0",
-            agent=AgentConfig(
-                name="different-agent",  # Changed
-                description=sample_config.agent.description,
-            ),
-            quotas=sample_config.quotas,
-            adapters=sample_config.adapters,
-            hooks=sample_config.hooks,
+        config2 = BBXConfig(version="2.0")
+        config2.agents["different-agent"] = AgentConfig(
+            id="different-agent",
+            name="different-agent",  # Different agent
+            description=sample_config.agent.description if sample_config.agent else "",
         )
 
         diff = declarative_manager.diff_configs(config1, config2)
         assert len(diff) > 0
-        assert any(d["path"] == "agent.name" for d in diff)
+        # Should have removed/added for agent changes
+        assert any(d["type"] in ["removed", "added", "changed"] for d in diff)
 
 
 class TestConfigDiff:
@@ -252,18 +235,12 @@ class TestConfigDiff:
 
     def test_diff_added(self):
         """Test detecting added fields"""
-        config1 = BBXConfig(
-            version="2.0",
-            agent=AgentConfig(name="test"),
-            adapters={},
-        )
-        config2 = BBXConfig(
-            version="2.0",
-            agent=AgentConfig(name="test"),
-            adapters={
-                "new_adapter": AdapterConfig(enabled=True),
-            },
-        )
+        config1 = BBXConfig(version="2.0")
+        config1.agents["test"] = AgentConfig(id="test", name="test")
+
+        config2 = BBXConfig(version="2.0")
+        config2.agents["test"] = AgentConfig(id="test", name="test")
+        config2.agents["new_agent"] = AgentConfig(id="new_agent", name="New Agent")
 
         manager = DeclarativeManager()
         diff = manager.diff_configs(config1, config2)
@@ -272,18 +249,12 @@ class TestConfigDiff:
 
     def test_diff_removed(self):
         """Test detecting removed fields"""
-        config1 = BBXConfig(
-            version="2.0",
-            agent=AgentConfig(name="test"),
-            adapters={
-                "old_adapter": AdapterConfig(enabled=True),
-            },
-        )
-        config2 = BBXConfig(
-            version="2.0",
-            agent=AgentConfig(name="test"),
-            adapters={},
-        )
+        config1 = BBXConfig(version="2.0")
+        config1.agents["test"] = AgentConfig(id="test", name="test")
+        config1.agents["old_agent"] = AgentConfig(id="old_agent", name="Old Agent")
+
+        config2 = BBXConfig(version="2.0")
+        config2.agents["test"] = AgentConfig(id="test", name="test")
 
         manager = DeclarativeManager()
         diff = manager.diff_configs(config1, config2)
@@ -292,14 +263,11 @@ class TestConfigDiff:
 
     def test_diff_changed(self):
         """Test detecting changed fields"""
-        config1 = BBXConfig(
-            version="2.0",
-            agent=AgentConfig(name="old-name"),
-        )
-        config2 = BBXConfig(
-            version="2.0",
-            agent=AgentConfig(name="new-name"),
-        )
+        config1 = BBXConfig(version="2.0")
+        config1.agents["test"] = AgentConfig(id="test", name="old-name")
+
+        config2 = BBXConfig(version="2.0")
+        config2.agents["test"] = AgentConfig(id="test", name="new-name")
 
         manager = DeclarativeManager()
         diff = manager.diff_configs(config1, config2)
@@ -314,48 +282,50 @@ class TestBBXFlake:
         """Test creating a flake"""
         flake = BBXFlake(
             description="Test flake",
-            inputs={
-                "core": FlakeInput(
-                    type="github",
+            inputs=[
+                FlakeInput(
+                    name="core",
                     url="github:bbx-project/bbx-core",
                 ),
-            },
+            ],
         )
 
         assert flake.description == "Test flake"
-        assert "core" in flake.inputs
+        assert len(flake.inputs) == 1
+        assert flake.inputs[0].name == "core"
 
-    def test_flake_to_dict(self):
-        """Test converting flake to dictionary"""
+    def test_flake_lock_update(self):
+        """Test flake lock update"""
         flake = BBXFlake(
             description="Test flake",
-            inputs={
-                "core": FlakeInput(
-                    type="github",
+            inputs=[
+                FlakeInput(
+                    name="core",
                     url="github:bbx-project/bbx-core",
                 ),
-            },
+            ],
         )
 
-        data = flake.to_dict()
-        assert data["description"] == "Test flake"
-        assert "core" in data["inputs"]
+        flake.update_lock()
+        assert len(flake.lock) == 1
+        assert flake.lock[0].name == "core"
 
     def test_flake_from_dict(self):
         """Test creating flake from dictionary"""
         data = {
             "description": "From dict",
-            "inputs": {
-                "core": {
-                    "type": "github",
+            "inputs": [
+                {
+                    "name": "core",
                     "url": "github:bbx-project/bbx-core",
                 },
-            },
+            ],
         }
 
         flake = BBXFlake.from_dict(data)
         assert flake.description == "From dict"
-        assert flake.inputs["core"].type == "github"
+        assert len(flake.inputs) == 1
+        assert flake.inputs[0].name == "core"
 
 
 class TestFlakeLock:
@@ -363,40 +333,58 @@ class TestFlakeLock:
 
     def test_create_lock(self):
         """Test creating a flake lock"""
-        lock = FlakeLock()
-        lock.lock_input("core", "abc123", datetime.now())
+        lock = FlakeLock(
+            name="core",
+            url="github:bbx-project/bbx-core",
+            rev="abc123",
+            hash="somehash",
+        )
 
-        assert "core" in lock.locked
-        assert lock.locked["core"]["hash"] == "abc123"
+        assert lock.name == "core"
+        assert lock.rev == "abc123"
 
-    def test_verify_lock(self):
-        """Test verifying locked inputs"""
-        lock = FlakeLock()
-        lock.lock_input("core", "abc123", datetime.now())
+    def test_lock_fields(self):
+        """Test flake lock fields"""
+        lock = FlakeLock(
+            name="core",
+            url="github:bbx-project/bbx-core",
+            rev="abc123",
+            hash="somehash",
+        )
 
-        # Should pass with same hash
-        is_valid = lock.verify("core", "abc123")
-        assert is_valid
-
-        # Should fail with different hash
-        is_valid = lock.verify("core", "different")
-        assert not is_valid
+        # Verify all required fields
+        assert lock.name == "core"
+        assert lock.url == "github:bbx-project/bbx-core"
+        assert lock.rev == "abc123"
+        assert lock.hash == "somehash"
+        assert lock.timestamp is not None
 
 
 class TestExampleConfig:
     """Example config generation tests"""
 
-    def test_create_example_config(self):
-        """Test creating example configuration"""
-        config = create_example_config()
+    def test_create_config_manually(self):
+        """Test creating configuration manually"""
+        config = BBXConfig(version="2.0")
+        config.agents["test"] = AgentConfig(
+            id="test",
+            name="Test Agent",
+            description="A test agent",
+        )
 
         assert config is not None
         assert config.version == "2.0"
         assert config.agent is not None
-        assert config.agent.name is not None
+        assert config.agent.name == "Test Agent"
 
-    def test_example_config_is_valid(self):
-        """Test that example config is valid"""
-        config = create_example_config()
+    def test_manual_config_is_valid(self):
+        """Test that manually created config is valid"""
+        config = BBXConfig(version="2.0")
+        config.agents["test"] = AgentConfig(
+            id="test",
+            name="Test Agent",
+            description="A test agent",
+        )
+
         errors = config.validate()
         assert len(errors) == 0

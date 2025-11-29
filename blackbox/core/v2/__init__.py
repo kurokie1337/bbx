@@ -88,7 +88,7 @@ from .flow_integrity import (
     ShadowTrace,
     Violation,
     ViolationType,
-    FlowConfig,
+    FlowIntegrityConfig,
     get_flow_integrity,
 )
 
@@ -98,7 +98,7 @@ from .agent_quotas import (
     ResourceLimit,
     ResourceUsage,
     ResourceType,
-    ThrottlePolicy,
+    QuotaAction,
     QuotaConfig as ResourceQuotaConfig,
     get_quota_manager,
 )
@@ -360,9 +360,8 @@ from .aal import (
     LLMResponse,
     VectorQuery,
     VectorResult,
-    VectorDocument,
     Backend,
-    BackendConfig,
+    BackendCapabilities,
     BackendHealth,
     BackendMetrics,
     BackendRouter,
@@ -601,7 +600,7 @@ __all__ = [
     "ShadowTrace",
     "Violation",
     "ViolationType",
-    "FlowConfig",
+    "FlowIntegrityConfig",
     "get_flow_integrity",
 
     # Agent Quotas
@@ -610,7 +609,7 @@ __all__ = [
     "ResourceLimit",
     "ResourceUsage",
     "ResourceType",
-    "ThrottlePolicy",
+    "QuotaAction",
     "ResourceQuotaConfig",
     "get_quota_manager",
 
