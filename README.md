@@ -177,6 +177,52 @@ The high-level cognitive layer:
 
 ---
 
+## 🔧 BBX Kernel (Bare-Metal OS)
+
+BBX now includes a **bare-metal operating system kernel** written in Rust, designed to run AI agents directly on hardware without a host OS.
+
+### Architecture
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      USER SPACE (Agents)                        │
+│                   (BBX Workflows, A2A Protocol)                 │
+├─────────────────────────────────────────────────────────────────┤
+│                    SYSCALL INTERFACE                            │
+│         (spawn, io_submit, state_get, agent_call, etc.)        │
+├─────────────────────────────────────────────────────────────────┤
+│                      BBX KERNEL                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
+│  │  SCHEDULER  │  │   MEMORY    │  │       I/O RING          │ │
+│  │  (DAG-based)│  │  (Tiered)   │  │  (io_uring-inspired)    │ │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘ │
+├─────────────────────────────────────────────────────────────────┤
+│                       HARDWARE (x86_64)                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Key Components
+| Component | Description |
+|-----------|-------------|
+| **Scheduler** | Priority-based (REALTIME > HIGH > NORMAL > LOW), DAG-aware |
+| **Memory** | Tiered memory (HOT → WARM → COOL → COLD), frame allocator, paging |
+| **I/O Ring** | io_uring-inspired batch submission/completion |
+| **Syscalls** | Agent-specific: `agent_call`, `workflow_run`, `state_get/set` |
+| **Drivers** | Serial (UART 16550), Timer (PIT), Keyboard (PS/2) |
+
+### Building the Kernel
+```bash
+cd kernel
+cargo build --release
+cargo bootimage --release
+
+# Run in QEMU
+qemu-system-x86_64 -drive format=raw,file=target/x86_64-unknown-none/release/bootimage-bbx-kernel.bin -serial stdio
+```
+
+📖 **[Full Kernel Documentation](kernel/README.md)**
+
+---
+
 ## 🚀 Key Innovations (The "Secret Sauce")
 
 BBX 2.0 introduces revolutionary concepts adapted from modern Linux kernel development:
