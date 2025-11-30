@@ -41,7 +41,7 @@ class TaskResponse(BaseModel):
     created_at: datetime
     completed_at: Optional[datetime] = None
     duration_ms: Optional[int] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
     subtasks: List["TaskResponse"] = Field(default_factory=list)
 
 

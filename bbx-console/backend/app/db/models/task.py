@@ -39,7 +39,7 @@ class Task(Base):
     duration_ms = Column(Integer)
 
     # Extra data
-    metadata = Column(JSON)
+    task_metadata = Column(JSON)
 
     # Relationships
     subtasks = relationship("Task", backref="parent", remote_side=[id])
@@ -57,10 +57,10 @@ class Task(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "duration_ms": self.duration_ms,
-            "metadata": self.metadata,
+            "metadata": self.task_metadata or {},
         }
 
         if include_subtasks:
-            result["subtasks"] = [s.to_dict() for s in self.subtasks]
+            result["subtasks"] = [s.to_dict() for s in (self.subtasks or [])]
 
         return result

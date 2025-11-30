@@ -12,7 +12,7 @@ import type {
   DecomposeResult,
 } from '@/types'
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
@@ -22,7 +22,7 @@ const api = axios.create({
 // Workflows
 
 export async function getWorkflows(): Promise<Workflow[]> {
-  const { data } = await api.get('/workflows')
+  const { data } = await api.get('/workflows/')
   return data
 }
 
@@ -51,7 +51,7 @@ export async function getExecutions(params?: {
   limit?: number
   offset?: number
 }): Promise<Execution[]> {
-  const { data } = await api.get('/executions', { params })
+  const { data } = await api.get('/executions/', { params })
   return data
 }
 
@@ -68,7 +68,7 @@ export async function cancelExecution(id: string) {
 // Agents
 
 export async function getAgents(): Promise<Agent[]> {
-  const { data } = await api.get('/agents')
+  const { data } = await api.get('/agents/')
   return data
 }
 
@@ -125,7 +125,7 @@ export async function getTasks(params?: {
   limit?: number
   offset?: number
 }): Promise<Task[]> {
-  const { data } = await api.get('/tasks', { params })
+  const { data } = await api.get('/tasks/', { params })
   return data
 }
 
@@ -146,7 +146,7 @@ export async function createTask(task: {
   parent_id?: string
   assigned_agent?: string
 }): Promise<Task> {
-  const { data } = await api.post('/tasks', task)
+  const { data } = await api.post('/tasks/', task)
   return data
 }
 

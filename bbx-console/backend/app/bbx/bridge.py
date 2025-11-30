@@ -67,9 +67,16 @@ class BBXBridge:
 
             # Start background tasks
             await self._context_tiering.start()
-            await self._agent_ring.start(
-                {name: adapter for name, adapter in self._registry._adapters.items()}
-            )
+
+            # Get adapters from registry
+            adapters = {}
+            for name in self._registry.list_adapters():
+                try:
+                    adapters[name] = self._registry.get_adapter(name)
+                except Exception:
+                    pass
+
+            await self._agent_ring.start(adapters)
 
             self._initialized = True
             logger.info("BBX Bridge initialized")
@@ -132,7 +139,25 @@ class BBXBridge:
             data = yaml.safe_load(content)
 
             wf = data.get("workflow", data)
-            steps = wf.get("steps", [])
+            raw_steps = wf.get("steps", [])
+
+            # Normalize steps: convert dict format to list format
+            if isinstance(raw_steps, dict):
+                # Dict format: {step_id: {use: ..., args: ...}}
+                steps = []
+                for step_id, step_config in raw_steps.items():
+                    if isinstance(step_config, dict):
+                        step = {"id": step_id, **step_config}
+                        # Parse 'use' into mcp and method
+                        if "use" in step_config:
+                            use_parts = step_config["use"].split(".", 1)
+                            step["mcp"] = use_parts[0] if len(use_parts) > 0 else ""
+                            step["method"] = use_parts[1] if len(use_parts) > 1 else step_config["use"]
+                        steps.append(step)
+                    else:
+                        steps.append({"id": step_id, "value": step_config})
+            else:
+                steps = raw_steps if isinstance(raw_steps, list) else []
 
             # Build DAG visualization
             dag_data = {"nodes": [], "edges": [], "levels": []}
@@ -254,9 +279,9 @@ class BBXBridge:
                     "error": event.data.get("error"),
                 })
 
-        event_bus.on(EventType.STEP_START, on_step_start)
-        event_bus.on(EventType.STEP_END, on_step_end)
-        event_bus.on(EventType.STEP_ERROR, on_step_error)
+        event_bus.subscribe(EventType.STEP_START, on_step_start)
+        event_bus.subscribe(EventType.STEP_END, on_step_end)
+        event_bus.subscribe(EventType.STEP_ERROR, on_step_error)
 
         # Track execution
         self._active_executions[execution_id] = {

@@ -109,3 +109,43 @@ async def list_registered_agents():
     """List locally registered agents"""
     # Would maintain a registry of known agents
     return {"agents": []}
+
+
+@router.get("/agents")
+async def list_a2a_agents():
+    """List available A2A agents (local demo agents)"""
+    # Return demo agents from examples/a2a
+    from pathlib import Path
+    from app.core.config import settings
+
+    agents = []
+    a2a_path = Path(settings.bbx_path) / "examples" / "a2a"
+
+    if a2a_path.exists():
+        for py_file in a2a_path.glob("*.py"):
+            if py_file.name.startswith("_"):
+                continue
+            agents.append({
+                "id": py_file.stem,
+                "name": py_file.stem.replace("_", " ").title(),
+                "file": str(py_file),
+                "status": "available",
+            })
+
+    return agents
+
+
+@router.get("/")
+async def a2a_status():
+    """A2A protocol status"""
+    return {
+        "status": "available",
+        "version": "1.0.0",
+        "endpoints": {
+            "discover": "POST /api/a2a/discover",
+            "tasks": "POST /api/a2a/tasks",
+            "get_task": "GET /api/a2a/tasks/{task_id}",
+            "agents": "GET /api/a2a/agents",
+            "registry": "GET /api/a2a/registry",
+        }
+    }

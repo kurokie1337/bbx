@@ -21,8 +21,14 @@ router = APIRouter()
 
 
 @router.get("/", response_model=List[WorkflowListItem])
-async def list_workflows(directory: str = "."):
+async def list_workflows(directory: str = None):
     """List all workflows in directory"""
+    from app.core.config import settings
+
+    # Default to BBX project root (parent of bbx-console)
+    if directory is None:
+        directory = str(settings.bbx_path)
+
     workflows = await bbx_bridge.list_workflows(directory)
     return [WorkflowListItem(**wf) for wf in workflows]
 
@@ -30,8 +36,23 @@ async def list_workflows(directory: str = "."):
 @router.get("/{workflow_id}", response_model=WorkflowDetail)
 async def get_workflow(workflow_id: str, file_path: str = None):
     """Get workflow details"""
-    # If file_path provided, use it; otherwise construct from ID
-    path = file_path or f"{workflow_id}.bbx"
+    from app.core.config import settings
+    from pathlib import Path
+
+    # If file_path provided, use it; otherwise search for workflow by ID
+    if file_path:
+        path = file_path
+    else:
+        # Search for workflow in project directory
+        base_path = Path(settings.bbx_path)
+        found_path = None
+        for bbx_file in base_path.glob("**/*.bbx"):
+            if bbx_file.stem == workflow_id:
+                found_path = str(bbx_file)
+                break
+        if not found_path:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        path = found_path
 
     workflow = await bbx_bridge.get_workflow(path)
     if not workflow:
@@ -98,7 +119,22 @@ async def validate_workflow(request: WorkflowValidationRequest):
 @router.post("/{workflow_id}/run", response_model=WorkflowRunResponse)
 async def run_workflow(workflow_id: str, request: WorkflowRunRequest, file_path: str = None):
     """Run a workflow"""
-    path = file_path or f"{workflow_id}.bbx"
+    from app.core.config import settings
+    from pathlib import Path
+
+    # If file_path provided, use it; otherwise search for workflow by ID
+    if file_path:
+        path = file_path
+    else:
+        base_path = Path(settings.bbx_path)
+        found_path = None
+        for bbx_file in base_path.glob("**/*.bbx"):
+            if bbx_file.stem == workflow_id:
+                found_path = str(bbx_file)
+                break
+        if not found_path:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        path = found_path
 
     # Check workflow exists
     workflow = await bbx_bridge.get_workflow(path)
