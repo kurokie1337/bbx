@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { api } from '@/services/api'
 
 /**
  * BBX OS - Bare-Metal Operating System for AI Agents
@@ -189,7 +188,7 @@ export function VirtualDesktop() {
         return newTasks
       })
 
-      setCurrentTask(prev => {
+      setCurrentTask(() => {
         if (tasks.length === 0) return null
         return tasks[Math.floor(Math.random() * tasks.length)]?.id || null
       })
@@ -263,10 +262,11 @@ export function VirtualDesktop() {
           'Page fault handled',
           'Timer interrupt',
         ]
+        const level: KernelLog['level'] = Math.random() > 0.9 ? 'WARN' : 'INFO'
         setKernelLogs(prev => [...prev, {
           timestamp: Date.now(),
           module: modules[Math.floor(Math.random() * modules.length)],
-          level: Math.random() > 0.9 ? 'WARN' : 'INFO',
+          level,
           message: messages[Math.floor(Math.random() * messages.length)],
         }].slice(-50))
       }

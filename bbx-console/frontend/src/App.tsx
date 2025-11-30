@@ -10,7 +10,6 @@ import { AgentsPanel } from '@/components/core/AgentsPanel'
 import { LiveOutput } from '@/components/core/LiveOutput'
 import { LeftPanel } from '@/components/core/LeftPanel'
 import { SidePanel } from '@/components/core/SidePanel'
-import { WorkflowSandbox } from '@/components/core/WorkflowSandbox'
 
 // Sandbox components
 import { VirtualDesktop } from '@/components/sandbox/VirtualDesktop'
