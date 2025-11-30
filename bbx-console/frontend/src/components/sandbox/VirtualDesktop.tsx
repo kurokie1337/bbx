@@ -185,12 +185,13 @@ export function VirtualDesktop() {
             cpu_time: 0,
           })
         }
-        return newTasks
-      })
 
-      setCurrentTask(() => {
-        if (tasks.length === 0) return null
-        return tasks[Math.floor(Math.random() * tasks.length)]?.id || null
+        // Update current task based on new tasks
+        if (newTasks.length > 0) {
+          setCurrentTask(newTasks[Math.floor(Math.random() * newTasks.length)]?.id || null)
+        }
+
+        return newTasks
       })
     }, 500)
 
@@ -225,14 +226,16 @@ export function VirtualDesktop() {
             status: 'PENDING',
           })
         }
+
+        // Update ring stats
+        setRingStats({
+          submitted: Math.floor(Math.random() * 100) + 50,
+          completed: Math.floor(Math.random() * 80) + 40,
+          pending: ops.filter(op => op.status === 'PENDING').length,
+        })
+
         return ops.slice(-12)
       })
-
-      setRingStats(prev => ({
-        submitted: prev.submitted + (Math.random() > 0.5 ? 1 : 0),
-        completed: prev.completed + (Math.random() > 0.6 ? 1 : 0),
-        pending: ringOps.filter(op => op.status === 'PENDING').length,
-      }))
     }, 300)
 
     // Simulate syscalls
@@ -242,7 +245,7 @@ export function VirtualDesktop() {
         setSyscalls(prev => [...prev, {
           num: Math.floor(Math.random() * 100),
           name: syscallNames[Math.floor(Math.random() * syscallNames.length)],
-          task_id: tasks[Math.floor(Math.random() * tasks.length)]?.id || 0,
+          task_id: Math.floor(Math.random() * 1000),
           timestamp: Date.now(),
         }].slice(-20))
       }
@@ -279,7 +282,7 @@ export function VirtualDesktop() {
       clearInterval(syscallInterval)
       clearInterval(logInterval)
     }
-  }, [booted, tasks, ringOps])
+  }, [booted]) // Only depend on booted - removed tasks/ringOps to prevent infinite loop
 
   // Auto-scroll logs
   useEffect(() => {
