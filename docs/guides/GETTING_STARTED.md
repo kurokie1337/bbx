@@ -1,6 +1,8 @@
 # Getting Started with BBX
 
-**Quick guide to Blackbox Workflow Engine**
+**Detailed guide to Blackbox Workflow Engine**
+
+> For a quick overview, see the main **[README](../../README.md)**.
 
 ---
 
@@ -20,6 +22,7 @@ pip install -r requirements.txt
 
 # Verify installation
 python cli.py --version
+python cli.py system
 ```
 
 ---
@@ -184,10 +187,10 @@ python cli.py kill <exec_id>
 
 ## Next Steps
 
-- **[BBX_SPEC_v6.md](BBX_SPEC_v6.md)** - Full workflow format specification
-- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Common issues and solutions
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Production deployment guide
-- **[examples/](../examples/)** - More workflow examples
+- **[Workflow Format](../reference/WORKFLOW_FORMAT.md)** - Full BBX workflow specification
+- **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Agent Guide](AGENT_GUIDE.md)** - Guide for AI agents working with BBX
+- **[Examples](../../examples/)** - More workflow examples
 
 ---
 

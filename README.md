@@ -245,6 +245,19 @@ python cli.py workspace set ~/.bbx/workspaces/my_project
 python cli.py generate "Scrape hacker news and save top 5 titles to a file"
 
 # 4. Run it
+python cli.py run generated.bbx
+
+# 5. Check system
+python cli.py system
+```
+
+---
+
+## 📚 Documentation
+
+### 🚀 For Humans
+*   **[Getting Started](docs/guides/GETTING_STARTED.md)**: Step-by-step installation and first workflow.
+*   **[Troubleshooting](docs/guides/TROUBLESHOOTING.md)**: Common issues and solutions.
 
 ### 🤖 For Agents (AI)
 *   **[Agent Guide](docs/guides/AGENT_GUIDE.md)**: **<-- READ THIS FIRST IF YOU ARE AN AGENT.** Context injection and operating manual.
@@ -252,11 +265,19 @@ python cli.py generate "Scrape hacker news and save top 5 titles to a file"
 ### 📖 Reference
 *   **[Workflow Format](docs/reference/WORKFLOW_FORMAT.md)**: Complete specification for `.bbx` files.
 
+### 🖥️ BBX Console (Web UI)
+*   **[BBX Console](bbx-console/README.md)**: Web-based management console for monitoring workflows, agents, and system state.
+*   **[UI Specification](docs/BBX_CONSOLE_UI_SPEC.md)**: Detailed UI/UX design specification.
+
 ### 🔬 Research & Internal
 *   **[Manifesto](docs/research/MANIFESTO.md)**: The vision behind BBX 2.0.
 *   **[Roadmap](docs/research/ROADMAP.md)**: Future development plans.
 *   **[Architecture Report](docs/research/ARCHITECTURE_REPORT.md)**: Deep dive into system design.
 *   **[Technical Spec](docs/internal/TECHNICAL_SPEC.md)**: Implementation details.
+
+### 📦 SDKs
+*   **[Python SDK](sdks/python/bbx-sdk/README.md)**: Official Python client library.
+*   **[Node.js SDK](sdks/nodejs/README.md)**: Official TypeScript/JavaScript SDK.
 
 ---
 
