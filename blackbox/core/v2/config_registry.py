@@ -37,7 +37,7 @@ Value types:
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import (
     Any,
@@ -203,19 +203,19 @@ class RegistryKey:
             value = self.values[name]
             value.data = data
             value.type = value_type
-            value.modified_at = datetime.utcnow()
+            value.modified_at = datetime.now(timezone.utc)
         else:
             value = RegistryValue(name=name, type=value_type, data=data)
             self.values[name] = value
 
-        self.modified_at = datetime.utcnow()
+        self.modified_at = datetime.now(timezone.utc)
         return value
 
     def delete_value(self, name: str) -> bool:
         """Delete a value."""
         if name in self.values:
             del self.values[name]
-            self.modified_at = datetime.utcnow()
+            self.modified_at = datetime.now(timezone.utc)
             return True
         return False
 
@@ -231,7 +231,7 @@ class RegistryKey:
             security=RegistryKeySecurity(owner=self.security.owner)
         )
         self.subkeys[name] = subkey
-        self.modified_at = datetime.utcnow()
+        self.modified_at = datetime.now(timezone.utc)
         return subkey
 
     def delete_subkey(self, name: str, recursive: bool = False) -> bool:
@@ -244,7 +244,7 @@ class RegistryKey:
             return False  # Has children, need recursive
 
         del self.subkeys[name]
-        self.modified_at = datetime.utcnow()
+        self.modified_at = datetime.now(timezone.utc)
         return True
 
 

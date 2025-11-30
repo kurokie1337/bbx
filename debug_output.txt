@@ -1,0 +1,99 @@
+﻿python : 2025-11-30 17:49:52,187 - bbx.adapters.claude_hooks - INFO - Handling Claude hoo
+k event: PreToolUse
+строка:1 знак:33
++ ... load.json | python cli.py hook PreToolUse --workflow examples/claude_ ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (2025-11-30 17:4...ent: PreToolUse:String) [ 
+   ], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+2025-11-30 17:49:52,187 - bbx.runtime.v2 - INFO - Starting BBX 2.0 Runtime (Operating Sys
+tem for AI Agents)...
+2025-11-30 17:49:52,313 - bbx.adapters.Docker - INFO - docker available: Docker version 2
+8.5.2, build ecc6942
+2025-11-30 17:49:53,206 - bbx.adapters.Docker - INFO - docker available: Docker version 2
+8.5.2, build ecc6942
+2025-11-30 17:49:53,208 - bbx.ring - INFO - AgentRing started with 4 workers
+2025-11-30 17:49:53,208 - bbx.runtime.v2 - INFO -   [KERNEL] AgentRing started
+2025-11-30 17:49:53,208 - bbx.runtime.v2 - INFO -   [KERNEL] BBX Hooks started
+2025-11-30 17:49:53,208 - bbx.context_tiering - INFO - ContextTiering started
+2025-11-30 17:49:53,208 - bbx.runtime.v2 - INFO -   [KERNEL] ContextTiering started
+2025-11-30 17:49:53,208 - bbx.runtime.v2 - INFO -   [KERNEL] FlowIntegrity started
+2025-11-30 17:49:53,209 - bbx.runtime.v2 - INFO -   [KERNEL] AgentQuotas started
+2025-11-30 17:49:53,209 - bbx.runtime.v2 - INFO -   [KERNEL] StateSnapshots started
+2025-11-30 17:49:53,209 - blackbox.core.v2.executive - INFO - Starting BBX Executive...
+2025-11-30 17:49:53,209 - blackbox.core.v2.filter_stack - INFO - FilterManager started
+2025-11-30 17:49:53,210 - bbx.aal - INFO - Initializing Agent Abstraction Layer...
+2025-11-30 17:49:53,210 - bbx.aal - INFO -   Registered Ollama backend
+2025-11-30 17:49:53,210 - bbx.aal - INFO - Agent Abstraction Layer initialized
+2025-11-30 17:49:53,210 - blackbox.core.v2.filter_stack - INFO - Filter registered: Audit
+Filter (altitude=950)
+2025-11-30 17:49:53,210 - blackbox.core.v2.filter_stack - INFO - Filter loaded: AuditFilt
+er
+2025-11-30 17:49:53,210 - blackbox.core.v2.filter_stack - INFO - Filter registered: Metri
+csFilter (altitude=900)
+2025-11-30 17:49:53,211 - blackbox.core.v2.filter_stack - INFO - Filter loaded: MetricsFi
+lter
+2025-11-30 17:49:53,211 - blackbox.core.v2.filter_stack - INFO - Filter registered: Secur
+ityFilter (altitude=880)
+2025-11-30 17:49:53,211 - blackbox.core.v2.filter_stack - INFO - Filter loaded: SecurityF
+ilter
+2025-11-30 17:49:53,211 - blackbox.core.v2.filter_stack - INFO - Filter registered: Quota
+Filter (altitude=780)
+2025-11-30 17:49:53,211 - blackbox.core.v2.filter_stack - INFO - Filter loaded: QuotaFilt
+er
+2025-11-30 17:49:53,211 - blackbox.core.v2.filter_stack - INFO - Filter registered: RateL
+imitFilter (altitude=700)
+2025-11-30 17:49:53,211 - blackbox.core.v2.filter_stack - INFO - Filter loaded: RateLimit
+Filter
+2025-11-30 17:49:53,211 - blackbox.core.v2.filter_stack - INFO - Filter registered: Cache
+Filter (altitude=580)
+2025-11-30 17:49:53,211 - blackbox.core.v2.filter_stack - INFO - Filter loaded: CacheFilt
+er
+2025-11-30 17:49:53,212 - blackbox.core.v2.working_set - INFO - WorkingSetManager started
+2025-11-30 17:49:53,212 - blackbox.core.v2.executive - INFO - BBX Executive started succe
+ssfully
+2025-11-30 17:49:53,212 - bbx.runtime.v2 - INFO -   [NT KERNEL] BBX Executive started
+2025-11-30 17:49:53,212 - bbx.runtime.v2 - INFO -   [NT KERNEL] Using Executive-managed c
+omponents
+2025-11-30 17:49:53,212 - bbx.runtime.v2 - INFO -   [DISTRO] PolicyEngine started
+2025-11-30 17:49:53,213 - bbx.runtime.v2 - INFO -   [DISTRO] NetworkFabric started
+2025-11-30 17:49:53,213 - bbx.runtime.v2 - INFO -   [DISTRO] AgentBundles started
+2025-11-30 17:49:53,213 - bbx.hooks - INFO - Registered hook: builtin_metrics
+2025-11-30 17:49:53,213 - bbx.hooks - INFO - Registered hook: builtin_flow_integrity
+2025-11-30 17:49:53,214 - bbx.runtime.v2 - INFO - BBX 2.0 Runtime started successfully
+2025-11-30 17:49:53,222 - bbx.runtime.v2 - INFO - Using sequential execution
+2025-11-30 17:49:53,222 - bbx.flow_integrity - WARNING - FlowIntegrity violation: pre_too
+l_use_hook - invalid_transition -> soft_block
+2025-11-30 17:49:53,223 - bbx.runtime.v2 - INFO - Executing log_event (logger.info)
+2025-11-30 17:49:53,223 - INFO - 
+2025-11-30 17:49:53,223 - blackbox.workflow - INFO - 
+2025-11-30 17:49:53,223 - bbx.runtime.v2 - INFO - log_event completed in 0.3ms
+2025-11-30 17:49:53,223 - bbx.flow_integrity - WARNING - FlowIntegrity violation: pre_too
+l_use_hook - invalid_transition -> soft_block
+2025-11-30 17:49:53,223 - bbx.flow_integrity - WARNING - FlowIntegrity violation: pre_too
+l_use_hook - trace_mismatch -> rollback
+2025-11-30 17:49:53,223 - bbx.runtime.v2 - INFO - Executing hook_response (python.script)
+2025-11-30 17:49:53,224 - bbx.adapters.python - INFO - python.script completed successful
+ly
+2025-11-30 17:49:53,224 - bbx.runtime.v2 - INFO - hook_response completed in 0.2ms
+2025-11-30 17:49:53,224 - bbx.adapters.claude_hooks - INFO - Workflow results: {
+  "log_event": {
+    "status": "success",
+    "output": {
+      "status": "logged",
+      "level": "info",
+      "message": ""
+    }
+  },
+  "hook_response": {
+    "status": "success",
+    "output": {
+      "success": false,
+      "data": null,
+      "error": "Script required",
+      "error_type": "execution_error"
+    }
+  }
+}
+{"decision": "allow", "reason": "Workflow completed successfully"}

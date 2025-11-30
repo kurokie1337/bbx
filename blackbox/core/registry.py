@@ -57,6 +57,7 @@ CORE_ADAPTERS = {
     "a2a": "Agent-to-Agent protocol (discover, call, status other A2A agents)",
     "file": "File operations (read, write, copy, delete, find, glob)",
     "string": "String manipulation (split, join, replace, regex, encode/decode)",
+    "claude_hooks": "Claude Code hooks integration",
 }
 
 # Optional adapters - useful but have specific dependencies or use cases
@@ -214,6 +215,23 @@ class MCPRegistry:
                 "blackbox.core.adapters.string", "StringAdapter"
             ),
         )
+
+        # Claude Hooks - integration with Claude Code
+        self.register_lazy(
+            ["bbx.claude_hooks", "claude_hooks", "claude"],
+            lambda: self._import_adapter(
+                "blackbox.core.adapters.claude_hooks", "ClaudeHooksAdapter"
+            ),
+        )
+
+        # Agent SDK - EXPERIMENTAL, requires claude-agent-sdk (not available yet)
+        # Uncomment when SDK is released:
+        # self.register_lazy(
+        #     ["bbx.agent", "agent"],
+        #     lambda: self._import_adapter(
+        #         "blackbox.core.adapters.agent_sdk", "AgentSDKAdapter"
+        #     ),
+        # )
 
     def _register_optional_adapters(self):
         """Register optional adapters - useful but with specific use cases"""

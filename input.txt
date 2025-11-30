@@ -1,0 +1,5 @@
+Name: BBX Framework
+Version: 1.0.0
+Type: Workflow Engine
+Features: Multi-Agent, MCP, A2A Protocol
+License: BSL 1.1

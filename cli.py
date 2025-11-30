@@ -131,6 +131,63 @@ def run(file_path: str, verbose: bool, output: str, inputs: tuple, background: b
 
 
 @cli.command()
+@click.argument("event_type", required=False)
+@click.option("--workflow", "-w", help="Path to specific workflow to run")
+def hook(event_type: str, workflow: str):
+    """Handle a Claude Code hook event.
+
+    Reads JSON payload from stdin.
+    """
+    import sys
+    import json
+    from blackbox.core.registry import registry
+
+    # Read stdin
+    try:
+        if sys.stdin.isatty():
+            # If no input, just show help or error
+            click.echo("Error: No input provided on stdin", err=True)
+            sys.exit(1)
+
+        payload = json.load(sys.stdin)
+    except json.JSONDecodeError as e:
+        click.echo(f"Error: Invalid JSON input: {e}", err=True)
+        sys.exit(1)
+
+    # If event_type is not provided, try to get it from payload
+    if not event_type:
+        event_type = payload.get("hook_event_name")
+
+    if not event_type:
+        click.echo("Error: event_type not specified and not found in payload", err=True)
+        sys.exit(1)
+
+    # Ensure payload has event name
+    if "hook_event_name" not in payload:
+        payload["hook_event_name"] = event_type
+
+    try:
+        adapter = registry.get_adapter("claude_hooks")
+        if not adapter:
+             click.echo("Error: claude_hooks adapter not found", err=True)
+             sys.exit(1)
+
+        # Run event handler
+        async def _run():
+            return await adapter.handle_event(payload, workflow_path=workflow)
+
+        result = asyncio.run(_run())
+
+        # Output result
+        click.echo(json.dumps(result))
+        sys.exit(0)
+
+    except Exception as e:
+        click.echo(f"Error handling hook: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command()
 @click.argument("file_path", type=click.Path(exists=True))
 def validate(file_path: str):
     """Validate a workflow file."""
@@ -575,6 +632,334 @@ def learn_list():
 
     click.echo(f"\nTotal: {len(tools)} tools")
     click.echo("=" * 60)
+
+
+# =============================================================================
+# Sandbox Commands
+# =============================================================================
+
+@cli.group()
+def sandbox():
+    """Manage workflow sandboxing and isolation.
+
+    Sandboxes provide secure execution environments for workflows.
+    Configure permissions, network access, and resource limits.
+
+    Examples:
+        bbx sandbox init --template standard
+        bbx sandbox test workflow.bbx
+        bbx sandbox allow-domain api.example.com
+        bbx sandbox allow-path /data --mode ro
+    """
+    pass
+
+
+@sandbox.command("init")
+@click.option("--template", "-t", type=click.Choice(["minimal", "standard", "network", "developer", "untrusted"]), default="standard")
+@click.option("--project", "-p", type=click.Path(), default=".", help="Project directory")
+def sandbox_init(template: str, project: str):
+    """Initialize sandbox configuration for project.
+
+    Templates:
+        minimal   - No network, no spawn, read-only
+        standard  - Basic permissions, no network
+        network   - Allows outbound HTTP/HTTPS
+        developer - Full permissions for development
+        untrusted - Maximum isolation for untrusted code
+    """
+    from blackbox.core.v2 import SandboxTemplates
+
+    config_path = Path(project) / ".bbx" / "sandbox.yaml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Get template config
+    if template == "minimal":
+        config = SandboxTemplates.minimal()
+    elif template == "network":
+        config = SandboxTemplates.network()
+    elif template == "developer":
+        config = SandboxTemplates.developer()
+    elif template == "untrusted":
+        config = SandboxTemplates.untrusted()
+    else:
+        config = SandboxTemplates.standard()
+
+    # Convert to YAML
+    config_dict = {
+        "name": config.name,
+        "permissions": [p.value for p in config.permissions],
+        "allow_network": config.allow_network,
+        "allow_spawn": config.allow_spawn,
+        "max_memory_mb": config.max_memory_mb,
+        "max_runtime_seconds": config.max_runtime_seconds,
+    }
+
+    config_path.write_text(yaml.dump(config_dict, default_flow_style=False))
+    click.echo(f"[+] Created sandbox config: {config_path}")
+    click.echo(f"    Template: {template}")
+    click.echo(f"    Permissions: {config_dict['permissions']}")
+    click.echo(f"    Network: {'allowed' if config_dict['allow_network'] else 'blocked'}")
+
+
+@sandbox.command("test")
+@click.argument("workflow", type=click.Path(exists=True))
+@click.option("--template", "-t", default="standard")
+@click.option("--verbose", "-v", is_flag=True)
+def sandbox_test(workflow: str, template: str, verbose: bool):
+    """Test workflow execution in sandbox.
+
+    Runs workflow in isolated environment to verify it works
+    within sandbox constraints.
+
+    Example:
+        bbx sandbox test deploy.bbx --template network
+    """
+    from blackbox.core.v2 import SandboxManager, SandboxTemplates
+
+    async def _test():
+        manager = SandboxManager()
+
+        # Get template
+        if template == "minimal":
+            config = SandboxTemplates.minimal()
+        elif template == "network":
+            config = SandboxTemplates.network()
+        elif template == "developer":
+            config = SandboxTemplates.developer()
+        elif template == "untrusted":
+            config = SandboxTemplates.untrusted()
+        else:
+            config = SandboxTemplates.standard()
+
+        click.echo(f"Testing workflow in '{template}' sandbox...")
+        if verbose:
+            click.echo(f"  Permissions: {[p.value for p in config.permissions]}")
+            click.echo(f"  Network: {'allowed' if config.allow_network else 'blocked'}")
+            click.echo(f"  Memory limit: {config.max_memory_mb}MB")
+            click.echo(f"  Timeout: {config.max_runtime_seconds}s")
+
+        async with manager.sandbox_context(config) as sb:
+            click.echo(f"  Sandbox ID: {sb.id[:8]}...")
+
+            # Run workflow in sandbox
+            result = await run_file(workflow)
+
+            click.echo(f"\n[+] Workflow completed in sandbox")
+            if verbose and sb.logs:
+                click.echo(f"    Logs: {len(sb.logs)} entries")
+
+            return result
+
+    try:
+        result = asyncio.run(_test())
+        if result:
+            click.echo(json.dumps(result, indent=2, default=str))
+    except Exception as e:
+        click.echo(f"[-] Sandbox test failed: {e}", err=True)
+        raise click.Abort()
+
+
+@sandbox.command("list")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def sandbox_list(as_json: bool):
+    """List active sandboxes."""
+    from blackbox.core.v2 import SandboxManager
+
+    async def _list():
+        manager = SandboxManager()
+        return manager.list_sandboxes()
+
+    sandboxes = asyncio.run(_list())
+
+    if as_json:
+        data = []
+        for sb in sandboxes:
+            data.append({
+                "id": sb.id,
+                "state": sb.state.value,
+                "config": sb.config.name,
+                "started_at": str(sb.started_at) if sb.started_at else None,
+                "memory_mb": sb.current_memory_mb,
+            })
+        click.echo(json.dumps(data, indent=2))
+        return
+
+    if not sandboxes:
+        click.echo("No active sandboxes")
+        return
+
+    click.echo(f"\nActive sandboxes: {len(sandboxes)}\n")
+    click.echo("=" * 60)
+    for sb in sandboxes:
+        click.echo(f"ID: {sb.id[:12]}...")
+        click.echo(f"  State: {sb.state.value}")
+        click.echo(f"  Config: {sb.config.name}")
+        click.echo(f"  Started: {sb.started_at}")
+        click.echo(f"  Memory: {sb.current_memory_mb:.1f}MB")
+    click.echo("=" * 60)
+
+
+@sandbox.command("config")
+@click.option("--show", is_flag=True, help="Show current config")
+@click.option("--project", "-p", type=click.Path(), default=".")
+def sandbox_config(show: bool, project: str):
+    """Show or manage sandbox configuration."""
+    config_path = Path(project) / ".bbx" / "sandbox.yaml"
+
+    if show or True:  # Default behavior is show
+        if not config_path.exists():
+            click.echo("No sandbox config found.")
+            click.echo("\nCreate one with: bbx sandbox init")
+            return
+
+        config = yaml.safe_load(config_path.read_text())
+        click.echo("\n" + "=" * 60)
+        click.echo("Sandbox Configuration")
+        click.echo("=" * 60)
+        click.echo(yaml.dump(config, default_flow_style=False))
+        click.echo("=" * 60)
+
+
+@sandbox.command("allow-domain")
+@click.argument("domain")
+@click.option("--project", "-p", type=click.Path(), default=".")
+def sandbox_allow_domain(domain: str, project: str):
+    """Allow network access to a domain.
+
+    Example:
+        bbx sandbox allow-domain api.openai.com
+        bbx sandbox allow-domain *.github.com
+    """
+    config_path = Path(project) / ".bbx" / "sandbox.yaml"
+
+    if not config_path.exists():
+        click.echo("No sandbox config found. Run 'bbx sandbox init' first.", err=True)
+        raise click.Abort()
+
+    config = yaml.safe_load(config_path.read_text())
+
+    if "allowed_domains" not in config:
+        config["allowed_domains"] = []
+
+    if domain not in config["allowed_domains"]:
+        config["allowed_domains"].append(domain)
+        config_path.write_text(yaml.dump(config, default_flow_style=False))
+        click.echo(f"[+] Allowed domain: {domain}")
+    else:
+        click.echo(f"Domain already allowed: {domain}")
+
+
+@sandbox.command("allow-path")
+@click.argument("path")
+@click.option("--mode", "-m", type=click.Choice(["ro", "rw"]), default="ro", help="Access mode (ro=read-only, rw=read-write)")
+@click.option("--project", "-p", type=click.Path(), default=".")
+def sandbox_allow_path(path: str, mode: str, project: str):
+    """Allow filesystem access to a path.
+
+    Examples:
+        bbx sandbox allow-path /data --mode ro
+        bbx sandbox allow-path /tmp/output --mode rw
+    """
+    config_path = Path(project) / ".bbx" / "sandbox.yaml"
+
+    if not config_path.exists():
+        click.echo("No sandbox config found. Run 'bbx sandbox init' first.", err=True)
+        raise click.Abort()
+
+    config = yaml.safe_load(config_path.read_text())
+
+    if "allowed_paths" not in config:
+        config["allowed_paths"] = {}
+
+    config["allowed_paths"][path] = mode
+    config_path.write_text(yaml.dump(config, default_flow_style=False))
+    click.echo(f"[+] Allowed path: {path} ({mode})")
+
+
+@sandbox.command("verify")
+@click.argument("workflow", type=click.Path(exists=True))
+@click.option("--template", "-t", default="standard")
+def sandbox_verify(workflow: str, template: str):
+    """Verify workflow is sandbox-compatible.
+
+    Analyzes workflow without executing to check if it will
+    run successfully within sandbox constraints.
+
+    Example:
+        bbx sandbox verify deploy.bbx --template untrusted
+    """
+    from blackbox.core.v2 import SandboxTemplates
+
+    click.echo(f"Verifying workflow: {workflow}")
+    click.echo(f"Template: {template}\n")
+
+    # Load workflow
+    with open(workflow, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    if "workflow" in data:
+        wf = data["workflow"]
+    else:
+        wf = data
+
+    steps = wf.get("steps", [])
+
+    # Get template permissions
+    if template == "minimal":
+        config = SandboxTemplates.minimal()
+    elif template == "network":
+        config = SandboxTemplates.network()
+    elif template == "developer":
+        config = SandboxTemplates.developer()
+    elif template == "untrusted":
+        config = SandboxTemplates.untrusted()
+    else:
+        config = SandboxTemplates.standard()
+
+    issues = []
+    warnings = []
+
+    # Check each step
+    for step in steps:
+        adapter = step.get("mcp", step.get("adapter", ""))
+
+        # Check network requirements
+        if adapter in ["http", "fetch", "api"] and not config.allow_network:
+            issues.append(f"Step '{step.get('id')}' requires network (blocked in {template})")
+
+        # Check shell requirements
+        if adapter in ["shell", "bash", "exec"] and not config.allow_spawn:
+            issues.append(f"Step '{step.get('id')}' spawns processes (blocked in {template})")
+
+        # Check file access
+        if adapter in ["file", "fs"] and "write" in step.get("method", ""):
+            from blackbox.core.v2 import SandboxPermission
+            if SandboxPermission.FILE_WRITE not in config.permissions:
+                warnings.append(f"Step '{step.get('id')}' writes files (may need FILE_WRITE permission)")
+
+    click.echo("Results:")
+    click.echo("-" * 40)
+
+    if issues:
+        click.echo("\n[ISSUES]")
+        for issue in issues:
+            click.echo(f"  [-] {issue}")
+
+    if warnings:
+        click.echo("\n[WARNINGS]")
+        for warning in warnings:
+            click.echo(f"  [!] {warning}")
+
+    if not issues and not warnings:
+        click.echo("[+] Workflow is fully sandbox-compatible")
+
+    click.echo("-" * 40)
+
+    if issues:
+        click.echo(f"\nResult: INCOMPATIBLE with '{template}' sandbox")
+        raise click.Abort()
+    else:
+        click.echo(f"\nResult: Compatible with '{template}' sandbox")
 
 
 @mcp_client.command("discover")

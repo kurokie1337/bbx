@@ -25,7 +25,7 @@ import os
 import shutil
 import tarfile
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
@@ -389,7 +389,7 @@ class BBXBundler:
         return {
             "bbx_version": "1.0.0",
             "package_version": "1.0.0",
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "main_workflow": workflow_path.name,
             "workflow_id": workflow.get("id", workflow_path.stem),
             "workflow_name": workflow.get("name", workflow_path.stem),

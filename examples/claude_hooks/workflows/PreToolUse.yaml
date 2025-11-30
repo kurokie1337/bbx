@@ -1,0 +1,51 @@
+name: PreToolUse Hook
+id: pre_tool_use_hook
+description: Example hook to validate tool usage
+
+inputs:
+  event:
+    description: The hook event data
+
+steps:
+  - id: log_event
+    adapter: logger
+    method: info
+    inputs:
+      message: "Received PreToolUse event"
+      data: "${inputs.event}"
+
+  - id: hook_response
+    adapter: python
+    method: script
+    inputs:
+      script: |
+        import json
+        inputs = variables.get('inputs', {})
+        event = inputs.get('event', {})
+        tool_name = event.get('tool_name')
+        
+        # Example policy: Deny usage of 'Rm' tool
+        if tool_name == 'Rm':
+            result = {
+                "decision": "deny", 
+                "reason": "Rm tool is disabled by BBX policy",
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": "Rm tool is disabled by BBX policy"
+                }
+            }
+        else:
+            # Allow everything else
+            result = {
+                "decision": "allow", 
+                "reason": "Tool allowed by BBX policy",
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "allow",
+                    "permissionDecisionReason": "Tool allowed by BBX policy"
+                }
+            }
+            
+        # Output as JSON to stdout
+        print(json.dumps(result))

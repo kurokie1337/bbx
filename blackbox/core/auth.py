@@ -22,7 +22,7 @@ import hashlib
 import os
 import secrets as secrets_module
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from blackbox.core.secrets import get_secrets_manager
@@ -126,7 +126,7 @@ class APIKeyProvider(AuthProvider):
 
         expires_at = None
         if expires_in_days:
-            expires_at = (datetime.utcnow() + timedelta(days=expires_in_days)).isoformat()
+            expires_at = (datetime.now(timezone.utc) + timedelta(days=expires_in_days)).isoformat()
 
         # Store key hash (not the actual key)
         key_hash = hashlib.sha256(key.encode()).hexdigest()
@@ -137,7 +137,7 @@ class APIKeyProvider(AuthProvider):
             "key_hash": key_hash,
             "name": name,
             "scopes": scopes or ["*"],
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "expires_at": expires_at,
         }
 

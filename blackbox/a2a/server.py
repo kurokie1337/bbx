@@ -22,7 +22,7 @@ Endpoints:
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from contextlib import asynccontextmanager
 
@@ -122,7 +122,7 @@ class TaskExecutor:
     async def execute(self, task: A2ATask) -> A2ATask:
         """Execute a task and return updated task."""
         task.status = A2ATaskStatus.IN_PROGRESS
-        task.started_at = datetime.utcnow()
+        task.started_at = datetime.now(timezone.utc)
         task.messages.append(A2AMessage(
             role=A2AMessageRole.AGENT,
             content=f"Starting execution of skill: {task.skill_id}"
@@ -140,7 +140,7 @@ class TaskExecutor:
 
             task.status = A2ATaskStatus.COMPLETED
             task.output = result
-            task.completed_at = datetime.utcnow()
+            task.completed_at = datetime.now(timezone.utc)
             task.messages.append(A2AMessage(
                 role=A2AMessageRole.AGENT,
                 content="Task completed successfully"
@@ -149,7 +149,7 @@ class TaskExecutor:
         except Exception as e:
             task.status = A2ATaskStatus.FAILED
             task.error = str(e)
-            task.completed_at = datetime.utcnow()
+            task.completed_at = datetime.now(timezone.utc)
             task.messages.append(A2AMessage(
                 role=A2AMessageRole.AGENT,
                 content=f"Task failed: {str(e)}"
@@ -439,7 +439,7 @@ def create_a2a_app(
             )
 
         task.status = A2ATaskStatus.CANCELLED
-        task.completed_at = datetime.utcnow()
+        task.completed_at = datetime.now(timezone.utc)
         task.messages.append(A2AMessage(
             role=A2AMessageRole.AGENT,
             content="Task cancelled by request"
@@ -561,7 +561,7 @@ def create_a2a_app(
                         error={"code": -32001, "message": "Task not found"}
                     ).model_dump()
                 task.status = A2ATaskStatus.CANCELLED
-                task.completed_at = datetime.utcnow()
+                task.completed_at = datetime.now(timezone.utc)
                 _task_store.update(task)
                 result = task.model_dump(by_alias=True)
 

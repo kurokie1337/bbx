@@ -1,0 +1,114 @@
+# BBX Parallel Code Review Workflow
+#
+# Multiple reviewers analyze code in parallel:
+# - Security reviewer
+# - Performance reviewer
+# - Quality reviewer
+# Then results are merged
+#
+# Usage:
+#   bbx run parallel_review.bbx --input '{"files": ["src/main.py", "src/utils.py"]}'
+
+name: parallel_review
+version: "1.0"
+description: Parallel code review with specialized reviewers
+
+inputs:
+  files:
+    type: array
+    description: Files to review
+    required: true
+  focus:
+    type: string
+    description: Specific focus area
+    default: "general"
+
+steps:
+  # Read files to review
+  - name: read_files
+    use: file.read_many
+    args:
+      paths: ${inputs.files}
+
+  # Security review
+  - name: security_review
+    use: agent.query
+    args:
+      prompt: |
+        Perform a SECURITY review of this code:
+
+        ${steps.read_files.output.contents}
+
+        Focus on:
+        - Input validation
+        - Authentication/authorization
+        - Injection vulnerabilities
+        - Data exposure
+        - Cryptography issues
+      system_prompt: "You are a security expert. Find vulnerabilities."
+    depends_on:
+      - read_files
+
+  # Performance review (parallel)
+  - name: performance_review
+    use: agent.query
+    args:
+      prompt: |
+        Perform a PERFORMANCE review of this code:
+
+        ${steps.read_files.output.contents}
+
+        Focus on:
+        - Algorithm complexity
+        - Memory usage
+        - I/O operations
+        - Caching opportunities
+        - Database queries
+      system_prompt: "You are a performance engineer. Find bottlenecks."
+    depends_on:
+      - read_files
+
+  # Quality review (parallel)
+  - name: quality_review
+    use: agent.query
+    args:
+      prompt: |
+        Perform a CODE QUALITY review:
+
+        ${steps.read_files.output.contents}
+
+        Focus on:
+        - Code clarity
+        - Naming conventions
+        - Function/class design
+        - Error handling
+        - Test coverage
+      system_prompt: "You are a senior developer. Focus on maintainability."
+    depends_on:
+      - read_files
+
+  # Merge all reviews
+  - name: merge_reviews
+    use: agent.query
+    args:
+      prompt: |
+        Merge these three code reviews into a unified report:
+
+        SECURITY REVIEW:
+        ${steps.security_review.output.response}
+
+        PERFORMANCE REVIEW:
+        ${steps.performance_review.output.response}
+
+        QUALITY REVIEW:
+        ${steps.quality_review.output.response}
+
+        Create a prioritized list of issues:
+        1. Critical (must fix before merge)
+        2. Important (should fix soon)
+        3. Minor (nice to have)
+      system_prompt: "You are a tech lead synthesizing feedback."
+    depends_on:
+      - security_review
+      - performance_review
+      - quality_review

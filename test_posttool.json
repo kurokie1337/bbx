@@ -1,0 +1,11 @@
+{
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Read",
+    "tool_input": {
+        "path": "/tmp/test.txt"
+    },
+    "tool_result": {
+        "content": "File content here"
+    },
+    "timestamp": "2025-11-30T17:56:00Z"
+}

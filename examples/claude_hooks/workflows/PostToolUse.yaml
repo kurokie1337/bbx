@@ -1,0 +1,50 @@
+name: PostToolUse Hook
+id: post_tool_use_hook
+description: Example observability hook to log tool usage
+
+inputs:
+  event:
+    description: The hook event data
+
+steps:
+  - id: log_tool_usage
+    adapter: logger
+    method: info
+    inputs:
+      message: "Tool was used"
+      data: "${inputs.event}"
+
+  - id: analyze_result
+    adapter: python
+    method: script
+    inputs:
+      script: |
+        import json
+        inputs = variables.get('inputs', {})
+        event = inputs.get('event', {})
+        
+        tool_name = event.get('tool_name', 'unknown')
+        tool_result = event.get('tool_result', {})
+        
+        # Observability hooks don't need to return a decision
+        # Just process and log the event
+        
+        result = {
+            "status": "logged",
+            "tool": tool_name,
+            "timestamp": event.get('timestamp')
+        }
+        
+        print(json.dumps(result))
+
+  - id: hook_response
+    adapter: python
+    method: script
+    inputs:
+      script: |
+        import json
+        # PostToolUse is observability only, no decision needed
+        result = {
+            "status": "ok"
+        }
+        print(json.dumps(result))

@@ -1,0 +1,11 @@
+# Simple test workflow for agent adapter
+name: test_agent
+version: "1.0"
+description: Test Claude Code agent integration
+
+steps:
+  - name: think
+    use: agent.query
+    args:
+      prompt: "What is 2+2? Answer with just the number."
+      max_turns: 1

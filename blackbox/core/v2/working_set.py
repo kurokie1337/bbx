@@ -31,7 +31,7 @@ Working Set States:
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum, auto
 from typing import (
     Any,
@@ -688,7 +688,7 @@ class WorkingSetManager:
             if page_id in self._working_set:
                 data, metadata = self._working_set[page_id]
                 metadata.access_count += 1
-                metadata.last_access = datetime.utcnow()
+                metadata.last_access = datetime.now(timezone.utc)
                 return data
 
             # Soft fault - check standby list
@@ -699,7 +699,7 @@ class WorkingSetManager:
 
                 metadata.state = PageState.ACTIVE
                 metadata.access_count += 1
-                metadata.last_access = datetime.utcnow()
+                metadata.last_access = datetime.now(timezone.utc)
 
                 self._working_set[page_id] = (data, metadata)
                 self._stats.active_pages += 1
@@ -715,7 +715,7 @@ class WorkingSetManager:
 
                 metadata.state = PageState.ACTIVE
                 metadata.access_count += 1
-                metadata.last_access = datetime.utcnow()
+                metadata.last_access = datetime.now(timezone.utc)
 
                 self._working_set[page_id] = (data, metadata)
                 self._stats.active_pages += 1
@@ -733,7 +733,7 @@ class WorkingSetManager:
 
                 metadata.state = PageState.ACTIVE
                 metadata.access_count += 1
-                metadata.last_access = datetime.utcnow()
+                metadata.last_access = datetime.now(timezone.utc)
 
                 self._working_set[page_id] = (data, metadata)
                 self._stats.active_pages += 1
@@ -751,7 +751,7 @@ class WorkingSetManager:
 
                 metadata.state = PageState.ACTIVE
                 metadata.access_count += 1
-                metadata.last_access = datetime.utcnow()
+                metadata.last_access = datetime.now(timezone.utc)
 
                 self._working_set[page_id] = (data, metadata)
                 self._stats.active_pages += 1
@@ -767,8 +767,8 @@ class WorkingSetManager:
             # Check working set
             if page_id in self._working_set:
                 _, metadata = self._working_set[page_id]
-                metadata.modified_at = datetime.utcnow()
-                metadata.last_access = datetime.utcnow()
+                metadata.modified_at = datetime.now(timezone.utc)
+                metadata.last_access = datetime.now(timezone.utc)
                 metadata.access_count += 1
                 if size_bytes:
                     self._stats.memory_used_bytes -= metadata.size_bytes

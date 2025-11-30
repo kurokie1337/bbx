@@ -27,7 +27,7 @@ import base64
 import hashlib
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -149,8 +149,8 @@ class SecretsManager:
         secrets[key] = {
             "value": value,
             "description": description,
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
             "expires_at": expires_at,
         }
 
@@ -200,7 +200,7 @@ class SecretsManager:
             # Check expiration
             if secret.get("expires_at"):
                 expires = datetime.fromisoformat(secret["expires_at"])
-                if datetime.utcnow() > expires:
+                if datetime.now(timezone.utc) > expires:
                     return {
                         "status": "error",
                         "key": key,
@@ -339,12 +339,12 @@ class SecretsManager:
             history = secrets[key].get("history", [])
             history.append({
                 "value": old_value,
-                "rotated_at": datetime.utcnow().isoformat(),
+                "rotated_at": datetime.now(timezone.utc).isoformat(),
             })
             secrets[key]["history"] = history[-10:]  # Keep last 10
 
         secrets[key]["value"] = new_value
-        secrets[key]["updated_at"] = datetime.utcnow().isoformat()
+        secrets[key]["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         self._save_secrets(secrets)
 

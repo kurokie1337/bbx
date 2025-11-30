@@ -32,7 +32,7 @@ Filter Stack Order (by altitude):
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import (
     Any,
@@ -372,7 +372,7 @@ class AuditFilter(Filter):
         instance: FilterInstance
     ) -> FilterResult:
         entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "phase": "pre",
             "operation": ctx.operation.name,
             "operation_name": ctx.operation_name,
@@ -403,7 +403,7 @@ class AuditFilter(Filter):
         duration_ms = (time.time() - start_time) * 1000
 
         entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "phase": "post",
             "operation": ctx.operation.name,
             "context_id": ctx.id,
@@ -468,7 +468,7 @@ class SecurityFilter(Filter):
 
         if not allowed:
             self._denied_operations.append({
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "caller": ctx.caller_id,
                 "target": ctx.target_id,
                 "operation": ctx.operation.name,
@@ -510,7 +510,7 @@ class QuotaFilter(Filter):
 
         if not allowed:
             self._quota_exceeded.append({
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "caller": ctx.caller_id,
                 "operation": ctx.operation.name,
                 "reason": reason,
@@ -1086,7 +1086,7 @@ class FilterManager:
                 # Update stats
                 reg.stats.pre_operations += 1
                 reg.stats.total_latency_ms += (time.time() - start) * 1000
-                reg.stats.last_operation_at = datetime.utcnow()
+                reg.stats.last_operation_at = datetime.now(timezone.utc)
 
                 if result == FilterResult.SUCCESS_WITH_CALLBACK:
                     post_callbacks.append((reg, instance))

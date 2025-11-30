@@ -53,7 +53,7 @@ Key Components:
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import (
     Any,
@@ -236,7 +236,7 @@ class SecurityToken:
 
     def is_valid(self) -> bool:
         """Check if token is valid."""
-        if self.expires_at and datetime.utcnow() > self.expires_at:
+        if self.expires_at and datetime.now(timezone.utc) > self.expires_at:
             return False
         return True
 
@@ -315,7 +315,7 @@ class SecurityReferenceMonitor:
 
         if ttl_seconds:
             from datetime import timedelta
-            token.expires_at = datetime.utcnow() + timedelta(seconds=ttl_seconds)
+            token.expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
 
         self._tokens[token.id] = token
         return token
@@ -556,7 +556,7 @@ class BBXExecutive:
                 await self._start_background_tasks()
 
                 self._state = ExecutiveState.RUNNING
-                self._start_time = datetime.utcnow()
+                self._start_time = datetime.now(timezone.utc)
                 logger.info("BBX Executive started successfully")
 
             except Exception as e:
@@ -1089,7 +1089,7 @@ class BBXExecutive:
         """Get executive statistics."""
         if self._start_time:
             self._stats.uptime_seconds = (
-                datetime.utcnow() - self._start_time
+                datetime.now(timezone.utc) - self._start_time
             ).total_seconds()
 
         if self._working_set:

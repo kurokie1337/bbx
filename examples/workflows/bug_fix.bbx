@@ -1,0 +1,119 @@
+# BBX Bug Fix Workflow
+#
+# Structured bug fixing process:
+# 1. Analyze the bug
+# 2. Find root cause
+# 3. Implement fix
+# 4. Write regression test
+# 5. Verify fix
+#
+# Usage:
+#   bbx run bug_fix.bbx --input '{"bug_description": "Login fails with special characters"}'
+
+name: bug_fix
+version: "1.0"
+description: Structured bug fixing with analysis, fix, and verification
+
+inputs:
+  bug_description:
+    type: string
+    description: Description of the bug
+    required: true
+  error_log:
+    type: string
+    description: Error log or stack trace
+    default: ""
+  file_hint:
+    type: string
+    description: Suspected file or area
+    default: ""
+
+steps:
+  # Analyze the bug
+  - name: analyze
+    use: agent.query
+    args:
+      prompt: |
+        Analyze this bug:
+
+        BUG DESCRIPTION:
+        ${inputs.bug_description}
+
+        ERROR LOG:
+        ${inputs.error_log}
+
+        FILE HINT:
+        ${inputs.file_hint}
+
+        1. Search for relevant code
+        2. Identify the root cause
+        3. Explain why the bug occurs
+        4. Propose a fix strategy
+      allowed_tools:
+        - Read
+        - Grep
+        - Glob
+      system_prompt: "You are a debugging expert. Find the root cause."
+
+  # Implement the fix
+  - name: fix
+    use: agent.subagent
+    args:
+      name: coder
+      prompt: |
+        Fix this bug based on the analysis:
+
+        BUG:
+        ${inputs.bug_description}
+
+        ANALYSIS:
+        ${steps.analyze.output.response}
+
+        Implement the minimal fix that resolves the issue.
+        Don't refactor unrelated code.
+    depends_on:
+      - analyze
+
+  # Write regression test
+  - name: regression_test
+    use: agent.subagent
+    args:
+      name: tester
+      prompt: |
+        Write a regression test for this bug:
+
+        BUG:
+        ${inputs.bug_description}
+
+        FIX:
+        ${steps.fix.output.response}
+
+        The test should:
+        1. Fail before the fix
+        2. Pass after the fix
+        3. Prevent regression
+    depends_on:
+      - fix
+
+  # Verify the fix works
+  - name: verify
+    use: agent.query
+    args:
+      prompt: |
+        Verify that the bug fix is complete:
+
+        ORIGINAL BUG:
+        ${inputs.bug_description}
+
+        FIX APPLIED:
+        ${steps.fix.output.response}
+
+        REGRESSION TEST:
+        ${steps.regression_test.output.response}
+
+        Run the tests and confirm the fix works.
+      allowed_tools:
+        - Bash
+        - Read
+    depends_on:
+      - regression_test

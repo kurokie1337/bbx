@@ -1,0 +1,134 @@
+# BBX Feature Implementation Workflow
+#
+# Full coding pipeline using Claude Code agents:
+# 1. Architect designs the solution
+# 2. Coder implements it
+# 3. Tester writes tests
+# 4. Reviewer does code review
+#
+# Usage:
+#   bbx run feature_implementation.bbx --input '{"feature": "add user authentication"}'
+
+name: feature_implementation
+version: "1.0"
+description: Complete feature implementation with architect, coder, tester, reviewer
+
+inputs:
+  feature:
+    type: string
+    description: Feature description or requirements
+    required: true
+  working_dir:
+    type: string
+    description: Working directory for the project
+    default: "."
+
+outputs:
+  design:
+    description: Architecture design from architect
+  code:
+    description: Implementation from coder
+  tests:
+    description: Tests from tester
+  review:
+    description: Code review from reviewer
+
+steps:
+  # Step 1: Architect designs the solution
+  - name: design
+    use: agent.subagent
+    args:
+      name: architect
+      prompt: |
+        Design the architecture for this feature:
+        ${inputs.feature}
+
+        Provide:
+        1. High-level design
+        2. Files to create/modify
+        3. Step-by-step implementation plan
+        4. Potential risks
+
+  # Step 2: Coder implements based on design
+  - name: implement
+    use: agent.subagent
+    args:
+      name: coder
+      prompt: |
+        Implement this feature based on the following design:
+
+        DESIGN:
+        ${steps.design.output.response}
+
+        ORIGINAL REQUIREMENT:
+        ${inputs.feature}
+
+        Write the actual code. Create/modify files as needed.
+    depends_on:
+      - design
+
+  # Step 3: Tester writes tests (can run parallel with review)
+  - name: write_tests
+    use: agent.subagent
+    args:
+      name: tester
+      prompt: |
+        Write comprehensive tests for this implementation:
+
+        FEATURE:
+        ${inputs.feature}
+
+        IMPLEMENTATION DETAILS:
+        ${steps.implement.output.response}
+
+        Write unit tests and integration tests as appropriate.
+    depends_on:
+      - implement
+
+  # Step 4: Reviewer does code review (parallel with tests)
+  - name: code_review
+    use: agent.subagent
+    args:
+      name: reviewer
+      prompt: |
+        Review the code changes for this feature:
+
+        ORIGINAL REQUIREMENT:
+        ${inputs.feature}
+
+        DESIGN:
+        ${steps.design.output.response}
+
+        IMPLEMENTATION:
+        ${steps.implement.output.response}
+
+        Check for:
+        - Correctness
+        - Security issues
+        - Performance problems
+        - Code quality
+    depends_on:
+      - implement
+
+  # Step 5: Final summary
+  - name: summary
+    use: python.run
+    args:
+      code: |
+        design = context.get("steps.design.output.response", "N/A")
+        implementation = context.get("steps.implement.output.response", "N/A")
+        tests = context.get("steps.write_tests.output.response", "N/A")
+        review = context.get("steps.code_review.output.response", "N/A")
+
+        result = {
+            "feature": context.get("inputs.feature"),
+            "status": "completed",
+            "design_summary": design[:500] + "..." if len(design) > 500 else design,
+            "implementation_summary": implementation[:500] + "..." if len(implementation) > 500 else implementation,
+            "tests_summary": tests[:500] + "..." if len(tests) > 500 else tests,
+            "review_summary": review[:500] + "..." if len(review) > 500 else review,
+        }
+        return result
+    depends_on:
+      - write_tests
+      - code_review

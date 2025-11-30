@@ -27,7 +27,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Any, Callable, Dict, List, Optional, Set, Union
 
@@ -266,7 +266,7 @@ class StructuredLogger:
     def _log(self, level: str, message: str, **kwargs):
         """Internal log method"""
         log_entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": level,
             "service": self._service_name,
             "message": message,
