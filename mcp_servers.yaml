@@ -21,13 +21,13 @@ servers:
     description: "File operations - read, write, list, search"
 
   # ==========================================================================
-  # Puppeteer - Browser automation (requires puppeteer)
-  # Tools: navigate, screenshot, click, type, etc.
+  # Puppeteer - Browser automation (DISABLED - causes hanging/infinite loops)
+  # The MCP puppeteer servers have issues with proper lifecycle management
   # ==========================================================================
-  puppeteer:
-    transport: stdio
-    command: ["npx", "-y", "puppeteer-mcp-server"]
-    description: "Browser automation with Puppeteer"
+  # puppeteer:
+  #   transport: stdio
+  #   command: ["npx", "-y", "@anthropic-ai/mcp-server-puppeteer"]
+  #   description: "Browser automation with Puppeteer"
 
   # ==========================================================================
   # GitHub - Requires GITHUB_TOKEN env var

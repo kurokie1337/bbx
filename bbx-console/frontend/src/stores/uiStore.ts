@@ -40,8 +40,8 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
-  // View Mode
-  viewMode: 'console',
+  // View Mode - default to BBX OS Desktop
+  viewMode: 'desktop',
   setViewMode: (mode) => set({ viewMode: mode }),
 
   // Command Palette (legacy)
