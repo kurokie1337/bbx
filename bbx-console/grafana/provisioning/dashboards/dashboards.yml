@@ -1,0 +1,15 @@
+# BBX Console Grafana Dashboard Provisioning
+
+apiVersion: 1
+
+providers:
+  - name: 'BBX Console Dashboards'
+    orgId: 1
+    folder: 'BBX Console'
+    folderUid: 'bbx-console'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json
