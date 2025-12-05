@@ -1,0 +1,30 @@
+# BBX Intent File - The TRUE .bbx format
+# Semantic workflow compression: describe WHAT, not HOW
+#
+# This file is "compressed DevOps" - 10 lines that expand into
+# a full deployment workflow with build, test, deploy, verify steps.
+
+bbx: "2.0"
+intent: "Deploy React application to AWS S3 with CloudFront CDN"
+
+target: "frontend-app"
+environment: "production"
+
+constraints:
+  - "no-downtime"
+  - "cost < $20/month"
+  - "must invalidate CDN cache"
+
+hints:
+  - "use docker for build"
+  - "run tests before deploy"
+  - "notify slack on completion"
+
+# That's it. BBX expands this into a full workflow:
+# 1. Finds similar successful deployments from memory (RAG)
+# 2. Generates concrete steps using templates + LLM
+# 3. Applies constraints (rolling deploy for no-downtime)
+# 4. Executes the workflow
+#
+# Run: bbx intent run deploy.bbx
+# Preview: bbx intent run deploy.bbx --dry-run

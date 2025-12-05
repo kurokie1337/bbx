@@ -1,0 +1,152 @@
+# Code Healer Agent (Self-Healing Linter)
+# A daemon that automatically fixes code issues in real-time.
+#
+# How it works:
+# 1. Watches your project files for changes (file_change hook)
+# 2. When you save a file, it runs linting/type checks
+# 3. If issues found, it fixes them automatically
+# 4. Creates a snapshot before each fix (for rollback)
+# 5. Commits the fix if tests pass
+#
+# This is like having a junior developer who instantly fixes
+# your typos, formatting issues, and simple bugs.
+#
+# Install: bbx agent install code-healer
+# Run: bbx agent spawn code-healer --project ~/my-project
+
+name: "code-healer"
+model: "claude-3-5-sonnet"
+description: "Automatically fixes code issues in real-time"
+version: "1.0"
+author: "BBX"
+tags: ["daemon", "linter", "code-quality", "automation"]
+
+# Permissions
+capabilities:
+  - read:filesystem     # Can read project files
+  - write:filesystem    # Can write fixes to files
+  - execute:linter      # Can run linting tools
+  - execute:tests       # Can run tests to verify fixes
+  - execute:git         # Can commit fixes
+  - denied:push         # Cannot push to remote (safety)
+
+# Memory configuration
+memory:
+  hot_window: "1d"        # Recent changes
+  warm_window: "7d"       # Week of context
+  cold_storage: true      # Project history
+  max_context_tokens: 64000
+
+# Recovery - critical for code changes!
+recovery:
+  snapshots: 50           # Keep lots of snapshots
+  max_rollback_age: "48h" # 2 days of rollback
+  auto_snapshot: true     # ALWAYS snapshot before changes
+  snapshot_on_error: true # Capture error state
+
+# File watch triggers
+triggers:
+  # Watch Python files
+  - event: "file_change"
+    path: "**/*.py"
+    action: "heal_python"
+
+  # Watch TypeScript files
+  - event: "file_change"
+    path: "**/*.ts"
+    action: "heal_typescript"
+
+  # Watch JavaScript files
+  - event: "file_change"
+    path: "**/*.js"
+    action: "heal_javascript"
+
+  # Watch Rust files
+  - event: "file_change"
+    path: "**/*.rs"
+    action: "heal_rust"
+
+# Actions
+actions:
+  heal_python:
+    description: "Fix Python code issues"
+    steps:
+      - "Run ruff/flake8 on changed file"
+      - "If errors found, analyze and fix"
+      - "Run mypy for type checking"
+      - "Fix type errors if possible"
+      - "Run pytest on related tests"
+      - "If tests pass, commit fix"
+      - "If tests fail, rollback and report"
+
+  heal_typescript:
+    description: "Fix TypeScript code issues"
+    steps:
+      - "Run eslint on changed file"
+      - "Fix eslint errors"
+      - "Run tsc for type checking"
+      - "Fix type errors"
+      - "Run jest on related tests"
+
+  heal_javascript:
+    description: "Fix JavaScript code issues"
+    steps:
+      - "Run eslint on changed file"
+      - "Auto-fix simple issues"
+      - "Report complex issues"
+
+  heal_rust:
+    description: "Fix Rust code issues"
+    steps:
+      - "Run cargo clippy"
+      - "Apply clippy suggestions"
+      - "Run cargo fmt"
+      - "Run cargo test"
+
+# Configuration
+config:
+  # Only fix if confidence > 90%
+  min_confidence: 0.9
+
+  # Don't touch these files
+  ignore_patterns:
+    - "node_modules/**"
+    - ".git/**"
+    - "dist/**"
+    - "build/**"
+    - "*.min.js"
+
+  # Auto-commit settings
+  auto_commit: true
+  commit_message_prefix: "[code-healer]"
+
+  # Test requirements
+  require_tests_pass: true
+  max_test_time_seconds: 60
+
+# System prompt
+system_prompt: |
+  You are a code healing agent. Your job is to automatically fix
+  code issues without disrupting the developer's workflow.
+
+  Rules:
+  1. Only fix obvious issues (syntax, formatting, simple bugs)
+  2. Never change code logic or behavior
+  3. Always run tests after fixes
+  4. If unsure, don't fix - just report
+  5. Create snapshot before EVERY change
+
+  You should fix:
+  - Syntax errors
+  - Formatting issues
+  - Unused imports
+  - Simple type errors
+  - Missing semicolons, brackets
+
+  You should NOT fix:
+  - Complex logic bugs
+  - Performance issues
+  - Architectural problems
+  - Anything requiring human judgment
+
+  Be invisible. The developer should barely notice you.

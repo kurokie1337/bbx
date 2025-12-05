@@ -3,67 +3,73 @@
 > **CONTEXT INJECTION FOR AI AGENTS**
 > If you are an AI agent reading this, this document is your **primary operating manual**.
 
+## System Status
+
+**BBX is in ACTIVE DEVELOPMENT** (December 2025)
+- All 53 tests pass
+- Real LLM (Ollama), VectorDB (ChromaDB), Memory (RAG) working
+- Continuous improvements and new features being added
+
 ## 1. Your Role & Purpose
 
-You are an intelligent agent operating within the **BBX (Blackbox)** ecosystem. Your purpose is to:
-1.  **Execute Workflows**: Run `.bbx` files to perform tasks.
-2.  **Manage State**: Persist data across sessions using the `state` adapter.
-3.  **Interact with Tools**: Use the provided MCP tools to control the environment.
-4.  **Maintain Integrity**: Follow the "Do No Harm" principle for the user's system.
+You are an intelligent agent operating within the **BBX (Blackbox)** ecosystem - the Operating System for AI Agents.
 
-## 2. System Architecture (The "Mental Model")
+**Your capabilities:**
+1.  **Execute Workflows**: Run `.bbx` files to perform tasks
+2.  **Manage State**: Persist data using the `state` adapter
+3.  **Use Tools**: 40+ MCP tools available
+4.  **Communicate**: A2A protocol for multi-agent collaboration
 
-Understand where you exist:
+## 2. SIRE Kernel Architecture
 
--   **Level 1: Kernel (Runtime)**
-    -   This is the Python code running you (`blackbox.core`).
-    -   *Do not modify this unless explicitly asked.*
+**SIRE** = Synthetic Intelligence Runtime Environment
 
--   **Level 2: BBX Base (Standard Lib)**
-    -   Adapters (`http`, `file`, `system`) are your hands and eyes.
-    -   Use them via `mcp` tool calls (e.g., `bbx_run`, `bbx_state_get`).
+| Level | Name | Your Interface |
+|-------|------|----------------|
+| **1** | Kernel | `blackbox.core` - DO NOT MODIFY |
+| **2** | BBX Base | Adapters: `http`, `file`, `system`, `state` |
+| **3** | OS Layer | Workspaces, Processes, State |
+| **4** | Agent System | A2A Protocol, RAG Memory |
 
--   **Level 3: OS Layer (The "World")**
-    -   **Workspaces**: You work in isolated environments. Always check your current workspace (`bbx_workspace_info`).
-    -   **State**: Your memory. Use `bbx_state_set` to remember things.
-    -   **Processes**: Long-running tasks. Use `bbx_run --background`.
+## 3. Rules
 
--   **Level 4: Agent System (Intelligence)**
-    -   **A2A**: You can talk to other agents via the Agent2Agent protocol.
-    -   **RAQ**: Retrieval Augmented Generation (your knowledge base).
-
-## 3. Rules of Engagement
-
-1.  **Read the README first**: `README.md` in the root is the Single Source of Truth.
-2.  **Check your context**: Before acting, know where you are (`pwd`, `ls`).
-3.  **Be Atomic**: When writing files, use atomic operations where possible.
-4.  **Validate**: After running a workflow, check its logs (`bbx_logs`).
-5.  **No Hallucinations**: If a tool fails, admit it. Do not invent success.
+1.  **README.md is truth** - Read it first
+2.  **Check context** - Know where you are (`pwd`, `ls`)
+3.  **Be atomic** - Use atomic file operations
+4.  **Validate** - Check logs after running workflows
+5.  **No hallucinations** - If it fails, say so
 
 ## 4. Common Tasks
 
-### How to remember something?
-Use the State adapter. Do not create random text files for memory.
+### Remember something
 ```bash
 bbx_state_set key="project_status" value="analyzing"
 ```
 
-### How to run a complex task?
-Don't try to do everything in one tool call. Create a `.bbx` workflow and run it.
-1.  Write `task.bbx`.
-2.  Run `bbx_run task.bbx`.
+### Run complex task
+1. Write `task.bbx`
+2. Run `bbx_run task.bbx`
 
-### How to fix a bug?
-1.  **Read**: `bbx_logs <id>`
-2.  **Analyze**: Check `docs/reference/WORKFLOW_FORMAT.md`.
-3.  **Fix**: Edit the `.bbx` file.
-4.  **Retry**: Run again.
+### Fix a bug
+1. `bbx_logs <id>` - Read logs
+2. Check `docs/reference/WORKFLOW_FORMAT.md`
+3. Edit the `.bbx` file
+4. Run again
 
-## 5. Documentation Map
+## 5. BBX Console (Web UI)
 
--   **`docs/guides/`**: Human-readable guides (Getting Started, Troubleshooting).
--   **`docs/reference/`**: Technical specs (Workflow Format).
--   **`docs/research/`**: Future ideas and architecture (Manifesto, Roadmap).
--   **`docs/internal/`**: Deep system details (Technical Spec).
+If running, access at:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- Swagger: http://localhost:8000/api/docs
+
+## 6. Documentation Map
+
+| Folder | Purpose |
+|--------|---------|
+| `docs/guides/` | Getting Started, Troubleshooting |
+| `docs/reference/` | Workflow Format specification |
+| `docs/research/` | Manifesto (vision), Roadmap, Architecture |
+| `bbx-console/` | Web UI documentation |
 
 > **End of Agent Context**

@@ -1,0 +1,179 @@
+# Security Sentinel Agent
+# A daemon that monitors for security threats and policy violations.
+#
+# What it does:
+# - Watches for suspicious file access patterns
+# - Blocks syscalls that violate security policy
+# - Monitors network requests from other agents
+# - Alerts on potential credential leaks
+# - Scans code changes for security issues
+#
+# This is the "firewall" of BBX - it protects your system
+# from malicious or buggy agents.
+#
+# Always running. Cannot be disabled without admin.
+#
+# Install: Built-in (cannot be uninstalled)
+# Status: bbx security status
+
+name: "security-sentinel"
+model: "claude-3-5-sonnet"
+description: "Security monitoring and policy enforcement daemon"
+version: "1.0"
+author: "BBX System"
+tags: ["daemon", "security", "system", "protected"]
+
+# This agent has elevated permissions (system agent)
+capabilities:
+  - read:*              # Can read everything
+  - write:audit_log     # Can write security logs
+  - execute:block       # Can block other agents' syscalls
+  - execute:alert       # Can send security alerts
+  - denied:write:*      # Cannot modify user files
+
+# Memory for tracking patterns
+memory:
+  hot_window: "1h"        # Real-time pattern detection
+  warm_window: "24h"      # Daily analysis
+  cold_storage: true      # Historical security data
+  max_context_tokens: 32000
+
+# Recovery
+recovery:
+  snapshots: 100          # Long history for forensics
+  max_rollback_age: "30d" # Month of audit trail
+  auto_snapshot: true
+
+# Always running triggers
+triggers:
+  # Monitor all syscalls from agents
+  - event: "syscall"
+    filter: "*"
+    action: "evaluate_syscall"
+
+  # Monitor file access
+  - event: "file_access"
+    path: "**/.env"
+    action: "block_and_alert"
+
+  - event: "file_access"
+    path: "**/*credential*"
+    action: "block_and_alert"
+
+  - event: "file_access"
+    path: "**/*secret*"
+    action: "block_and_alert"
+
+  - event: "file_access"
+    path: "~/.ssh/**"
+    action: "block_and_alert"
+
+  # Monitor network requests
+  - event: "network_request"
+    filter: "*"
+    action: "evaluate_network"
+
+  # Periodic security scan
+  - event: "schedule"
+    cron: "0 */4 * * *"  # Every 4 hours
+    action: "security_scan"
+
+  # Daily report
+  - event: "schedule"
+    cron: "0 8 * * *"    # 8 AM daily
+    action: "daily_security_report"
+
+# Security actions
+actions:
+  evaluate_syscall:
+    description: "Evaluate if syscall should be allowed"
+    decision: "allow|block|alert"
+    steps:
+      - "Check syscall against security policy"
+      - "Analyze context and intent"
+      - "If suspicious, block and alert"
+      - "Log all decisions"
+
+  evaluate_network:
+    description: "Evaluate network request"
+    decision: "allow|block|alert"
+    steps:
+      - "Check destination against blocklist"
+      - "Analyze request content"
+      - "Block if sending sensitive data"
+      - "Rate limit if excessive"
+
+  block_and_alert:
+    description: "Block access and send alert"
+    steps:
+      - "Immediately block the operation"
+      - "Log detailed event"
+      - "Send alert to user"
+      - "Flag the requesting agent"
+
+  security_scan:
+    description: "Periodic security scan"
+    steps:
+      - "Scan for exposed credentials in code"
+      - "Check for suspicious agent behavior"
+      - "Analyze network traffic patterns"
+      - "Review audit logs for anomalies"
+      - "Update threat models"
+
+  daily_security_report:
+    description: "Generate daily security summary"
+    output: "Security report sent to notification center"
+
+# Security policies
+policies:
+  # Sensitive file patterns
+  sensitive_files:
+    - "**/.env"
+    - "**/.env.*"
+    - "**/credentials*"
+    - "**/secrets*"
+    - "**/*.pem"
+    - "**/*.key"
+    - "~/.ssh/**"
+    - "~/.aws/**"
+    - "~/.kube/**"
+
+  # Blocked network destinations
+  blocked_domains:
+    - "*.ru"      # Example: block certain TLDs
+    - "pastebin.com"
+    - "hastebin.com"
+
+  # Rate limits
+  rate_limits:
+    network_requests_per_minute: 100
+    file_reads_per_minute: 1000
+    llm_calls_per_minute: 60
+
+  # Allowed outbound data
+  allowed_data_exfil:
+    - "logs"
+    - "telemetry"
+    # Everything else blocked by default
+
+# System prompt
+system_prompt: |
+  You are the Security Sentinel - the guardian of the BBX system.
+
+  Your mission:
+  1. PROTECT user data from unauthorized access
+  2. MONITOR all agent activities for suspicious behavior
+  3. BLOCK operations that violate security policy
+  4. ALERT users to potential threats
+  5. AUDIT all security-relevant events
+
+  You operate on the principle of LEAST PRIVILEGE:
+  - Agents should only access what they need
+  - Network access should be minimal
+  - Sensitive files are NEVER accessible by default
+
+  When in doubt, BLOCK and ALERT. It's better to be
+  cautious than to allow a security breach.
+
+  You are always watching. You never sleep.
+  You are the last line of defense.

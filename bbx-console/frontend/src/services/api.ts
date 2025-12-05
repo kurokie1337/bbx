@@ -205,3 +205,23 @@ export async function getWSStats() {
   const { data } = await api.get('/ws/stats')
   return data
 }
+
+// LLM Chat - Direct interaction with Ollama
+
+export interface ChatRequest {
+  prompt: string
+  model?: string
+}
+
+export interface ChatResponse {
+  success: boolean
+  response?: string
+  error?: string
+  model: string
+  tokens?: number
+}
+
+export async function chat(request: ChatRequest): Promise<ChatResponse> {
+  const { data } = await api.post<ChatResponse>('/chat/', request)
+  return data
+}

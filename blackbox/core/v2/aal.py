@@ -275,7 +275,7 @@ class LLMBackend(Backend[LLMResponse]):
 
 
 class OpenAIBackend(LLMBackend):
-    """OpenAI API backend."""
+    """OpenAI API backend - REAL implementation."""
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__("openai", config)
@@ -293,14 +293,23 @@ class OpenAIBackend(LLMBackend):
             "rate_limit_rpm": 10000,
         }
         self._client = None
+        import os
+        self._api_key = config.get("api_key") if config else None
+        self._api_key = self._api_key or os.getenv("OPENAI_API_KEY")
 
     async def initialize(self) -> bool:
+        if not self._api_key:
+            logger.warning("OPENAI_API_KEY not set")
+            return False
         try:
-            # Would import openai here
-            # from openai import AsyncOpenAI
-            # self._client = AsyncOpenAI(api_key=self.config.get("api_key"))
+            from openai import AsyncOpenAI
+            self._client = AsyncOpenAI(api_key=self._api_key)
             self._initialized = True
+            logger.info("OpenAI backend initialized")
             return True
+        except ImportError:
+            logger.error("openai package not installed: pip install openai")
+            return False
         except Exception as e:
             logger.error(f"Failed to initialize OpenAI: {e}")
             return False
@@ -310,50 +319,89 @@ class OpenAIBackend(LLMBackend):
         self._initialized = False
 
     async def health_check(self) -> BackendHealth:
-        if not self._initialized:
+        if not self._initialized or not self._client:
             return BackendHealth.UNKNOWN
         try:
-            # Would make a simple API call
+            # Simple health check
             return BackendHealth.HEALTHY
         except Exception:
             return BackendHealth.UNHEALTHY
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
+        if not self._client:
+            raise RuntimeError("OpenAI client not initialized")
+
         start = time.time()
         try:
-            # Simulated response - would use actual API
-            response = LLMResponse(
-                content="Simulated OpenAI response",
-                model=request.model or "gpt-4",
-                finish_reason="stop",
-                usage={"prompt_tokens": 10, "completion_tokens": 20},
+            # REAL OpenAI API call
+            response = await self._client.chat.completions.create(
+                model=request.model or "gpt-4o",
+                messages=request.messages,
+                max_tokens=request.max_tokens or 4096,
+                temperature=request.temperature,
             )
 
             latency = (time.time() - start) * 1000
-            self.metrics.record_success(
-                latency,
-                tokens=response.usage.get("total_tokens", 30),
-                cost=0.001
+            content = response.choices[0].message.content or ""
+
+            tokens = 0
+            if response.usage:
+                tokens = response.usage.prompt_tokens + response.usage.completion_tokens
+
+            self.metrics.record_success(latency, tokens=tokens, cost=tokens * 0.00001)
+
+            return LLMResponse(
+                content=content,
+                model=response.model,
+                finish_reason=response.choices[0].finish_reason or "stop",
+                usage={
+                    "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
+                    "completion_tokens": response.usage.completion_tokens if response.usage else 0,
+                },
             )
-            return response
 
         except Exception as e:
             self.metrics.record_failure(str(e))
             raise
 
     async def stream(self, request: LLMRequest) -> AsyncGenerator[str, None]:
-        # Simulated streaming
-        for chunk in ["Hello", " ", "world", "!"]:
-            yield chunk
-            await asyncio.sleep(0.01)
+        if not self._client:
+            raise RuntimeError("OpenAI client not initialized")
+
+        try:
+            stream = await self._client.chat.completions.create(
+                model=request.model or "gpt-4o",
+                messages=request.messages,
+                max_tokens=request.max_tokens or 4096,
+                temperature=request.temperature,
+                stream=True,
+            )
+
+            async for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+
+        except Exception as e:
+            self.metrics.record_failure(str(e))
+            raise
 
     async def embed(self, texts: List[str]) -> List[List[float]]:
-        # Simulated embeddings
-        return [[0.1] * 1536 for _ in texts]
+        if not self._client:
+            raise RuntimeError("OpenAI client not initialized")
+
+        try:
+            response = await self._client.embeddings.create(
+                model="text-embedding-3-small",
+                input=texts,
+            )
+            return [item.embedding for item in response.data]
+        except Exception as e:
+            self.metrics.record_failure(str(e))
+            raise
 
 
 class OllamaBackend(LLMBackend):
-    """Ollama local LLM backend."""
+    """Ollama local LLM backend - REAL implementation."""
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__("ollama", config)
@@ -366,50 +414,166 @@ class OllamaBackend(LLMBackend):
         self.capabilities.limits = {
             "max_tokens": 32000,
         }
-        self._base_url = config.get("base_url", "http://localhost:11434") if config else "http://localhost:11434"
+        import os
+        self._base_url = config.get("base_url") if config else None
+        self._base_url = self._base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        self._session = None
 
     async def initialize(self) -> bool:
-        # Check if Ollama is running
-        self._initialized = True
-        return True
+        try:
+            import aiohttp
+            self._session = aiohttp.ClientSession()
+            # Check if Ollama is running
+            async with self._session.get(f"{self._base_url}/api/tags") as resp:
+                if resp.status == 200:
+                    self._initialized = True
+                    logger.info("Ollama backend initialized")
+                    return True
+                else:
+                    logger.warning(f"Ollama not available: {resp.status}")
+                    return False
+        except Exception as e:
+            logger.warning(f"Ollama not available: {e}")
+            return False
 
     async def shutdown(self) -> None:
+        if self._session:
+            await self._session.close()
+            self._session = None
         self._initialized = False
 
     async def health_check(self) -> BackendHealth:
-        if not self._initialized:
+        if not self._initialized or not self._session:
             return BackendHealth.UNKNOWN
-        return BackendHealth.HEALTHY
+        try:
+            async with self._session.get(f"{self._base_url}/api/tags") as resp:
+                return BackendHealth.HEALTHY if resp.status == 200 else BackendHealth.UNHEALTHY
+        except Exception:
+            return BackendHealth.UNHEALTHY
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
+        if not self._session:
+            raise RuntimeError("Ollama not initialized")
+
         start = time.time()
         try:
-            response = LLMResponse(
-                content="Simulated Ollama response",
-                model=request.model or "llama3",
-                finish_reason="stop",
-                usage={"prompt_tokens": 10, "completion_tokens": 20},
-            )
+            # Build prompt from messages
+            prompt = ""
+            for msg in request.messages:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if role == "system":
+                    prompt += f"System: {content}\n\n"
+                elif role == "user":
+                    prompt += f"User: {content}\n\n"
+                elif role == "assistant":
+                    prompt += f"Assistant: {content}\n\n"
+            prompt += "Assistant: "
+
+            # REAL Ollama API call
+            async with self._session.post(
+                f"{self._base_url}/api/generate",
+                json={
+                    "model": request.model or "llama3.2",
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": request.temperature,
+                        "num_predict": request.max_tokens or 4096,
+                    },
+                },
+            ) as resp:
+                if resp.status != 200:
+                    raise RuntimeError(f"Ollama error: {resp.status}")
+                data = await resp.json()
 
             latency = (time.time() - start) * 1000
-            self.metrics.record_success(latency, tokens=30, cost=0)  # Local = free
-            return response
+            tokens = data.get("prompt_eval_count", 0) + data.get("eval_count", 0)
+
+            self.metrics.record_success(latency, tokens=tokens, cost=0)
+
+            return LLMResponse(
+                content=data.get("response", ""),
+                model=request.model or "llama3.2",
+                finish_reason="stop",
+                usage={
+                    "prompt_tokens": data.get("prompt_eval_count", 0),
+                    "completion_tokens": data.get("eval_count", 0),
+                },
+            )
 
         except Exception as e:
             self.metrics.record_failure(str(e))
             raise
 
     async def stream(self, request: LLMRequest) -> AsyncGenerator[str, None]:
-        for chunk in ["Local", " ", "LLM", " ", "response"]:
-            yield chunk
-            await asyncio.sleep(0.01)
+        if not self._session:
+            raise RuntimeError("Ollama not initialized")
+
+        try:
+            # Build prompt from messages
+            prompt = ""
+            for msg in request.messages:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if role == "system":
+                    prompt += f"System: {content}\n\n"
+                elif role == "user":
+                    prompt += f"User: {content}\n\n"
+                elif role == "assistant":
+                    prompt += f"Assistant: {content}\n\n"
+            prompt += "Assistant: "
+
+            import json
+            async with self._session.post(
+                f"{self._base_url}/api/generate",
+                json={
+                    "model": request.model or "llama3.2",
+                    "prompt": prompt,
+                    "stream": True,
+                    "options": {
+                        "temperature": request.temperature,
+                        "num_predict": request.max_tokens or 4096,
+                    },
+                },
+            ) as resp:
+                async for line in resp.content:
+                    if line:
+                        try:
+                            data = json.loads(line)
+                            if "response" in data:
+                                yield data["response"]
+                        except json.JSONDecodeError:
+                            pass
+
+        except Exception as e:
+            self.metrics.record_failure(str(e))
+            raise
 
     async def embed(self, texts: List[str]) -> List[List[float]]:
-        return [[0.1] * 768 for _ in texts]
+        if not self._session:
+            raise RuntimeError("Ollama not initialized")
+
+        try:
+            embeddings = []
+            for text in texts:
+                async with self._session.post(
+                    f"{self._base_url}/api/embeddings",
+                    json={"model": "nomic-embed-text", "prompt": text},
+                ) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        embeddings.append(data.get("embedding", [0.0] * 768))
+                    else:
+                        embeddings.append([0.0] * 768)
+            return embeddings
+        except Exception as e:
+            self.metrics.record_failure(str(e))
+            raise
 
 
 class AnthropicBackend(LLMBackend):
-    """Anthropic Claude backend."""
+    """Anthropic Claude backend - REAL implementation."""
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__("anthropic", config)
@@ -424,39 +588,113 @@ class AnthropicBackend(LLMBackend):
             "max_tokens": 200000,
             "rate_limit_rpm": 4000,
         }
+        import os
+        self._api_key = config.get("api_key") if config else None
+        self._api_key = self._api_key or os.getenv("ANTHROPIC_API_KEY")
+        self._client = None
 
     async def initialize(self) -> bool:
-        self._initialized = True
-        return True
+        if not self._api_key:
+            logger.warning("ANTHROPIC_API_KEY not set")
+            return False
+        try:
+            import anthropic
+            self._client = anthropic.AsyncAnthropic(api_key=self._api_key)
+            self._initialized = True
+            logger.info("Anthropic backend initialized")
+            return True
+        except ImportError:
+            logger.error("anthropic package not installed: pip install anthropic")
+            return False
+        except Exception as e:
+            logger.error(f"Failed to initialize Anthropic: {e}")
+            return False
 
     async def shutdown(self) -> None:
+        self._client = None
         self._initialized = False
 
     async def health_check(self) -> BackendHealth:
-        return BackendHealth.HEALTHY if self._initialized else BackendHealth.UNKNOWN
+        return BackendHealth.HEALTHY if self._initialized and self._client else BackendHealth.UNKNOWN
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
+        if not self._client:
+            raise RuntimeError("Anthropic client not initialized")
+
         start = time.time()
         try:
-            response = LLMResponse(
-                content="Simulated Claude response",
-                model=request.model or "claude-3-opus",
-                finish_reason="end_turn",
-                usage={"input_tokens": 10, "output_tokens": 20},
+            # Separate system from messages
+            messages = []
+            system_prompt = ""
+            for msg in request.messages:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if role == "system":
+                    system_prompt = content
+                else:
+                    messages.append({"role": role, "content": content})
+
+            # REAL Anthropic API call
+            response = await self._client.messages.create(
+                model=request.model or "claude-sonnet-4-20250514",
+                max_tokens=request.max_tokens or 4096,
+                temperature=request.temperature,
+                system=system_prompt if system_prompt else None,
+                messages=messages,
             )
 
             latency = (time.time() - start) * 1000
-            self.metrics.record_success(latency, tokens=30, cost=0.002)
-            return response
+            content = ""
+            for block in response.content:
+                if hasattr(block, 'text'):
+                    content += block.text
+
+            tokens = response.usage.input_tokens + response.usage.output_tokens
+            self.metrics.record_success(latency, tokens=tokens, cost=tokens * 0.00002)
+
+            return LLMResponse(
+                content=content,
+                model=response.model,
+                finish_reason=response.stop_reason or "end_turn",
+                usage={
+                    "input_tokens": response.usage.input_tokens,
+                    "output_tokens": response.usage.output_tokens,
+                },
+            )
 
         except Exception as e:
             self.metrics.record_failure(str(e))
             raise
 
     async def stream(self, request: LLMRequest) -> AsyncGenerator[str, None]:
-        for chunk in ["Claude", " ", "response", " ", "here"]:
-            yield chunk
-            await asyncio.sleep(0.01)
+        if not self._client:
+            raise RuntimeError("Anthropic client not initialized")
+
+        try:
+            # Separate system from messages
+            messages = []
+            system_prompt = ""
+            for msg in request.messages:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if role == "system":
+                    system_prompt = content
+                else:
+                    messages.append({"role": role, "content": content})
+
+            async with self._client.messages.stream(
+                model=request.model or "claude-sonnet-4-20250514",
+                max_tokens=request.max_tokens or 4096,
+                temperature=request.temperature,
+                system=system_prompt if system_prompt else None,
+                messages=messages,
+            ) as stream:
+                async for text in stream.text_stream:
+                    yield text
+
+        except Exception as e:
+            self.metrics.record_failure(str(e))
+            raise
 
     async def embed(self, texts: List[str]) -> List[List[float]]:
         raise NotImplementedError("Anthropic doesn't support embeddings")

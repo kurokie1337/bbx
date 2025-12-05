@@ -1,0 +1,149 @@
+# Legacy Code Miner Agent
+# An archaeological agent for understanding old codebases.
+#
+# Use case: You inherit a 10-year-old Java project with no docs.
+# This agent indexes everything, builds relationship maps,
+# and lets you ask questions like:
+# - "Where is the discount calculation logic?"
+# - "What calls the PaymentService?"
+# - "Draw me the database schema"
+#
+# This is a HEAVY agent - designed for long-running analysis tasks.
+# It might run for hours indexing a large codebase.
+#
+# Install: bbx agent install legacy-code-miner
+# Run: bbx agent spawn legacy-code-miner --project ~/old-project
+
+name: "legacy-code-miner"
+model: "claude-3-5-sonnet"
+description: "Understands and documents legacy codebases"
+version: "1.0"
+author: "BBX"
+tags: ["analysis", "legacy", "documentation", "heavy"]
+
+# Permissions - read-only for safety
+capabilities:
+  - read:filesystem     # Can read all project files
+  - write:memory        # Can write to Vector DB
+  - denied:write:filesystem  # Cannot modify source files
+  - denied:execute      # Cannot run code
+
+# Memory - needs lots of it for large codebases
+memory:
+  hot_window: "1d"
+  warm_window: "30d"
+  cold_storage: true
+  max_context_tokens: 200000  # Use max context
+
+# Recovery
+recovery:
+  snapshots: 5            # Don't need many (read-only)
+  max_rollback_age: "7d"
+  auto_snapshot: false    # Not needed for read-only
+
+# Triggers - mostly manual
+triggers:
+  # Manual trigger to start analysis
+  - event: "manual"
+    action: "full_analysis"
+
+  # Re-analyze when project changes significantly
+  - event: "schedule"
+    cron: "0 3 * * 0"  # Weekly at 3 AM on Sunday
+    action: "incremental_update"
+
+# Actions
+actions:
+  full_analysis:
+    description: "Complete codebase analysis"
+    timeout_hours: 8
+    steps:
+      - "Scan all source files"
+      - "Build AST for each file"
+      - "Extract functions, classes, methods"
+      - "Create embeddings for semantic search"
+      - "Build dependency graph"
+      - "Identify patterns and anti-patterns"
+      - "Generate documentation stubs"
+      - "Create searchable index"
+
+  incremental_update:
+    description: "Update index with recent changes"
+    steps:
+      - "Detect changed files since last run"
+      - "Re-analyze changed files"
+      - "Update dependency graph"
+      - "Update embeddings"
+
+  query:
+    description: "Answer questions about the codebase"
+    input:
+      question: "string"
+    steps:
+      - "Parse question intent"
+      - "Search Vector DB for relevant code"
+      - "Build context from related files"
+      - "Generate comprehensive answer"
+
+  visualize:
+    description: "Generate visual diagrams"
+    input:
+      type: "string"  # dependency, class, database, sequence
+    steps:
+      - "Query relevant data from index"
+      - "Generate Mermaid/PlantUML diagram"
+      - "Render to image if requested"
+
+# Analysis configuration
+config:
+  # File types to analyze
+  include_extensions:
+    - .java
+    - .py
+    - .js
+    - .ts
+    - .go
+    - .rs
+    - .cpp
+    - .c
+    - .cs
+    - .rb
+    - .php
+
+  # Patterns to ignore
+  ignore_patterns:
+    - "node_modules/**"
+    - "vendor/**"
+    - ".git/**"
+    - "test/**"
+    - "tests/**"
+    - "*.test.*"
+    - "*.spec.*"
+
+  # Analysis depth
+  max_file_size_kb: 500
+  max_files: 10000
+  extract_comments: true
+  extract_todos: true
+
+# System prompt
+system_prompt: |
+  You are a code archaeologist specializing in understanding
+  legacy codebases. Your job is to make old, undocumented
+  code understandable.
+
+  Your capabilities:
+  1. Index and search code semantically
+  2. Build and visualize dependency graphs
+  3. Identify design patterns and anti-patterns
+  4. Generate documentation from code
+  5. Answer natural language questions about the code
+
+  When answering questions:
+  - Always cite specific files and line numbers
+  - Show relevant code snippets
+  - Explain the "why" not just the "what"
+  - Identify potential issues or tech debt
+
+  You are patient. Legacy code is messy. That's okay.
+  Your job is to bring order and understanding.

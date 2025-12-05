@@ -34,14 +34,199 @@ logger = logging.getLogger(__name__)
 
 
 @click.group()
-@click.version_option(version="1.0.0")
+@click.version_option(version="2.0.0")
 def cli():
-    """BBX - Blackbox Workflow Engine CLI"""
+    """BBX - The WinRAR for AI Development.
+
+    Simple interface, powerful under the hood.
+    Like a hammer - it just works.
+
+    Core commands:
+        bbx pack     - Compress project understanding
+        bbx unpack   - Decompress intent into code
+        bbx recover  - Restore after AI errors (killer feature!)
+
+    That's it. Everything else is optional.
+    """
     pass
 
 
 # =============================================================================
-# Core Commands
+# CORE COMMANDS - The "Hammer" Interface (Never Changes)
+# =============================================================================
+# These commands are like WinRAR - simple, stable, reliable.
+# The interface stays the same, power grows under the hood.
+
+@cli.command()
+@click.argument("path", type=click.Path(exists=True), default=".")
+@click.option("--output", "-o", type=click.Path(), help="Output .bbx file")
+@click.option("--recovery", "-r", default=5, help="Recovery data percent (1-10)")
+@click.option("--no-recovery", is_flag=True, help="Skip recovery record")
+def pack(path: str, output: str, recovery: int, no_recovery: bool):
+    """Compress project understanding into .bbx package.
+
+    Like WinRAR compress, but for project understanding.
+    Creates a package with:
+    - Project structure and relationships
+    - Semantic embeddings for search
+    - Recovery record for rollback (like WinRAR!)
+
+    Examples:
+        bbx pack                    # Pack current directory
+        bbx pack ./my-project       # Pack specific project
+        bbx pack . -o project.bbx   # Specify output
+        bbx pack . -r 10            # 10% recovery data
+    """
+    async def _pack():
+        from blackbox.core.v2.bbx_core import BBXCore
+        core = BBXCore(path)
+        return await core.pack(
+            output=output,
+            include_recovery=not no_recovery,
+            recovery_percent=recovery,
+        )
+
+    try:
+        click.echo(f"Packing: {path}")
+        result = asyncio.run(_pack())
+        click.echo(f"\n[+] Created: {result}")
+        click.echo(f"    Recovery record: {'disabled' if no_recovery else f'{recovery}%'}")
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@cli.command()
+@click.argument("intent")
+@click.option("--path", "-p", type=click.Path(exists=True), default=".", help="Project path")
+@click.option("--dry-run", "-n", is_flag=True, help="Show plan without executing")
+@click.option("--output", "-o", type=click.Path(), help="Save workflow to file")
+def unpack(intent: str, path: str, dry_run: bool, output: str):
+    """Decompress intent into executable workflow.
+
+    Like WinRAR decompress, but for intentions.
+    Takes what you want to achieve and generates concrete steps.
+
+    Uses:
+    - Project Genome (understanding)
+    - Memory (similar successful changes)
+    - Templates + LLM (generation)
+
+    Examples:
+        bbx unpack "Deploy to AWS"
+        bbx unpack "Add authentication" --dry-run
+        bbx unpack "Fix the login bug" -o fix.yaml
+    """
+    async def _unpack():
+        from blackbox.core.v2.bbx_core import BBXCore
+        core = BBXCore(path)
+        return await core.unpack(intent, dry_run=True)  # Always show plan first
+
+    try:
+        result = asyncio.run(_unpack())
+
+        click.echo("\n" + "=" * 60)
+        click.echo(f"Intent: {intent}")
+        click.echo("=" * 60)
+        click.echo(f"Confidence: {result['confidence']:.0%}")
+        click.echo(f"Sources: {', '.join(result['sources'])}")
+        click.echo(f"Context from memory: {result.get('context_files', 0)} items")
+        click.echo(f"Similar patterns: {result.get('similar_patterns', 0)}")
+
+        click.echo(f"\nGenerated {len(result['steps'])} steps:")
+        for i, step in enumerate(result['steps'], 1):
+            click.echo(f"  {i}. {step.get('id', '?')} -> {step.get('use', '?')}")
+
+        if output or dry_run:
+            if 'yaml' in result:
+                click.echo("\n" + "-" * 60)
+                click.echo(result['yaml'])
+                if output:
+                    from pathlib import Path as PathLib
+                    PathLib(output).write_text(result['yaml'])
+                    click.echo(f"\n[+] Saved to: {output}")
+
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@cli.command()
+@click.option("--path", "-p", type=click.Path(exists=True), default=".", help="Project path")
+@click.option("--snapshot", "-s", help="Specific snapshot ID to restore")
+@click.option("--file", "-f", "file_path", help="Restore specific file only")
+@click.option("--smart", is_flag=True, help="Smart recovery - detect and fix")
+@click.option("--dry-run", "-n", is_flag=True, help="Show what would be restored")
+def recover(path: str, snapshot: str, file_path: str, smart: bool, dry_run: bool):
+    """Restore project after AI errors.
+
+    THIS IS THE KILLER FEATURE - like WinRAR's Recovery Record.
+    No other AI tool can do this.
+
+    Modes:
+        bbx recover              # Restore from latest snapshot
+        bbx recover --smart      # Detect what's broken, fix it
+        bbx recover -f src/main.py  # Restore specific file
+
+    Examples:
+        bbx recover                 # Restore everything
+        bbx recover --dry-run       # See what would be restored
+        bbx recover --smart         # Auto-detect and fix
+    """
+    async def _recover():
+        from blackbox.core.v2.bbx_core import BBXCore
+        core = BBXCore(path)
+
+        if smart:
+            return await core.smart_recover()
+        else:
+            return await core.recover(
+                snapshot_id=snapshot,
+                file_path=file_path,
+                dry_run=dry_run,
+            )
+
+    try:
+        result = asyncio.run(_recover())
+
+        if result["status"] == "error":
+            click.echo(f"[-] {result['message']}", err=True)
+            return
+
+        click.echo("\n" + "=" * 60)
+        click.echo("Recovery Result")
+        click.echo("=" * 60)
+
+        if result["status"] == "clean":
+            click.echo(click.style("[+] Project is clean - no recovery needed", fg="green"))
+
+        elif result["status"] == "changes_detected":
+            click.echo(f"Snapshot from: {result['snapshot_time']}")
+            click.echo(f"\nChanged files ({len(result['changed_files'])}):")
+            for f in result['changed_files']:
+                color = "red" if f['change'] == 'deleted' else "yellow"
+                click.echo(click.style(f"  {f['change']}: {f['file']}", fg=color))
+            click.echo(f"\n{result['recommendation']}")
+
+        else:
+            status = "DRY RUN" if dry_run else "RECOVERED"
+            click.echo(f"Status: {status}")
+            click.echo(f"Snapshot: {result.get('snapshot', 'latest')}")
+            click.echo(f"Time: {result.get('snapshot_time', 'unknown')}")
+            click.echo(f"Files: {result.get('files_recovered', 0)}")
+
+            if result.get('details'):
+                click.echo("\nDetails:")
+                for d in result['details'][:10]:
+                    action = click.style(d['action'], fg="green")
+                    click.echo(f"  {action}: {d['file']}")
+                if len(result['details']) > 10:
+                    click.echo(f"  ... and {len(result['details']) - 10} more")
+
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+# =============================================================================
+# Workflow Commands (Extended functionality)
 # =============================================================================
 
 @cli.command()
@@ -2245,6 +2430,1428 @@ def adapters_list(format: str):
 
 
 # =============================================================================
+# Memory Commands (Exocortex - Personal AI Memory)
+# =============================================================================
+
+@cli.group()
+def memory():
+    """Personal AI memory - remember and recall anything.
+
+    Your exocortex - stores everything in Qdrant with semantic search.
+    All conversations, code, notes, ideas - searchable by meaning.
+
+    Examples:
+        bbx memory remember "API ключ для OpenAI лежит в .env"
+        bbx memory recall "где API ключ"
+        bbx memory search "python csv parsing"
+        bbx memory ingest ./notes/  # Ingest all files
+    """
+    pass
+
+
+@memory.command("remember")
+@click.argument("content")
+@click.option("--type", "-t", "memory_type",
+              type=click.Choice(["episodic", "semantic", "procedural", "working"]),
+              default="semantic", help="Type of memory")
+@click.option("--importance", "-i", type=float, default=0.5, help="Importance 0.0-1.0")
+@click.option("--tags", "-T", multiple=True, help="Tags for categorization")
+@click.option("--ttl", type=int, help="Time to live in seconds (auto-forget)")
+def memory_remember(content: str, memory_type: str, importance: float, tags: tuple, ttl: int):
+    """Store something in memory.
+
+    Examples:
+        bbx memory remember "Для деплоя нужно сначала запустить тесты"
+        bbx memory remember "git rebase -i HEAD~3" --type procedural
+        bbx memory remember "Встреча с Алексом в 15:00" --type episodic --ttl 86400
+    """
+    async def _remember():
+        from blackbox.core.v2.semantic_memory import (
+            SemanticMemory, SemanticMemoryConfig, MemoryType
+        )
+
+        config = SemanticMemoryConfig(
+            vector_store_type="qdrant",
+            embedding_provider="local",
+        )
+
+        mem = SemanticMemory(config)
+        await mem.start()
+
+        try:
+            mem_type = MemoryType(memory_type)
+            memory_id = await mem.store(
+                agent_id="user",  # Personal memory
+                content=content,
+                memory_type=mem_type,
+                importance=importance,
+                tags=list(tags),
+                ttl_seconds=float(ttl) if ttl else None,
+            )
+            return memory_id
+        finally:
+            await mem.stop()
+
+    try:
+        memory_id = asyncio.run(_remember())
+        click.echo(f"[+] Remembered: {memory_id}")
+        click.echo(f"    Content: {content[:50]}{'...' if len(content) > 50 else ''}")
+        click.echo(f"    Type: {memory_type}")
+        if tags:
+            click.echo(f"    Tags: {', '.join(tags)}")
+    except ImportError as e:
+        click.echo(f"[-] Memory requires: pip install qdrant-client sentence-transformers", err=True)
+        click.echo(f"    Or: pip install bbx-workflow[memory]", err=True)
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+        raise click.Abort()
+
+
+@memory.command("recall")
+@click.argument("query")
+@click.option("--limit", "-n", type=int, default=5, help="Number of results")
+@click.option("--type", "-t", "memory_type", help="Filter by memory type")
+@click.option("--tags", "-T", multiple=True, help="Filter by tags")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def memory_recall(query: str, limit: int, memory_type: str, tags: tuple, as_json: bool):
+    """Recall memories similar to query (semantic search).
+
+    Examples:
+        bbx memory recall "как деплоить"
+        bbx memory recall "python parsing" --limit 10
+        bbx memory recall "встречи" --type episodic
+    """
+    async def _recall():
+        from blackbox.core.v2.semantic_memory import (
+            SemanticMemory, SemanticMemoryConfig, MemoryType
+        )
+
+        config = SemanticMemoryConfig(
+            vector_store_type="qdrant",
+            embedding_provider="local",
+        )
+
+        mem = SemanticMemory(config)
+        await mem.start()
+
+        try:
+            memory_types = [MemoryType(memory_type)] if memory_type else None
+            results = await mem.recall(
+                agent_id="user",
+                query=query,
+                top_k=limit,
+                memory_types=memory_types,
+                tags=list(tags) if tags else None,
+            )
+            return results
+        finally:
+            await mem.stop()
+
+    try:
+        results = asyncio.run(_recall())
+
+        if as_json:
+            data = [
+                {
+                    "id": r.entry.id,
+                    "content": r.entry.content,
+                    "score": r.score,
+                    "type": r.entry.memory_type.value,
+                    "tags": r.entry.tags,
+                    "importance": r.entry.importance,
+                }
+                for r in results
+            ]
+            click.echo(json.dumps(data, indent=2, default=str))
+            return
+
+        if not results:
+            click.echo(f"No memories found for: {query}")
+            return
+
+        click.echo(f"\n" + "=" * 60)
+        click.echo(f"Memories matching: {query}")
+        click.echo("=" * 60)
+
+        for i, r in enumerate(results, 1):
+            score_bar = "█" * int(r.score * 10) + "░" * (10 - int(r.score * 10))
+            click.echo(f"\n[{i}] {score_bar} {r.score:.2f}")
+            click.echo(f"    {r.entry.content[:100]}{'...' if len(r.entry.content) > 100 else ''}")
+            click.echo(f"    Type: {r.entry.memory_type.value} | Tags: {', '.join(r.entry.tags) or 'none'}")
+
+        click.echo("\n" + "=" * 60)
+
+    except ImportError:
+        click.echo(f"[-] Memory requires: pip install qdrant-client sentence-transformers", err=True)
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@memory.command("search")
+@click.argument("query")
+@click.option("--mode", "-m", type=click.Choice(["semantic", "keyword", "hybrid"]),
+              default="hybrid", help="Search mode")
+@click.option("--limit", "-n", type=int, default=10, help="Number of results")
+def memory_search(query: str, mode: str, limit: int):
+    """Search memories (semantic, keyword, or hybrid).
+
+    Examples:
+        bbx memory search "docker compose" --mode hybrid
+        bbx memory search "error" --mode keyword
+    """
+    async def _search():
+        from blackbox.core.v2.semantic_memory import SemanticMemory, SemanticMemoryConfig
+
+        config = SemanticMemoryConfig(
+            vector_store_type="qdrant",
+            embedding_provider="local",
+        )
+
+        mem = SemanticMemory(config)
+        await mem.start()
+
+        try:
+            if mode == "semantic":
+                results = await mem.recall(agent_id="user", query=query, top_k=limit)
+            elif mode == "keyword":
+                results = await mem.keyword_search(agent_id="user", keywords=query.split(), top_k=limit)
+            else:  # hybrid
+                results = await mem.hybrid_search(agent_id="user", query=query, top_k=limit)
+            return results
+        finally:
+            await mem.stop()
+
+    try:
+        results = asyncio.run(_search())
+
+        if not results:
+            click.echo(f"No results for: {query}")
+            return
+
+        click.echo(f"\nSearch results ({mode} mode):\n")
+        for i, r in enumerate(results, 1):
+            click.echo(f"[{i}] ({r.score:.2f}) {r.entry.content[:80]}...")
+
+    except ImportError:
+        click.echo(f"[-] Memory requires: pip install qdrant-client sentence-transformers", err=True)
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@memory.command("forget")
+@click.argument("memory_id")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+def memory_forget(memory_id: str, yes: bool):
+    """Forget a specific memory.
+
+    Example:
+        bbx memory forget mem_abc123
+    """
+    if not yes:
+        if not click.confirm(f"Are you sure you want to forget {memory_id}?"):
+            return
+
+    async def _forget():
+        from blackbox.core.v2.semantic_memory import SemanticMemory, SemanticMemoryConfig
+
+        config = SemanticMemoryConfig(
+            vector_store_type="qdrant",
+            embedding_provider="local",
+        )
+
+        mem = SemanticMemory(config)
+        await mem.start()
+
+        try:
+            await mem.forget(memory_id)
+            return True
+        finally:
+            await mem.stop()
+
+    try:
+        asyncio.run(_forget())
+        click.echo(f"[+] Forgotten: {memory_id}")
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@memory.command("ingest")
+@click.argument("path", type=click.Path(exists=True))
+@click.option("--pattern", "-p", default="*", help="File pattern (e.g., *.md, *.py)")
+@click.option("--recursive", "-r", is_flag=True, help="Recursively ingest")
+@click.option("--type", "-t", "memory_type", default="semantic", help="Memory type for ingested content")
+def memory_ingest(path: str, pattern: str, recursive: bool, memory_type: str):
+    """Ingest files into memory.
+
+    Examples:
+        bbx memory ingest ./notes/ --pattern "*.md" --recursive
+        bbx memory ingest ./src/ --pattern "*.py" -r
+        bbx memory ingest conversation.txt
+    """
+    from pathlib import Path as PathLib
+    import fnmatch
+
+    async def _ingest():
+        from blackbox.core.v2.semantic_memory import (
+            SemanticMemory, SemanticMemoryConfig, MemoryType
+        )
+
+        config = SemanticMemoryConfig(
+            vector_store_type="qdrant",
+            embedding_provider="local",
+        )
+
+        mem = SemanticMemory(config)
+        await mem.start()
+
+        ingested = 0
+        path_obj = PathLib(path)
+
+        try:
+            mem_type = MemoryType(memory_type)
+
+            if path_obj.is_file():
+                files = [path_obj]
+            elif recursive:
+                files = list(path_obj.rglob(pattern))
+            else:
+                files = [f for f in path_obj.iterdir() if fnmatch.fnmatch(f.name, pattern)]
+
+            for file_path in files:
+                if not file_path.is_file():
+                    continue
+
+                try:
+                    content = file_path.read_text(encoding="utf-8", errors="ignore")
+                    if len(content.strip()) < 10:
+                        continue
+
+                    # Chunk large files
+                    chunk_size = 2000
+                    chunks = [content[i:i+chunk_size] for i in range(0, len(content), chunk_size)]
+
+                    for i, chunk in enumerate(chunks):
+                        await mem.store(
+                            agent_id="user",
+                            content=chunk,
+                            memory_type=mem_type,
+                            tags=[str(file_path), f"chunk_{i}"],
+                            metadata={"source": str(file_path), "chunk": i},
+                        )
+                        ingested += 1
+
+                    click.echo(f"  [+] {file_path} ({len(chunks)} chunks)")
+
+                except Exception as e:
+                    click.echo(f"  [-] {file_path}: {e}", err=True)
+
+            return ingested
+        finally:
+            await mem.stop()
+
+    try:
+        click.echo(f"Ingesting from: {path}")
+        count = asyncio.run(_ingest())
+        click.echo(f"\n[+] Ingested {count} memory chunks")
+    except ImportError:
+        click.echo(f"[-] Memory requires: pip install qdrant-client sentence-transformers", err=True)
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@memory.command("stats")
+def memory_stats():
+    """Show memory statistics."""
+    async def _stats():
+        from blackbox.core.v2.semantic_memory import SemanticMemory, SemanticMemoryConfig
+
+        config = SemanticMemoryConfig(
+            vector_store_type="qdrant",
+            embedding_provider="local",
+        )
+
+        mem = SemanticMemory(config)
+        await mem.start()
+
+        try:
+            # Get all memories to count
+            results = await mem.recall(agent_id="user", query="", top_k=10000)
+
+            stats = {
+                "total": len(results),
+                "by_type": {},
+                "avg_importance": 0,
+            }
+
+            for r in results:
+                t = r.entry.memory_type.value
+                stats["by_type"][t] = stats["by_type"].get(t, 0) + 1
+                stats["avg_importance"] += r.entry.importance
+
+            if results:
+                stats["avg_importance"] /= len(results)
+
+            return stats
+        finally:
+            await mem.stop()
+
+    try:
+        stats = asyncio.run(_stats())
+
+        click.echo("\n" + "=" * 60)
+        click.echo("Memory Statistics")
+        click.echo("=" * 60)
+        click.echo(f"\nTotal memories: {stats['total']}")
+        click.echo(f"Average importance: {stats['avg_importance']:.2f}")
+        click.echo("\nBy type:")
+        for t, count in stats["by_type"].items():
+            click.echo(f"  {t}: {count}")
+        click.echo("=" * 60)
+
+    except ImportError:
+        click.echo(f"[-] Memory requires: pip install qdrant-client sentence-transformers", err=True)
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@memory.command("ingest-chat")
+@click.argument("path", type=click.Path(exists=True))
+@click.option("--format", "-f", "fmt", type=click.Choice(["auto", "claude", "chatgpt", "markdown", "text"]), default="auto")
+@click.option("--recursive", "-r", is_flag=True, help="Recursively ingest directory")
+@click.option("--importance", "-i", default=0.6, type=float, help="Importance score")
+@click.option("--tags", "-t", multiple=True, help="Additional tags")
+def memory_ingest_chat(path: str, fmt: str, recursive: bool, importance: float, tags: tuple):
+    """Ingest AI conversations with smart parsing.
+
+    Automatically detects and parses:
+    - Claude Code conversations (.json)
+    - ChatGPT exports (.json)
+    - Markdown chat logs (.md)
+
+    Features:
+    - Chunks by conversation turns
+    - Extracts topics and code blocks
+    - Tracks decisions and actions
+
+    Examples:
+        bbx memory ingest-chat conversation.json
+        bbx memory ingest-chat ./chats/ -r --format claude
+        bbx memory ingest-chat export.json -t project -t important
+    """
+    from pathlib import Path as PathLib
+
+    async def _ingest():
+        from blackbox.core.v2.conversation_ingest import (
+            ConversationIngester,
+            ConversationFormat
+        )
+        from blackbox.core.v2.semantic_memory import SemanticMemory, SemanticMemoryConfig
+
+        # Map format string to enum
+        format_map = {
+            "auto": ConversationFormat.AUTO,
+            "claude": ConversationFormat.CLAUDE_CODE,
+            "chatgpt": ConversationFormat.CHATGPT,
+            "markdown": ConversationFormat.MARKDOWN,
+            "text": ConversationFormat.PLAINTEXT,
+        }
+        conv_format = format_map.get(fmt, ConversationFormat.AUTO)
+
+        config = SemanticMemoryConfig(
+            vector_store_type="qdrant",
+            embedding_provider="local",
+        )
+
+        mem = SemanticMemory(config)
+        await mem.start()
+
+        try:
+            ingester = ConversationIngester(memory_instance=mem)
+            path_obj = PathLib(path)
+
+            total_ids = []
+            if path_obj.is_file():
+                ids = await ingester.ingest_file(
+                    str(path_obj),
+                    format=conv_format,
+                    importance=importance,
+                    tags=list(tags)
+                )
+                total_ids.extend(ids)
+                click.echo(f"  [+] {path_obj.name}: {len(ids)} memories")
+            else:
+                # Directory
+                patterns = ["*.json", "*.md"]
+                for pattern in patterns:
+                    files = list(path_obj.rglob(pattern)) if recursive else list(path_obj.glob(pattern))
+                    for file in files:
+                        try:
+                            ids = await ingester.ingest_file(
+                                str(file),
+                                format=conv_format,
+                                importance=importance,
+                                tags=list(tags)
+                            )
+                            total_ids.extend(ids)
+                            click.echo(f"  [+] {file.name}: {len(ids)} memories")
+                        except Exception as e:
+                            click.echo(f"  [-] {file.name}: {e}", err=True)
+
+            return total_ids, ingester.stats
+        finally:
+            await mem.stop()
+
+    try:
+        click.echo(f"Ingesting conversations from: {path}")
+        ids, stats = asyncio.run(_ingest())
+        click.echo(f"\n[+] Created {len(ids)} memories")
+        click.echo(f"    Files: {stats['files_processed']}")
+        click.echo(f"    Turns: {stats['turns_processed']}")
+        click.echo(f"    Chunks: {stats['chunks_created']}")
+    except ImportError as e:
+        click.echo(f"[-] Missing dependencies: {e}", err=True)
+        click.echo("    pip install qdrant-client sentence-transformers")
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@memory.command("watch")
+@click.argument("directory", type=click.Path(exists=True))
+@click.option("--pattern", "-p", default="*.json", help="File pattern to watch")
+@click.option("--interval", "-i", default=30, type=int, help="Check interval in seconds")
+def memory_watch(directory: str, pattern: str, interval: int):
+    """Watch directory for new conversations and auto-ingest.
+
+    Monitors a directory for new files and automatically ingests
+    them into memory. Perfect for auto-capturing Claude conversations.
+
+    Examples:
+        bbx memory watch ~/.claude/conversations/
+        bbx memory watch ./chats/ --pattern "*.json" --interval 60
+    """
+    async def _watch():
+        from blackbox.core.v2.conversation_ingest import ConversationIngester
+        from blackbox.core.v2.semantic_memory import SemanticMemory, SemanticMemoryConfig
+
+        config = SemanticMemoryConfig(
+            vector_store_type="qdrant",
+            embedding_provider="local",
+        )
+
+        mem = SemanticMemory(config)
+        await mem.start()
+
+        try:
+            ingester = ConversationIngester(memory_instance=mem)
+
+            click.echo(f"Watching {directory} for {pattern}")
+            click.echo(f"Check interval: {interval}s")
+            click.echo("Press Ctrl+C to stop\n")
+
+            async for file_path, memory_ids in ingester.watch_directory(
+                directory,
+                pattern=pattern,
+                interval=float(interval)
+            ):
+                ts = click.style(f"[{time.strftime('%H:%M:%S')}]", fg="cyan")
+                click.echo(f"{ts} New: {file_path} -> {len(memory_ids)} memories")
+        finally:
+            await mem.stop()
+
+    import time
+    try:
+        asyncio.run(_watch())
+    except KeyboardInterrupt:
+        click.echo("\nStopped watching")
+    except ImportError as e:
+        click.echo(f"[-] Missing dependencies: {e}", err=True)
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@memory.command("claude-ingest")
+@click.option("--path", "-p", type=click.Path(), help="Claude data directory (default: auto-detect)")
+def memory_claude_ingest(path: str):
+    """Ingest all Claude Code conversations.
+
+    Auto-detects Claude Code conversation storage and ingests all history.
+    Your entire AI collaboration history becomes searchable memory.
+
+    Examples:
+        bbx memory claude-ingest
+        bbx memory claude-ingest --path ~/.claude/
+    """
+    from pathlib import Path as PathLib
+    import os
+
+    # Auto-detect Claude paths
+    possible_paths = [
+        PathLib(path) if path else None,
+        PathLib.home() / ".claude" / "conversations",
+        PathLib.home() / ".claude" / "projects",
+        PathLib(os.getenv("APPDATA", "")) / "Claude" / "conversations" if os.name == "nt" else None,
+        PathLib.home() / "Library" / "Application Support" / "Claude" / "conversations",
+    ]
+
+    claude_path = None
+    for p in possible_paths:
+        if p and p.exists():
+            claude_path = p
+            break
+
+    if not claude_path:
+        click.echo("[-] Could not find Claude data directory")
+        click.echo("    Specify with --path or check Claude installation")
+        return
+
+    async def _ingest():
+        from blackbox.core.v2.conversation_ingest import ConversationIngester, ConversationFormat
+        from blackbox.core.v2.semantic_memory import SemanticMemory, SemanticMemoryConfig
+
+        config = SemanticMemoryConfig(
+            vector_store_type="qdrant",
+            embedding_provider="local",
+        )
+
+        mem = SemanticMemory(config)
+        await mem.start()
+
+        try:
+            ingester = ConversationIngester(memory_instance=mem)
+
+            # Find all JSON files
+            files = list(claude_path.rglob("*.json"))
+            click.echo(f"Found {len(files)} conversation files")
+
+            total_ids = []
+            for file in files:
+                try:
+                    ids = await ingester.ingest_file(
+                        str(file),
+                        format=ConversationFormat.CLAUDE_CODE,
+                        importance=0.7,
+                        tags=["claude", "ai-conversation"]
+                    )
+                    total_ids.extend(ids)
+                    if ids:
+                        click.echo(f"  [+] {file.name}: {len(ids)} memories")
+                except Exception as e:
+                    click.echo(f"  [-] {file.name}: {e}", err=True)
+
+            return total_ids, ingester.stats
+        finally:
+            await mem.stop()
+
+    try:
+        click.echo(f"Ingesting Claude conversations from: {claude_path}")
+        ids, stats = asyncio.run(_ingest())
+        click.echo(f"\n[+] Imported {len(ids)} memories from Claude")
+        click.echo(f"    Your AI history is now searchable!")
+    except ImportError as e:
+        click.echo(f"[-] Missing dependencies: {e}", err=True)
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@memory.command("rag")
+@click.argument("prompt")
+@click.option("--top-k", "-k", default=5, help="Number of memories to retrieve")
+@click.option("--threshold", "-t", default=0.3, type=float, help="Minimum relevance")
+@click.option("--raw", is_flag=True, help="Show raw enriched prompt only")
+def memory_rag(prompt: str, top_k: int, threshold: float, raw: bool):
+    """Enrich a prompt with relevant memories (RAG).
+
+    Shows what context would be added to your prompt before sending to AI.
+    Useful for testing memory quality and relevance.
+
+    Examples:
+        bbx memory rag "How do I deploy to AWS?"
+        bbx memory rag "Fix the authentication bug" -k 10
+        bbx memory rag "query" --raw | pbcopy
+    """
+    async def _rag():
+        from blackbox.core.v2.rag_enrichment import RAGEnrichment, RAGConfig
+        from blackbox.core.v2.semantic_memory import SemanticMemory, SemanticMemoryConfig
+
+        config = SemanticMemoryConfig(
+            vector_store_type="qdrant",
+            embedding_provider="local",
+        )
+
+        mem = SemanticMemory(config)
+        await mem.start()
+
+        try:
+            rag_config = RAGConfig(
+                top_k=top_k,
+                min_relevance=threshold,
+            )
+
+            rag = RAGEnrichment(memory=mem, default_config=rag_config)
+            result = await rag.enrich(prompt)
+            return result
+        finally:
+            await mem.stop()
+
+    try:
+        result = asyncio.run(_rag())
+
+        if raw:
+            click.echo(result.enriched_prompt)
+            return
+
+        click.echo("\n" + "=" * 60)
+        click.echo("RAG Enrichment Result")
+        click.echo("=" * 60)
+
+        click.echo(f"\nOriginal prompt: {prompt[:100]}...")
+        click.echo(f"Memories found: {result.memories_found}")
+        click.echo(f"Memories used: {result.memories_used}")
+        click.echo(f"Search time: {result.search_time_ms:.0f}ms")
+
+        if result.context_added:
+            click.echo(f"\nContext added: Yes")
+            click.echo("\nSources:")
+            for src in result.sources:
+                score = click.style(f"{src['score']:.2f}", fg="green")
+                click.echo(f"  [{src['index']}] Score: {score} | Type: {src['type']}")
+                if 'file' in src:
+                    click.echo(f"       File: {src['file']}")
+                if 'topics' in src:
+                    click.echo(f"       Topics: {', '.join(src['topics'])}")
+
+            click.echo("\n" + "-" * 60)
+            click.echo("Enriched Prompt Preview:")
+            click.echo("-" * 60)
+            preview = result.enriched_prompt[:2000]
+            if len(result.enriched_prompt) > 2000:
+                preview += "\n... (truncated)"
+            click.echo(preview)
+        else:
+            click.echo(f"\nContext added: No (no relevant memories found)")
+
+        click.echo("=" * 60)
+
+    except ImportError as e:
+        click.echo(f"[-] Missing dependencies: {e}", err=True)
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@memory.command("export")
+@click.argument("output", type=click.Path())
+@click.option("--format", "-f", "fmt", type=click.Choice(["json", "jsonl", "md"]), default="json")
+def memory_export(output: str, fmt: str):
+    """Export all memories to file.
+
+    Examples:
+        bbx memory export memories.json
+        bbx memory export memories.jsonl -f jsonl
+        bbx memory export memories.md -f md
+    """
+    async def _export():
+        from blackbox.core.v2.semantic_memory import SemanticMemory, SemanticMemoryConfig
+
+        config = SemanticMemoryConfig(
+            vector_store_type="qdrant",
+            embedding_provider="local",
+        )
+
+        mem = SemanticMemory(config)
+        await mem.start()
+
+        try:
+            results = await mem.recall(agent_id="user", query="", top_k=100000)
+            memories = []
+
+            for r in results:
+                entry = r.entry
+                memories.append({
+                    "id": entry.id,
+                    "content": entry.content,
+                    "type": entry.memory_type.value,
+                    "importance": entry.importance,
+                    "tags": entry.tags,
+                    "created_at": entry.created_at,
+                    "metadata": entry.metadata,
+                })
+
+            return memories
+        finally:
+            await mem.stop()
+
+    try:
+        memories = asyncio.run(_export())
+
+        from pathlib import Path as PathLib
+        output_path = PathLib(output)
+
+        if fmt == "json":
+            import json
+            output_path.write_text(json.dumps(memories, indent=2, ensure_ascii=False))
+        elif fmt == "jsonl":
+            import json
+            lines = [json.dumps(m, ensure_ascii=False) for m in memories]
+            output_path.write_text("\n".join(lines))
+        elif fmt == "md":
+            lines = ["# BBX Memory Export\n"]
+            for m in memories:
+                lines.append(f"## [{m['type']}] {m['id'][:8]}")
+                lines.append(f"**Importance:** {m['importance']}")
+                lines.append(f"**Tags:** {', '.join(m['tags'])}")
+                lines.append(f"\n{m['content']}\n")
+                lines.append("---\n")
+            output_path.write_text("\n".join(lines))
+
+        click.echo(f"[+] Exported {len(memories)} memories to {output}")
+
+    except ImportError as e:
+        click.echo(f"[-] Missing dependencies: {e}", err=True)
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+# =============================================================================
+# Intent Commands - Semantic .bbx
+# =============================================================================
+
+@cli.group()
+def intent():
+    """Semantic intent system - describe WHAT, not HOW.
+
+    The true nature of .bbx files: compressed intentions.
+    Instead of 100 lines of YAML, write 5 lines of intent.
+
+    Examples:
+        bbx intent expand "Deploy React app to AWS"
+        bbx intent run deploy.bbx
+        bbx intent create --interactive
+    """
+    pass
+
+
+@intent.command("expand")
+@click.argument("intent_text")
+@click.option("--target", "-t", help="Target system/app")
+@click.option("--env", "-e", "environment", help="Environment (dev/staging/prod)")
+@click.option("--hint", "-h", "hints", multiple=True, help="Execution hints")
+@click.option("--output", "-o", type=click.Path(), help="Save to file")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def intent_expand(intent_text: str, target: str, environment: str, hints: tuple, output: str, as_json: bool):
+    """Expand intent into workflow.
+
+    Takes a natural language intent and generates a full workflow.
+    Uses RAG (from memory) + templates to create optimal steps.
+
+    Examples:
+        bbx intent expand "Deploy to production"
+        bbx intent expand "Build and test Node.js app" -e staging
+        bbx intent expand "Backup database" --hint "use aws" -o backup.yaml
+    """
+    async def _expand():
+        from blackbox.core.v2.intent_engine import BBXIntent, IntentEngine
+
+        intent = BBXIntent(
+            intent=intent_text,
+            target=target,
+            environment=environment,
+            hints=list(hints),
+        )
+
+        # Try to connect to memory for RAG
+        memory = None
+        try:
+            from blackbox.core.v2.semantic_memory import SemanticMemory, SemanticMemoryConfig
+            config = SemanticMemoryConfig(
+                vector_store_type="qdrant",
+                embedding_provider="local",
+            )
+            memory = SemanticMemory(config)
+            await memory.start()
+        except:
+            pass
+
+        try:
+            engine = IntentEngine(memory=memory)
+            expanded = await engine.expand(intent)
+            yaml_output = engine.to_executable_yaml(expanded)
+            return expanded, yaml_output
+        finally:
+            if memory:
+                await memory.stop()
+
+    try:
+        expanded, yaml_output = asyncio.run(_expand())
+
+        if as_json:
+            result = {
+                "intent": intent_text,
+                "confidence": expanded.confidence,
+                "sources": expanded.sources,
+                "warnings": expanded.warnings,
+                "steps": expanded.steps,
+            }
+            click.echo(json.dumps(result, indent=2))
+        else:
+            click.echo("\n" + "=" * 60)
+            click.echo("Intent Expansion")
+            click.echo("=" * 60)
+            click.echo(f"\nIntent: {intent_text}")
+            click.echo(f"Confidence: {expanded.confidence:.0%}")
+            click.echo(f"Sources: {', '.join(expanded.sources)}")
+            if expanded.warnings:
+                for w in expanded.warnings:
+                    click.echo(click.style(f"Warning: {w}", fg="yellow"))
+            click.echo(f"\nGenerated {len(expanded.steps)} steps:")
+            for step in expanded.steps:
+                click.echo(f"  - {step.get('id', '?')}: {step.get('use', '?')}")
+            click.echo("\n" + "-" * 60)
+            click.echo("Workflow YAML:")
+            click.echo("-" * 60)
+            click.echo(yaml_output)
+
+        if output:
+            from pathlib import Path as PathLib
+            PathLib(output).write_text(yaml_output)
+            click.echo(f"\n[+] Saved to {output}")
+
+    except ImportError as e:
+        click.echo(f"[-] Missing dependency: {e}", err=True)
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@intent.command("run")
+@click.argument("intent_or_file")
+@click.option("--dry-run", is_flag=True, help="Expand only, don't execute")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose output")
+def intent_run(intent_or_file: str, dry_run: bool, verbose: bool):
+    """Expand and run an intent.
+
+    Takes an intent (text or .bbx file) and:
+    1. Expands it into a workflow
+    2. Executes the workflow
+
+    Examples:
+        bbx intent run "Deploy to production"
+        bbx intent run deploy.bbx
+        bbx intent run "Backup database" --dry-run
+    """
+    async def _run():
+        from blackbox.core.v2.intent_engine import run_intent
+        return await run_intent(intent_or_file, dry_run=dry_run)
+
+    try:
+        result = asyncio.run(_run())
+
+        if dry_run:
+            click.echo("\n" + "=" * 60)
+            click.echo("Dry Run - Workflow Preview")
+            click.echo("=" * 60)
+            click.echo(f"\nIntent: {result['intent']}")
+            click.echo(f"Confidence: {result['confidence']:.0%}")
+            click.echo(f"\nSteps that would be executed:")
+            for i, step in enumerate(result['steps'], 1):
+                click.echo(f"  {i}. {step.get('id', '?')} -> {step.get('use', '?')}")
+            if verbose:
+                click.echo("\n" + "-" * 60)
+                click.echo(result['yaml'])
+        else:
+            click.echo(f"Status: {result['status']}")
+            if 'message' in result:
+                click.echo(result['message'])
+
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@intent.command("create")
+@click.option("--output", "-o", type=click.Path(), default="intent.bbx", help="Output file")
+@click.option("--interactive", "-i", is_flag=True, help="Interactive mode")
+def intent_create(output: str, interactive: bool):
+    """Create a new intent file.
+
+    Examples:
+        bbx intent create -o deploy.bbx -i
+        bbx intent create --output backup.bbx
+    """
+    if interactive:
+        click.echo("\n" + "=" * 60)
+        click.echo("Create BBX Intent")
+        click.echo("=" * 60)
+
+        intent_text = click.prompt("\nWhat do you want to do? (intent)")
+        target = click.prompt("Target system/app", default="", show_default=False) or None
+        environment = click.prompt("Environment", type=click.Choice(["dev", "staging", "prod", ""]), default="") or None
+
+        hints = []
+        click.echo("\nAdd hints (empty to finish):")
+        while True:
+            hint = click.prompt("  Hint", default="", show_default=False)
+            if not hint:
+                break
+            hints.append(hint)
+
+        constraints = []
+        click.echo("\nAdd constraints (empty to finish):")
+        while True:
+            constraint = click.prompt("  Constraint (e.g., 'cost < $50')", default="", show_default=False)
+            if not constraint:
+                break
+            constraints.append(constraint)
+
+    else:
+        intent_text = "Describe your intent here"
+        target = None
+        environment = None
+        hints = ["Add hints here"]
+        constraints = []
+
+    # Build YAML
+    content = f"""# BBX Intent File
+# Semantic workflow compression - describe WHAT, not HOW
+
+bbx: "2.0"
+intent: "{intent_text}"
+"""
+    if target:
+        content += f'target: "{target}"\n'
+    if environment:
+        content += f'environment: "{environment}"\n'
+    if constraints:
+        content += "constraints:\n"
+        for c in constraints:
+            content += f'  - "{c}"\n'
+    if hints:
+        content += "hints:\n"
+        for h in hints:
+            content += f'  - "{h}"\n'
+
+    content += """
+# Optional: explicit steps (override auto-generation)
+# steps:
+#   - id: custom_step
+#     use: adapter.method
+#     args:
+#       key: value
+"""
+
+    from pathlib import Path as PathLib
+    PathLib(output).write_text(content)
+    click.echo(f"\n[+] Created intent file: {output}")
+    click.echo(f"    Run with: bbx intent run {output}")
+
+
+@intent.command("learn")
+@click.argument("workflow_file", type=click.Path(exists=True))
+@click.option("--intent", "-i", "intent_text", help="Intent description for this workflow")
+def intent_learn(workflow_file: str, intent_text: str):
+    """Learn from a successful workflow.
+
+    Store workflow in memory so future similar intents can reuse it.
+
+    Examples:
+        bbx intent learn deploy.yaml -i "Deploy React to AWS S3"
+        bbx intent learn backup.yaml --intent "Backup PostgreSQL daily"
+    """
+    async def _learn():
+        from blackbox.core.v2.semantic_memory import SemanticMemory, SemanticMemoryConfig
+
+        config = SemanticMemoryConfig(
+            vector_store_type="qdrant",
+            embedding_provider="local",
+        )
+
+        mem = SemanticMemory(config)
+        await mem.start()
+
+        try:
+            from pathlib import Path as PathLib
+            content = PathLib(workflow_file).read_text()
+
+            # If no intent provided, try to extract from workflow
+            final_intent = intent_text
+            if not final_intent:
+                try:
+                    data = yaml.safe_load(content)
+                    final_intent = data.get("workflow", {}).get("name", "")
+                    if not final_intent:
+                        final_intent = data.get("workflow", {}).get("description", "")
+                except:
+                    pass
+
+            if not final_intent:
+                final_intent = PathLib(workflow_file).stem
+
+            # Store in memory
+            memory_id = await mem.store(
+                agent_id="workflows",
+                content=content,
+                memory_type="procedural",
+                importance=0.8,
+                tags=["workflow", "learned"],
+                metadata={
+                    "source": str(workflow_file),
+                    "intent": final_intent,
+                }
+            )
+
+            return memory_id, final_intent
+        finally:
+            await mem.stop()
+
+    try:
+        memory_id, learned_intent = asyncio.run(_learn())
+        click.echo(f"[+] Learned workflow")
+        click.echo(f"    Intent: {learned_intent}")
+        click.echo(f"    Memory ID: {memory_id}")
+        click.echo(f"\n    Future intents like '{learned_intent}' will use this workflow!")
+
+    except ImportError as e:
+        click.echo(f"[-] Missing dependency: {e}", err=True)
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+# =============================================================================
+# Genome Commands - Project DNA for AI
+# =============================================================================
+
+@cli.group()
+def genome():
+    """Project Genome - complete project understanding for AI.
+
+    Captures the "DNA" of your project so AI can work with precision:
+    - Structure (files, dependencies)
+    - Understanding (what each file does)
+    - History (successful changes to replay)
+
+    Examples:
+        bbx genome analyze .
+        bbx genome show
+        bbx genome record "Add auth"
+        bbx genome replay "Add auth"
+    """
+    pass
+
+
+@genome.command("analyze")
+@click.argument("path", type=click.Path(exists=True), default=".")
+@click.option("--output", "-o", type=click.Path(), help="Save genome to file")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose output")
+def genome_analyze(path: str, output: str, verbose: bool):
+    """Analyze project and build genome.
+
+    Scans the project to understand:
+    - File structure and types
+    - Code relationships (imports)
+    - Tech stack
+
+    Examples:
+        bbx genome analyze .
+        bbx genome analyze ./my-project -o genome.json
+    """
+    async def _analyze():
+        from blackbox.core.v2.project_genome import analyze_project, save_genome
+
+        genome = await analyze_project(path)
+        return genome
+
+    try:
+        click.echo(f"Analyzing project: {path}")
+        genome = asyncio.run(_analyze())
+
+        click.echo("\n" + "=" * 60)
+        click.echo("Project Genome")
+        click.echo("=" * 60)
+        click.echo(f"\nProject: {genome.project_name}")
+        click.echo(f"Path: {genome.project_path}")
+        click.echo(f"Tech Stack: {', '.join(genome.tech_stack) or 'Unknown'}")
+        click.echo(f"\nFiles: {len(genome.files)}")
+        click.echo(f"Directories: {len(genome.directories)}")
+        click.echo(f"Total lines: {sum(f.lines for f in genome.files.values()):,}")
+
+        # File type breakdown
+        type_counts = {}
+        for f in genome.files.values():
+            t = f.file_type.value
+            type_counts[t] = type_counts.get(t, 0) + 1
+
+        click.echo("\nFile types:")
+        for t, count in sorted(type_counts.items(), key=lambda x: x[1], reverse=True):
+            click.echo(f"  {t}: {count}")
+
+        if verbose:
+            click.echo("\nKey files:")
+            # Show files with most imports
+            by_imports = sorted(genome.files.values(), key=lambda f: len(f.imported_by), reverse=True)
+            for f in by_imports[:10]:
+                if f.imported_by:
+                    click.echo(f"  {f.relative_path} (imported by {len(f.imported_by)} files)")
+
+        if output:
+            from blackbox.core.v2.project_genome import save_genome
+            save_genome(genome, output)
+            click.echo(f"\n[+] Saved genome to: {output}")
+
+        click.echo("=" * 60)
+
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@genome.command("show")
+@click.argument("genome_file", type=click.Path(exists=True), required=False)
+@click.option("--file", "-f", "show_file", help="Show details for specific file")
+def genome_show(genome_file: str, show_file: str):
+    """Show genome details.
+
+    Examples:
+        bbx genome show genome.json
+        bbx genome show genome.json -f src/main.py
+    """
+    if not genome_file:
+        genome_file = ".bbx/genome.json"
+        from pathlib import Path as PathLib
+        if not PathLib(genome_file).exists():
+            click.echo("[-] No genome file found. Run 'bbx genome analyze' first.")
+            return
+
+    try:
+        from blackbox.core.v2.project_genome import load_genome
+
+        genome = load_genome(genome_file)
+
+        if show_file:
+            # Show specific file
+            if show_file not in genome.files:
+                click.echo(f"[-] File not found in genome: {show_file}")
+                return
+
+            f = genome.files[show_file]
+            click.echo(f"\n{f.relative_path}")
+            click.echo("-" * 40)
+            click.echo(f"Type: {f.file_type.value}")
+            click.echo(f"Language: {f.language or 'Unknown'}")
+            click.echo(f"Lines: {f.lines}")
+            click.echo(f"Size: {f.size} bytes")
+            if f.functions:
+                click.echo(f"Functions: {', '.join(f.functions[:10])}")
+            if f.classes:
+                click.echo(f"Classes: {', '.join(f.classes)}")
+            if f.imports:
+                click.echo(f"Imports: {', '.join(f.imports[:10])}")
+            if f.imported_by:
+                click.echo(f"Imported by: {', '.join(f.imported_by[:5])}")
+        else:
+            # Show overview
+            click.echo(f"\nProject: {genome.project_name}")
+            click.echo(f"Files: {len(genome.files)}")
+            click.echo(f"Snapshots: {len(genome.snapshots)}")
+            click.echo(f"Successful paths: {len(genome.successful_paths)}")
+
+            if genome.successful_paths:
+                click.echo("\nLearned patterns:")
+                for path in genome.successful_paths.values():
+                    click.echo(f"  - {path.intent} ({len(path.actions)} actions)")
+
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@genome.command("record")
+@click.argument("intent")
+@click.option("--genome", "-g", "genome_file", type=click.Path(exists=True), help="Genome file")
+def genome_record(intent: str, genome_file: str):
+    """Start recording changes for a task.
+
+    Records all file changes until you run 'bbx genome stop'.
+    If successful, saves as a replayable pattern.
+
+    Examples:
+        bbx genome record "Add user authentication"
+        bbx genome record "Fix login bug"
+    """
+    if not genome_file:
+        genome_file = ".bbx/genome.json"
+
+    click.echo(f"Recording started: {intent}")
+    click.echo("Make your changes, then run: bbx genome stop --success")
+    click.echo("Or to discard: bbx genome stop --discard")
+
+    # Save recording state
+    from pathlib import Path as PathLib
+    state_file = PathLib(".bbx/recording.json")
+    state_file.parent.mkdir(exist_ok=True)
+    state_file.write_text(json.dumps({
+        "intent": intent,
+        "genome_file": genome_file,
+        "started_at": time.time(),
+    }))
+
+
+@genome.command("stop")
+@click.option("--success", is_flag=True, help="Mark as successful (save pattern)")
+@click.option("--discard", is_flag=True, help="Discard recording")
+def genome_stop(success: bool, discard: bool):
+    """Stop recording and optionally save pattern.
+
+    Examples:
+        bbx genome stop --success
+        bbx genome stop --discard
+    """
+    from pathlib import Path as PathLib
+    state_file = PathLib(".bbx/recording.json")
+
+    if not state_file.exists():
+        click.echo("[-] No recording in progress")
+        return
+
+    state = json.loads(state_file.read_text())
+    state_file.unlink()
+
+    if discard:
+        click.echo("Recording discarded")
+        return
+
+    if success:
+        click.echo(f"[+] Saved successful pattern: {state['intent']}")
+        click.echo("    This pattern can be replayed with: bbx genome replay")
+    else:
+        click.echo("Recording stopped (not saved)")
+
+
+@genome.command("replay")
+@click.argument("intent")
+@click.option("--genome", "-g", "genome_file", type=click.Path(exists=True), help="Genome file")
+@click.option("--dry-run", is_flag=True, help="Show steps without executing")
+def genome_replay(intent: str, genome_file: str, dry_run: bool):
+    """Find and replay a similar successful pattern.
+
+    Searches for patterns similar to your intent and shows
+    the steps to reproduce.
+
+    Examples:
+        bbx genome replay "Add authentication"
+        bbx genome replay "Fix bug" --dry-run
+    """
+    async def _replay():
+        from blackbox.core.v2.project_genome import load_genome, GenomeReplayer
+
+        if not genome_file:
+            gf = ".bbx/genome.json"
+        else:
+            gf = genome_file
+
+        genome = load_genome(gf)
+        replayer = GenomeReplayer(genome)
+
+        similar = await replayer.find_similar_path(intent)
+        return genome, replayer, similar
+
+    try:
+        genome, replayer, similar = asyncio.run(_replay())
+
+        if not similar:
+            click.echo("[-] No similar patterns found")
+            click.echo("    Learn patterns with: bbx genome record")
+            return
+
+        click.echo("\n" + "=" * 60)
+        click.echo("Similar Patterns Found")
+        click.echo("=" * 60)
+
+        for path, score in similar:
+            click.echo(f"\n[{score:.0%} match] {path.intent}")
+            steps = replayer.get_replay_steps(path)
+            click.echo(f"  Actions: {len(steps)}")
+
+            if dry_run or True:  # Always show steps for now
+                for i, step in enumerate(steps, 1):
+                    click.echo(f"    {i}. {step['type']} {step['file']}")
+
+        if not dry_run:
+            click.echo("\n[!] Replay execution not yet implemented")
+            click.echo("    Use the steps above as guidance")
+
+    except FileNotFoundError:
+        click.echo("[-] Genome not found. Run 'bbx genome analyze' first.")
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@genome.command("context")
+@click.argument("query")
+@click.option("--genome", "-g", "genome_file", type=click.Path(exists=True))
+@click.option("--top-k", "-k", default=5, help="Number of relevant files")
+def genome_context(query: str, genome_file: str, top_k: int):
+    """Get relevant context for AI from genome.
+
+    Finds the most relevant files for a given task/query.
+    Perfect for providing context to Claude or other AI.
+
+    Examples:
+        bbx genome context "authentication flow"
+        bbx genome context "database models" -k 10
+    """
+    async def _context():
+        from blackbox.core.v2.project_genome import load_genome
+        import numpy as np
+
+        if not genome_file:
+            gf = ".bbx/genome.json"
+        else:
+            gf = genome_file
+
+        genome = load_genome(gf)
+
+        # Get embedder
+        try:
+            from sentence_transformers import SentenceTransformer
+            embedder = SentenceTransformer("all-MiniLM-L6-v2")
+        except:
+            click.echo("[-] sentence-transformers required")
+            return None
+
+        query_embedding = embedder.encode(query, show_progress_bar=False)
+
+        # Find relevant files
+        results = []
+        for path, node in genome.files.items():
+            if node.embedding:
+                sim = np.dot(query_embedding, node.embedding) / (
+                    np.linalg.norm(query_embedding) * np.linalg.norm(node.embedding)
+                )
+                results.append((path, node, float(sim)))
+
+        results.sort(key=lambda x: x[2], reverse=True)
+        return results[:top_k]
+
+    try:
+        results = asyncio.run(_context())
+
+        if not results:
+            click.echo("[-] No results or genome not found")
+            return
+
+        click.echo(f"\nRelevant files for: {query}\n")
+        for path, node, score in results:
+            click.echo(f"[{score:.0%}] {path}")
+            if node.functions:
+                click.echo(f"      Functions: {', '.join(node.functions[:5])}")
+            if node.classes:
+                click.echo(f"      Classes: {', '.join(node.classes[:3])}")
+
+    except FileNotFoundError:
+        click.echo("[-] Genome not found. Run 'bbx genome analyze' first.")
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+import time
+
+
+# =============================================================================
 # BBX 2.0 Commands
 # =============================================================================
 
@@ -2254,6 +3861,525 @@ try:
     cli.add_command(v2_cli)
 except ImportError:
     pass  # BBX 2.0 not available
+
+
+# =============================================================================
+# SIRE - Synthetic Intelligence Runtime Environment
+# =============================================================================
+# The Operating System for AI Agents
+# CPU = LLM, RAM = Context + Tiering, HDD = Vector DB
+
+
+@cli.group()
+def sire():
+    """SIRE - Synthetic Intelligence Runtime Environment.
+
+    The Operating System for AI Agents.
+
+    Hardware Abstraction:
+        CPU = LLM (thinking)
+        RAM = Context Window + Tiering
+        HDD = Vector DB (long-term memory)
+        GPU = AgentRing (batch operations)
+
+    This is what makes UNRELIABLE AI -> RELIABLE AI.
+    """
+    pass
+
+
+@sire.command("boot")
+@click.option("--config", "-c", type=click.Path(), help="Config file")
+def sire_boot(config):
+    """Boot the SIRE kernel.
+
+    Initialize all subsystems:
+    - Process Manager
+    - Memory Manager (tiered)
+    - AgentRing (io_uring-style)
+    - Transaction Manager (ACID)
+    - Recovery Manager
+
+    Example:
+        bbx sire boot
+    """
+    async def _boot():
+        from blackbox.core.v2.sire_kernel import SIREKernel, KernelConfig
+
+        cfg = KernelConfig()
+        if config:
+            import json
+            with open(config) as f:
+                data = json.load(f)
+                for k, v in data.items():
+                    if hasattr(cfg, k):
+                        setattr(cfg, k, v)
+
+        kernel = SIREKernel(cfg)
+        await kernel.boot()
+        return kernel.get_stats()
+
+    try:
+        click.echo("SIRE Kernel booting...")
+        stats = asyncio.run(_boot())
+        click.echo("\n[+] SIRE Kernel booted successfully!")
+        click.echo(f"    Uptime: {stats['uptime_s']:.1f}s")
+        click.echo(f"    Memory: {stats['memory'].get('utilization', 0):.1f}% used")
+    except Exception as e:
+        click.echo(f"[-] Boot failed: {e}", err=True)
+
+
+@sire.command("ps")
+@click.option("--all", "-a", is_flag=True, help="Show all processes")
+def sire_ps(all):
+    """List running agent processes.
+
+    Like 'ps' in Linux but for AI agents.
+
+    Example:
+        bbx sire ps
+        bbx sire ps -a
+    """
+    async def _ps():
+        from blackbox.core.v2.sire_kernel import get_kernel
+        kernel = await get_kernel()
+        return kernel.ps()
+
+    try:
+        processes = asyncio.run(_ps())
+
+        if not processes:
+            click.echo("No agent processes running.")
+            return
+
+        click.echo(f"\n{'PID':<8} {'AGENT_ID':<15} {'TYPE':<12} {'STATE':<10} {'TOKENS':<10}")
+        click.echo("-" * 60)
+        for p in processes:
+            click.echo(
+                f"{p['pid']:<8} {p['agent_id']:<15} {p['type']:<12} "
+                f"{p['state']:<10} {p['tokens']:<10}"
+            )
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@sire.command("spawn")
+@click.argument("agent_type")
+@click.option("--name", "-n", help="Agent name")
+@click.option("--priority", "-p", type=click.Choice(["realtime", "high", "normal", "low"]), default="normal")
+def sire_spawn(agent_type, name, priority):
+    """Spawn a new agent process.
+
+    Like 'fork()' in Linux.
+
+    Examples:
+        bbx sire spawn coder
+        bbx sire spawn reviewer -n code_reviewer
+        bbx sire spawn tester -p high
+    """
+    async def _spawn():
+        from blackbox.core.v2.sire_kernel import get_kernel, AgentPriority
+
+        priority_map = {
+            "realtime": AgentPriority.REALTIME,
+            "high": AgentPriority.HIGH,
+            "normal": AgentPriority.NORMAL,
+            "low": AgentPriority.LOW,
+        }
+
+        kernel = await get_kernel()
+        process = kernel.spawn(
+            agent_type,
+            name=name or "",
+            priority=priority_map.get(priority, AgentPriority.NORMAL)
+        )
+        return process
+
+    try:
+        process = asyncio.run(_spawn())
+        click.echo(f"\n[+] Spawned agent:")
+        click.echo(f"    PID: {process.pid}")
+        click.echo(f"    Agent ID: {process.agent_id}")
+        click.echo(f"    Type: {process.agent_type}")
+        click.echo(f"    Priority: {process.priority.name}")
+    except Exception as e:
+        click.echo(f"[-] Spawn failed: {e}", err=True)
+
+
+@sire.command("kill")
+@click.argument("agent_id")
+def sire_kill(agent_id):
+    """Kill an agent process.
+
+    Like 'kill' in Linux.
+
+    Example:
+        bbx sire kill coder_1001
+    """
+    async def _kill():
+        from blackbox.core.v2.sire_kernel import get_kernel
+        kernel = await get_kernel()
+        return kernel.kill(agent_id)
+
+    try:
+        success = asyncio.run(_kill())
+        if success:
+            click.echo(f"[+] Killed agent: {agent_id}")
+        else:
+            click.echo(f"[-] Agent not found: {agent_id}")
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@sire.command("checkpoint")
+@click.option("--name", "-n", help="Checkpoint name")
+def sire_checkpoint(name):
+    """Create system checkpoint.
+
+    Like WinRAR's Recovery Record - save state for later recovery.
+
+    Example:
+        bbx sire checkpoint -n "before_deploy"
+    """
+    async def _checkpoint():
+        from blackbox.core.v2.sire_kernel import get_kernel
+        kernel = await get_kernel()
+        return await kernel.checkpoint(name or "")
+
+    try:
+        checkpoint_id = asyncio.run(_checkpoint())
+        click.echo(f"\n[+] Checkpoint created: {checkpoint_id}")
+        if name:
+            click.echo(f"    Name: {name}")
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@sire.command("recover")
+@click.argument("checkpoint_id", required=False)
+@click.option("--list", "-l", "list_checkpoints", is_flag=True, help="List available checkpoints")
+def sire_recover(checkpoint_id, list_checkpoints):
+    """Recover to checkpoint.
+
+    THE KILLER FEATURE - restore system after AI errors.
+
+    Examples:
+        bbx sire recover -l              # List checkpoints
+        bbx sire recover abc123          # Recover to checkpoint
+    """
+    async def _recover():
+        from blackbox.core.v2.sire_kernel import get_kernel
+        kernel = await get_kernel()
+
+        if list_checkpoints:
+            return kernel.recovery_manager.list_checkpoints()
+
+        if checkpoint_id:
+            success = await kernel.recover(checkpoint_id)
+            return {"recovered": success, "checkpoint": checkpoint_id}
+
+        return None
+
+    try:
+        result = asyncio.run(_recover())
+
+        if list_checkpoints:
+            if not result:
+                click.echo("No checkpoints available.")
+                return
+
+            click.echo("\nAvailable checkpoints:\n")
+            for cp in result:
+                click.echo(f"  {cp['id']}  {cp.get('name', '')}  ({cp['processes']} processes)")
+        elif result:
+            if result["recovered"]:
+                click.echo(f"[+] Recovered to checkpoint: {result['checkpoint']}")
+            else:
+                click.echo(f"[-] Recovery failed")
+        else:
+            click.echo("Usage: bbx sire recover <checkpoint_id> or bbx sire recover -l")
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@sire.command("stats")
+def sire_stats():
+    """Show SIRE kernel statistics.
+
+    System metrics:
+    - Process count
+    - Memory usage
+    - LLM calls/tokens
+    - Ring operations
+
+    Example:
+        bbx sire stats
+    """
+    async def _stats():
+        from blackbox.core.v2.sire_kernel import get_kernel
+        kernel = await get_kernel()
+        return kernel.get_stats()
+
+    try:
+        stats = asyncio.run(_stats())
+
+        click.echo("\n=== SIRE Kernel Statistics ===\n")
+        click.echo(f"Uptime: {stats['uptime_s']:.1f}s")
+
+        if stats.get('processes'):
+            click.echo(f"\nProcesses:")
+            click.echo(f"  Created: {stats['processes'].get('total_created', 0)}")
+            click.echo(f"  Terminated: {stats['processes'].get('total_terminated', 0)}")
+
+        if stats.get('memory'):
+            mem = stats['memory']
+            click.echo(f"\nMemory:")
+            click.echo(f"  Used: {mem.get('used', 0) / 1024 / 1024:.1f} MB")
+            click.echo(f"  Utilization: {mem.get('utilization', 0):.1f}%")
+
+        if stats.get('llm'):
+            llm = stats['llm']
+            click.echo(f"\nLLM:")
+            click.echo(f"  Calls: {llm.get('total_calls', 0)}")
+            click.echo(f"  Tokens: {llm.get('total_tokens', 0)}")
+            click.echo(f"  Avg latency: {llm.get('avg_latency_ms', 0):.1f}ms")
+
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@sire.group()
+def record():
+    """Recording and replay commands.
+
+    Record operations for debugging and replay.
+    Like game replays but for AI operations.
+    """
+    pass
+
+
+@record.command("start")
+@click.option("--name", "-n", help="Recording name")
+def record_start(name):
+    """Start recording session.
+
+    Example:
+        bbx sire record start -n "deploy_feature"
+    """
+    async def _start():
+        from blackbox.core.v2.sire_kernel import get_kernel
+        kernel = await get_kernel()
+        return kernel.start_recording(name or "")
+
+    try:
+        session_id = asyncio.run(_start())
+        click.echo(f"[+] Recording started: {session_id}")
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@record.command("stop")
+@click.option("--output", "-o", type=click.Path(), help="Save to file")
+def record_stop(output):
+    """Stop recording session.
+
+    Example:
+        bbx sire record stop -o deploy.replay
+    """
+    async def _stop():
+        from blackbox.core.v2.sire_kernel import get_kernel
+        from blackbox.core.v2.deterministic_replay import ReplayRecorder
+
+        kernel = await get_kernel()
+        session = kernel.stop_recording()
+
+        if output and session:
+            recorder = ReplayRecorder()
+            recorder.save(session, output)
+
+        return session
+
+    try:
+        session = asyncio.run(_stop())
+        if session:
+            click.echo(f"\n[+] Recording stopped")
+            click.echo(f"    Session: {session.session_id}")
+            click.echo(f"    Frames: {len(session.frames)}")
+            click.echo(f"    Duration: {session.duration_ms:.1f}ms")
+            if output:
+                click.echo(f"    Saved to: {output}")
+        else:
+            click.echo("[-] No active recording")
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@record.command("replay")
+@click.argument("file", type=click.Path(exists=True))
+@click.option("--speed", "-s", default=1.0, help="Playback speed (0=instant)")
+@click.option("--verify", is_flag=True, help="Verify mode (check only)")
+def record_replay(file, speed, verify):
+    """Replay a recording.
+
+    Example:
+        bbx sire record replay deploy.replay
+        bbx sire record replay deploy.replay --verify
+    """
+    async def _replay():
+        from blackbox.core.v2.deterministic_replay import (
+            ReplayRecorder, ReplayPlayer, ReplayAnalyzer
+        )
+
+        recorder = ReplayRecorder()
+        session = recorder.load(file)
+
+        mode = ReplayPlayer.Mode.VERIFY if verify else ReplayPlayer.Mode.MOCK
+        player = ReplayPlayer(mode)
+        result = await player.play(session, speed=speed)
+
+        analyzer = ReplayAnalyzer()
+        analysis = analyzer.analyze(session)
+
+        return result, analysis
+
+    try:
+        result, analysis = asyncio.run(_replay())
+
+        click.echo(f"\n=== Replay Complete ===")
+        click.echo(f"Success: {result.success}")
+        click.echo(f"Frames: {result.frames_executed}")
+        click.echo(f"Duration: {result.duration_ms:.1f}ms")
+
+        if result.divergences:
+            click.echo(f"\nDivergences: {len(result.divergences)}")
+            for d in result.divergences[:5]:
+                click.echo(f"  - {d['type']} at frame {d.get('frame_id', '?')}")
+
+        click.echo(f"\n=== Analysis ===")
+        summary = analysis['summary']
+        click.echo(f"LLM calls: {summary.get('llm_calls', 0)}")
+        click.echo(f"Tokens: {summary.get('tokens', 0)}")
+        click.echo(f"Success rate: {summary.get('success_rate', 0):.1f}%")
+
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+@sire.group()
+def syscall():
+    """Syscall inspection and testing."""
+    pass
+
+
+@syscall.command("list")
+def syscall_list():
+    """List all syscalls.
+
+    Example:
+        bbx sire syscall list
+    """
+    from blackbox.core.v2.syscall_table import SyscallNumber
+
+    click.echo("\n=== SIRE Syscalls ===\n")
+    click.echo(f"{'NUM':<8} {'NAME':<20} {'CATEGORY'}")
+    click.echo("-" * 45)
+
+    categories = {
+        "FILE": [],
+        "MEMORY": [],
+        "PROCESS": [],
+        "IPC": [],
+        "NETWORK": [],
+        "AI": [],
+        "TRANSACTION": [],
+    }
+
+    for syscall in SyscallNumber:
+        num = syscall.value
+        if num < 0x10:
+            cat = "FILE"
+        elif num < 0x20:
+            cat = "MEMORY"
+        elif num < 0x30:
+            cat = "PROCESS"
+        elif num < 0x40:
+            cat = "IPC"
+        elif num < 0x50:
+            cat = "NETWORK"
+        elif num < 0x60:
+            cat = "AI"
+        else:
+            cat = "TRANSACTION"
+
+        categories[cat].append((num, syscall.name, cat))
+
+    for cat, syscalls in categories.items():
+        for num, name, c in syscalls:
+            click.echo(f"0x{num:02X}     {name:<20} {c}")
+
+
+@syscall.command("stats")
+def syscall_stats():
+    """Show syscall statistics.
+
+    Example:
+        bbx sire syscall stats
+    """
+    async def _stats():
+        from blackbox.core.v2.sire_kernel import get_kernel
+        kernel = await get_kernel()
+        return kernel.syscall_table.get_stats()
+
+    try:
+        stats = asyncio.run(_stats())
+
+        click.echo("\n=== Syscall Statistics ===\n")
+        click.echo(f"{'SYSCALL':<20} {'CALLS':<10} {'SUCCESS':<10} {'AVG_MS':<10}")
+        click.echo("-" * 55)
+
+        for name, data in stats.items():
+            click.echo(
+                f"{name:<20} {data.get('calls', 0):<10} "
+                f"{data.get('success_rate', 0):.1f}%     "
+                f"{data.get('avg_time_ms', 0):.2f}"
+            )
+    except Exception as e:
+        click.echo(f"[-] Error: {e}", err=True)
+
+
+# =============================================================================
+# Version info
+# =============================================================================
+
+@cli.command("version")
+def version_info():
+    """Show BBX version and architecture info."""
+    click.echo("""
+BBX - Blackbox Workflow Engine
+Version: 2.0.0
+
+Architecture: SIRE (Synthetic Intelligence Runtime Environment)
+
+Hardware Abstraction:
+  CPU  = LLM (thinking)
+  RAM  = Context Window + Tiering (HOT/WARM/COOL/COLD)
+  HDD  = Vector DB (Qdrant)
+  GPU  = AgentRing (io_uring-style batch ops)
+
+Core Features:
+  - Syscall Table (controlled agent API)
+  - ACID Transactions (reliable operations)
+  - Deterministic Replay (reproducible AI)
+  - Recovery Record (rollback after errors)
+
+Philosophy: Like WinRAR - simple interface, power under the hood.
+
+  bbx pack     - Compress project understanding
+  bbx unpack   - Decompress intent into code
+  bbx recover  - Restore after AI errors
+
+License: BSL 1.1 (Apache 2.0 after 2028)
+Copyright 2025 Ilya Makarov
+""")
 
 
 if __name__ == "__main__":

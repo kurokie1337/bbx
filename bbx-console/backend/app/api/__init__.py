@@ -1,11 +1,12 @@
 # API module
 from fastapi import APIRouter
 
-from .routes import workflows, executions, agents, memory, ring, tasks, a2a, mcp, logs, workspaces, kernel
+from .routes import workflows, executions, agents, memory, ring, tasks, a2a, mcp, logs, workspaces, kernel, chat
 
 api_router = APIRouter()
 
 # Include all route modules
+api_router.include_router(chat.router, prefix="/chat", tags=["chat"])  # LLM Chat - primary interface
 api_router.include_router(workflows.router, prefix="/workflows", tags=["workflows"])
 api_router.include_router(executions.router, prefix="/executions", tags=["executions"])
 api_router.include_router(agents.router, prefix="/agents", tags=["agents"])

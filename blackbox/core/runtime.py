@@ -16,6 +16,7 @@ from .dag import DAGError, WorkflowDAG, should_use_dag
 from .events import Event, EventBus, EventType
 from .expressions import ExpressionError, SafeExpr
 from .parsers.v6 import BBXv6Parser
+from .registry import MCPRegistry
 
 logger = logging.getLogger("bbx.runtime")
 

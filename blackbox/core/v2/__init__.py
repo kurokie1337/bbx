@@ -1030,6 +1030,63 @@ __all__ = [
     "KubernetesOperator",
     "get_deployment_manager",
     "create_deployment_manager",
+
+    # SIRE Kernel Components
+    "SIREKernel",
+    "SyscallTable",
+    "SyscallNumber",
+    "SyscallRequest",
+    "SyscallResponse",
+    "TransactionManager",
+    "ReplayRecorder",
+    "ReplayPlayer",
 ]
+
+# =============================================================================
+# SIRE Kernel Components (Synthetic Intelligence Runtime Environment)
+# =============================================================================
+
+from .syscall_table import (
+    SyscallTable,
+    SyscallNumber,
+    SyscallRequest,
+    SyscallResponse,
+    SecurityPolicy,
+    Permission,
+    SyscallCategory,
+)
+
+from .acid_transactions import (
+    TransactionManager,
+    TransactionState,
+    LockMode,
+    IsolationLevel,
+)
+
+from .deterministic_replay import (
+    ReplayRecorder,
+    ReplayPlayer,
+    ReplayFrame,
+    FrameType,
+    ReplayMiddleware,
+)
+
+from .sire_kernel import (
+    SIREKernel,
+    AgentProcess,
+    KernelConfig,
+    AgentState as SIREAgentState,
+    ProcessManager,
+    MemoryManager as SIREMemoryManager,
+    IPCManager,
+    RecoveryManager,
+    get_kernel,
+    shutdown_kernel,
+    spawn_agent,
+    kill_agent,
+    think,
+    checkpoint,
+    recover,
+)
 
 __version__ = "2.0.0"

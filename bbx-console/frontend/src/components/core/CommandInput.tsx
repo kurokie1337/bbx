@@ -2,7 +2,7 @@ import { useRef, useEffect, useCallback } from 'react'
 import { useTaskStore } from '@/stores/taskStore'
 import { useOutputStore } from '@/stores/outputStore'
 import { useAgentsStore } from '@/stores/agentsStore'
-import { runWorkflow, getExecution, getWorkflows } from '@/services/api'
+import { runWorkflow, getExecution, getWorkflows, chat } from '@/services/api'
 
 export function CommandInput() {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -152,41 +152,59 @@ export function CommandInput() {
         }, 500)
 
       } else {
-        // No matching workflow - show available workflows
+        // No matching workflow - send to LLM as chat prompt
         addLine({
           agent: 'system',
-          message: `No workflow found for "${currentTask}"`,
-          level: 'warning',
-          type: 'message'
-        })
-
-        addLine({
-          agent: 'system',
-          message: `Available workflows:`,
+          message: `Sending to LLM: "${currentTask}"`,
           level: 'info',
           type: 'message'
         })
 
-        workflows.slice(0, 5).forEach(w => {
-          addLine({
-            agent: 'system',
-            message: `  - ${w.id}: ${w.description || w.name}`,
-            level: 'info',
-            type: 'message'
-          })
-        })
+        setAgentStatus('coder', 'working', { currentTask: 'Processing with Ollama...' })
 
-        if (workflows.length > 5) {
+        try {
+          const response = await chat({ prompt: currentTask })
+
+          if (response.success && response.response) {
+            addLine({
+              agent: 'llm',
+              message: response.response,
+              level: 'success',
+              type: 'message'
+            })
+
+            addLine({
+              agent: 'system',
+              message: `Model: ${response.model} | Tokens: ${response.tokens || 'N/A'}`,
+              level: 'info',
+              type: 'message'
+            })
+
+            const duration = Date.now() - startTimeRef.current
+            completeTask(duration)
+            setAgentStatus('coder', 'completed', { duration })
+          } else {
+            addLine({
+              agent: 'system',
+              message: `LLM Error: ${response.error || 'Unknown error'}`,
+              level: 'error',
+              type: 'message'
+            })
+            failTask(response.error || 'LLM error')
+            resetAllAgents()
+          }
+        } catch (llmError) {
+          const errorMsg = llmError instanceof Error ? llmError.message : 'LLM request failed'
           addLine({
             agent: 'system',
-            message: `  ... and ${workflows.length - 5} more`,
-            level: 'info',
+            message: `Error: ${errorMsg}`,
+            level: 'error',
             type: 'message'
           })
+          failTask(errorMsg)
+          resetAllAgents()
         }
 
-        const duration = Date.now() - startTimeRef.current
-        completeTask(duration)
         setRunning(false)
       }
 
@@ -354,7 +372,7 @@ export function CommandInput() {
         value={currentTask}
         onChange={(e) => setCurrentTask(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Enter workflow name (e.g., hello_world, api_demo)"
+        placeholder="Ask anything or enter workflow name (e.g., 'What is AI?' or 'hello_world')"
         disabled={taskStatus === 'running'}
         className="flex-1 bg-transparent outline-none text-[13px] disabled:opacity-70 disabled:cursor-not-allowed border-0"
         style={{

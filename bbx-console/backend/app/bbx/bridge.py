@@ -521,5 +521,66 @@ class BBXBridge:
         }
 
 
+    # =========================================================================
+    # LLM Chat Operations
+    # =========================================================================
+
+    async def chat(self, prompt: str, model: str = "qwen2.5:0.5b") -> Dict:
+        """
+        Direct LLM chat - sends prompt to LLM and returns response.
+        Uses BBX's LLM provider with automatic fallback.
+        """
+        try:
+            from blackbox.runtime.llm_provider import get_llm_manager
+
+            # get_llm_manager is async
+            llm = await get_llm_manager()
+
+            # Use complete() method - it returns LLMResponse dataclass
+            response = await llm.complete(
+                prompt=prompt,
+                model=model,
+                max_tokens=500,
+                provider="ollama",  # Prefer local Ollama
+            )
+
+            return {
+                "success": True,
+                "response": response.content,
+                "model": response.model,
+                "tokens": response.usage.get("input_tokens", 0) + response.usage.get("output_tokens", 0),
+            }
+
+        except Exception as e:
+            logger.error(f"LLM chat error: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "model": model,
+            }
+
+    async def chat_stream(self, prompt: str, model: str = "qwen2.5:0.5b"):
+        """
+        Streaming LLM chat - yields tokens as they are generated.
+        """
+        try:
+            from blackbox.runtime.llm_provider import get_llm_manager
+
+            # get_llm_manager is async
+            llm = await get_llm_manager()
+
+            async for chunk in llm.stream(
+                prompt=prompt,
+                model=model,
+                max_tokens=500,
+                provider="ollama",
+            ):
+                yield {"token": chunk}
+
+        except Exception as e:
+            logger.error(f"LLM stream error: {e}")
+            yield {"error": str(e)}
+
+
 # Global BBX bridge instance
 bbx_bridge = BBXBridge()

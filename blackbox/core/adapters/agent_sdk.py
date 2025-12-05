@@ -70,15 +70,30 @@ class AgentSDKAdapter(MCPAdapter):
         - Subagent invocation
         - Tool restrictions
         - Context passing
+        - RAG enrichment from memory
     """
 
     def __init__(self):
         super().__init__("agent")
         self._context_tiering = None
+        self._rag = None
+        self._rag_enabled = True
 
     def set_context_tiering(self, tiering):
         """Set ContextTiering instance for memory management."""
         self._context_tiering = tiering
+
+    def set_rag(self, rag_instance):
+        """Set RAGEnrichment instance for automatic context enrichment."""
+        self._rag = rag_instance
+
+    def enable_rag(self):
+        """Enable RAG enrichment."""
+        self._rag_enabled = True
+
+    def disable_rag(self):
+        """Disable RAG enrichment."""
+        self._rag_enabled = False
 
     async def execute(self, method: str, inputs: Dict[str, Any]) -> Any:
         """
@@ -101,6 +116,7 @@ class AgentSDKAdapter(MCPAdapter):
 
         method_map = {
             "query": self.query,
+            "query_rag": self.query_with_rag,
             "subagent": self.invoke_subagent,
             "list_subagents": self.list_subagents,
             "parallel": self.parallel_query,
@@ -217,6 +233,72 @@ class AgentSDKAdapter(MCPAdapter):
                 "status": "error",
                 "error": str(e),
             }
+
+    async def query_with_rag(
+        self,
+        prompt: str,
+        rag_top_k: int = 5,
+        rag_threshold: float = 0.3,
+        **query_kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Query with RAG (Retrieval-Augmented Generation).
+
+        Automatically enriches the prompt with relevant context from memory
+        before sending to Claude.
+
+        Args:
+            prompt: The prompt to send
+            rag_top_k: Number of memories to retrieve
+            rag_threshold: Minimum relevance threshold
+            **query_kwargs: Additional arguments passed to query()
+
+        Returns:
+            Query result with RAG metadata
+        """
+        enriched_prompt = prompt
+        rag_metadata = {
+            "rag_enabled": False,
+            "memories_used": 0,
+            "sources": [],
+        }
+
+        # Try RAG enrichment if enabled and available
+        if self._rag_enabled and self._rag:
+            try:
+                from blackbox.core.v2.rag_enrichment import RAGConfig
+
+                config = RAGConfig(
+                    top_k=rag_top_k,
+                    min_relevance=rag_threshold,
+                )
+
+                result = await self._rag.enrich(prompt, config=config)
+
+                if result.context_added:
+                    enriched_prompt = result.enriched_prompt
+                    rag_metadata = {
+                        "rag_enabled": True,
+                        "memories_found": result.memories_found,
+                        "memories_used": result.memories_used,
+                        "sources": result.sources,
+                        "search_time_ms": result.search_time_ms,
+                    }
+                    logger.info(
+                        f"RAG enriched prompt with {result.memories_used} memories"
+                    )
+
+            except Exception as e:
+                logger.warning(f"RAG enrichment failed: {e}")
+
+        # Execute query with enriched prompt
+        query_result = await self.query(prompt=enriched_prompt, **query_kwargs)
+
+        # Add RAG metadata to result
+        query_result["rag"] = rag_metadata
+        query_result["original_prompt"] = prompt
+
+        return query_result
 
     async def invoke_subagent(
         self,

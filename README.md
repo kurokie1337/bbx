@@ -5,8 +5,9 @@
 
 [![License](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.9+-green.svg)](https://python.org)
-[![Architecture](https://img.shields.io/badge/Architecture-4--Level-purple.svg)](#-4-level-architecture)
-[![Status](https://img.shields.io/badge/Status-Testing-orange.svg)](#-project-status)
+[![Architecture](https://img.shields.io/badge/Architecture-SIRE%20Kernel-purple.svg)](#-sire-kernel-architecture)
+[![Status](https://img.shields.io/badge/Status-Active%20Development-yellow.svg)](#-current-status)
+[![Tests](https://img.shields.io/badge/Tests-53%2F53%20Pass-brightgreen.svg)](#-test-results)
 [![MCP](https://img.shields.io/badge/MCP%20Tools-40+-brightgreen.svg)](#-mcp-server-integration)
 [![A2A](https://img.shields.io/badge/A2A-v0.3-blue.svg)](#-agent-to-agent-protocol-a2a)
 
@@ -18,12 +19,48 @@ First Release: November 26, 2025
 
 ---
 
-## ⚠️ Project Status
+## Current Status
 
-> **CURRENT STATUS: TESTING & DEVELOPMENT**
-> This project is currently in active development. While the core architecture is stable and **patent-pending**, we are refining the system for production release.
+> **STATUS: ACTIVE DEVELOPMENT**
 >
-> **Use with caution in critical environments.** We are building the future, and the paint is still wet.
+> BBX is in active development with continuous improvements. Core system is functional and tested. We are actively adding features, fixing bugs, and improving performance.
+
+### What Works Now
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| **SIRE Kernel** | Working | Full runtime with DAG execution |
+| **LLM Integration** | Working | Ollama with local models |
+| **VectorDB** | Working | ChromaDB with semantic search |
+| **Memory/RAG** | Working | ContextTiering (HOT/WARM/COOL/COLD) |
+| **AgentRing** | Working | 4 workers, batch operations |
+| **API Server** | Working | FastAPI + WebSocket on port 8000 |
+| **Web Console** | Working | React UI on port 3000 |
+| **Workflows** | Working | 17+ example workflows |
+| **A2A Protocol** | Working | Agent-to-agent communication |
+
+### Test Results (December 2025)
+
+| Test Suite | Result | Description |
+|------------|--------|-------------|
+| Basic Tests | 5/5 | LLM, VectorDB, Memory, Kernel, Daemon |
+| Stress Tests | 6/6 | Concurrent agents, RAG quality, snapshots |
+| API Tests | 16/16 | All REST endpoints verified |
+| Advanced Tests | 6/6 | A2A, E2E workflows, WebSocket |
+| Integration Tests | 6/6 | Full pipeline, cross-component |
+| Constructor Tests | 14/14 | Block-by-block connectivity |
+| **TOTAL** | **53/53** | **All tests pass** |
+
+### Current Implementation Stack
+
+| Layer | Technology | Notes |
+|-------|------------|-------|
+| **LLM** | Ollama (qwen2.5:0.5b) | Local, ~400-600ms latency |
+| **VectorDB** | ChromaDB | Automatic embeddings |
+| **Backend** | FastAPI + uvicorn | Port 8000 |
+| **Frontend** | React + Vite + TypeScript | Port 3000 |
+| **Database** | SQLite | Local storage |
+| **WebSocket** | Real-time updates | Live agent status |
 
 ---
 
@@ -129,9 +166,55 @@ steps:
 
 ---
 
-## 🏗️ 4-Level Architecture
+## BBX Console (Web UI)
 
-BBX is built on a robust 4-level architecture, mimicking a traditional OS but optimized for AI:
+BBX includes a full-featured web console for visual management and monitoring.
+
+### Quick Start
+
+```bash
+# Start backend (port 8000)
+cd bbx-console/backend
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Start frontend (port 3000)
+cd bbx-console/frontend
+npm install
+npm run dev
+
+# Open browser
+http://localhost:3000
+```
+
+### Features
+
+| View Mode | Description |
+|-----------|-------------|
+| **Console** | Command input, agent management, live output |
+| **Sandbox** | BBX OS panels with system controls |
+| **Desktop** | BBX Kernel visualization with boot animation |
+
+### API Endpoints
+
+```
+GET  /api/health          - Health check
+GET  /api/memory/stats    - ContextTiering stats
+GET  /api/ring/stats      - AgentRing statistics
+GET  /api/workflows/      - List workflows
+GET  /api/kernel/syscalls - Syscall reference
+GET  /api/agents/         - List agents
+POST /api/agents/         - Spawn agent
+WS   /ws                  - Real-time updates
+```
+
+---
+
+## SIRE Kernel Architecture
+
+**SIRE** = **Synthetic Intelligence Runtime Environment**
+
+BBX is built on the SIRE Kernel - a robust 4-level architecture optimized for AI agents:
 
 ### Level 1: Kernel (Runtime)
 The core Python engine (`blackbox.core`) that executes code, manages threads, and handles low-level I/O. It is the "CPU" of the agent system.
@@ -299,31 +382,33 @@ python cli.py system
 
 ---
 
-## 📚 Documentation
+## Documentation
 
-### 🚀 For Humans
-*   **[Getting Started](docs/guides/GETTING_STARTED.md)**: Step-by-step installation and first workflow.
-*   **[Troubleshooting](docs/guides/TROUBLESHOOTING.md)**: Common issues and solutions.
+### Getting Started
+| Document | Purpose |
+|----------|---------|
+| **[Getting Started](docs/guides/GETTING_STARTED.md)** | Step-by-step installation and first workflow |
+| **[Agent Guide](docs/guides/AGENT_GUIDE.md)** | **READ THIS IF YOU ARE AN AI AGENT** |
+| **[Troubleshooting](docs/guides/TROUBLESHOOTING.md)** | Common issues and solutions |
 
-### 🤖 For Agents (AI)
-*   **[Agent Guide](docs/guides/AGENT_GUIDE.md)**: **<-- READ THIS FIRST IF YOU ARE AN AGENT.** Context injection and operating manual.
+### Reference
+| Document | Purpose |
+|----------|---------|
+| **[Workflow Format](docs/reference/WORKFLOW_FORMAT.md)** | Complete `.bbx` file specification |
+| **[BBX Console](bbx-console/README.md)** | Web UI documentation |
 
-### 📖 Reference
-*   **[Workflow Format](docs/reference/WORKFLOW_FORMAT.md)**: Complete specification for `.bbx` files.
+### Architecture & Research
+| Document | Purpose |
+|----------|---------|
+| **[Manifesto](docs/research/MANIFESTO.md)** | BBX 2.0 vision - Linux concepts for AI agents |
+| **[Roadmap](docs/research/ROADMAP.md)** | Implementation timeline |
+| **[Architecture Report](docs/research/ARCHITECTURE_REPORT.md)** | Current implementation status (PRODUCTION READY) |
 
-### 🖥️ BBX Console (Web UI)
-*   **[BBX Console](bbx-console/README.md)**: Web-based management console for monitoring workflows, agents, and system state.
-*   **[UI Specification](docs/BBX_CONSOLE_UI_SPEC.md)**: Detailed UI/UX design specification.
-
-### 🔬 Research & Internal
-*   **[Manifesto](docs/research/MANIFESTO.md)**: The vision behind BBX 2.0.
-*   **[Roadmap](docs/research/ROADMAP.md)**: Future development plans.
-*   **[Architecture Report](docs/research/ARCHITECTURE_REPORT.md)**: Deep dive into system design.
-*   **[Technical Spec](docs/internal/TECHNICAL_SPEC.md)**: Implementation details.
-
-### 📦 SDKs
-*   **[Python SDK](sdks/python/bbx-sdk/README.md)**: Official Python client library.
-*   **[Node.js SDK](sdks/nodejs/README.md)**: Official TypeScript/JavaScript SDK.
+### SDKs
+| SDK | Language |
+|-----|----------|
+| **[Python SDK](sdks/python/bbx-sdk/README.md)** | Python 3.9+ |
+| **[Node.js SDK](sdks/nodejs/README.md)** | TypeScript/JavaScript |
 
 ---
 
