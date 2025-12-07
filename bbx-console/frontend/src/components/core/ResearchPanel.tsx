@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from 'react'
-import { search, browse, type SearchResponse, type SearchResult } from '@/services/api'
+import { search, browse, synthesize, type SearchResponse, type SearchResult } from '@/services/api'
 import ReactMarkdown from 'react-markdown'
 import { useUIStore } from '@/stores/uiStore'
 
@@ -11,6 +11,8 @@ export function ResearchPanel() {
     const [activeUrl, setActiveUrl] = useState<string | null>(null)
     const [browsedContent, setBrowsedContent] = useState<string | null>(null)
     const [isBrowsing, setIsBrowsing] = useState(false)
+    const [isSynthesizing, setIsSynthesizing] = useState(false)
+    const [synthesis, setSynthesis] = useState<string | null>(null)
     const inputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
@@ -105,8 +107,45 @@ export function ResearchPanel() {
 
                 {/* Right: Content Reader (if active) */}
                 {activeUrl && (
-                    <div className="flex-1 overflow-y-auto p-8 bg-[var(--bg-secondary)]">
+                    <div className="flex-1 overflow-y-auto p-8 bg-[var(--bg-secondary)] relative">
                         <div className="max-w-3xl mx-auto prose prose-invert">
+                            {/* Toolbar */}
+                            <div className="flex justify-between items-center mb-6">
+                                <button
+                                    onClick={() => setActiveUrl(null)}
+                                    className="text-sm hover:underline text-[var(--text-muted)]"
+                                >
+                                    ← Back to results
+                                </button>
+                                <button
+                                    onClick={handleSynthesize}
+                                    disabled={isSynthesizing || !browsedContent}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-purple-900/20"
+                                >
+                                    {isSynthesizing ? (
+                                        <>
+                                            <div className="w-3 h-3 rounded-full border-2 border-white/50 border-t-white animate-spin" />
+                                            Synthesizing...
+                                        </>
+                                    ) : (
+                                        <>✨ Summarize with AI</>
+                                    )}
+                                </button>
+                            </div>
+
+                            {/* Synthesis Result */}
+                            {synthesis && (
+                                <div className="mb-8 p-6 bg-purple-900/10 border border-purple-500/20 rounded-xl relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
+                                    <div className="absolute top-0 left-0 w-1 h-full bg-purple-500/50" />
+                                    <h3 className="text-purple-400 font-bold mb-3 flex items-center gap-2 text-sm uppercase tracking-wide">
+                                        ✨ AI Answer
+                                    </h3>
+                                    <div className="text-purple-100/90 leading-relaxed text-base">
+                                        <ReactMarkdown>{synthesis}</ReactMarkdown>
+                                    </div>
+                                </div>
+                            )}
+
                             {isBrowsing && !browsedContent && (
                                 <div className="flex items-center justify-center py-20">
                                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent-primary)]"></div>

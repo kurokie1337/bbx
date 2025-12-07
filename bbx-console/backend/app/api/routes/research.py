@@ -57,3 +57,34 @@ async def ensure_engine():
         
     result = await searx.execute("ensure_server", {})
     return result
+    
+class SynthesizeRequest(BaseModel):
+    text: str
+    query: str
+    model: Optional[str] = "qwen2.5:0.5b"
+
+@router.post("/synthesize")
+async def synthesize(request: SynthesizeRequest):
+    """
+    Synthesize knowledge from text using local LLM.
+    """
+    from blackbox.runtime.llm_provider import complete
+    
+    prompt = f"""
+    You are a helpful research assistant. 
+    User Query: "{request.query}"
+    
+    Based ONLY on the provided text, answer the query concisely.
+    If the text doesn't contain the answer, say "I couldn't find the answer in the provided text."
+    
+    Text content:
+    {request.text[:12000]}  # Limit context to avoid overflow
+    
+    Answer:
+    """
+    
+    try:
+        response = await complete(prompt, model=request.model)
+        return {"answer": response.content, "model": response.model}
+    except Exception as e:
+        raise HTTPException(500, f"Synthesis failed: {str(e)}")

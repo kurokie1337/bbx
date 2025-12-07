@@ -70,7 +70,6 @@ export function VirtualDesktop() {
   const [executions, setExecutions] = useState<Execution[]>([])
   const [syscalls, setSyscalls] = useState<Syscall[]>([])
   const [logs, setLogs] = useState<string[]>([])
-  const [logs, setLogs] = useState<string[]>([])
 
   const logsRef = useRef<HTMLDivElement>(null)
 

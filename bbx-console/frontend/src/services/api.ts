@@ -254,3 +254,8 @@ export async function browse(url: string, wait: number = 2): Promise<{ text: str
   const { data } = await api.post('/research/browse', { url, wait })
   return data
 }
+
+export async function synthesize(text: string, query: string): Promise<{ answer: string, model: string }> {
+  const { data } = await api.post('/research/synthesize', { text, query })
+  return data
+}
