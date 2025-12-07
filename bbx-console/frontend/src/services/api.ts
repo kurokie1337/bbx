@@ -12,8 +12,11 @@ import type {
   DecomposeResult,
 } from '@/types'
 
+// Use environment variable or default to localhost:8000
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
 export const api = axios.create({
-  baseURL: '/api',
+  baseURL: `${API_BASE}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -223,5 +226,31 @@ export interface ChatResponse {
 
 export async function chat(request: ChatRequest): Promise<ChatResponse> {
   const { data } = await api.post<ChatResponse>('/chat/', request)
+  return data
+}
+
+// Research
+
+export interface SearchResult {
+  title: string
+  url: string
+  content: string
+  engine: string
+  score: number
+}
+
+export interface SearchResponse {
+  results: SearchResult[]
+  suggestions: string[]
+  answers: any[]
+}
+
+export async function search(query: string, categories: string = 'general', limit: number = 10): Promise<SearchResponse> {
+  const { data } = await api.post('/research/search', { query, categories, limit })
+  return data
+}
+
+export async function browse(url: string, wait: number = 2): Promise<{ text: string, length: number, url: string }> {
+  const { data } = await api.post('/research/browse', { url, wait })
   return data
 }

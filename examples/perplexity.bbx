@@ -1,0 +1,67 @@
+name: Sovereign Search Demo (Perplexity-Lite)
+version: 1.0
+description: >
+  Demonstrates "Sovereign Search" capabilities using local SearXNG and Headless Browser.
+  1. Searches for a user query (default: "Latest news on AI agents")
+  2. Extracts text from the top result
+  3. Saves the research to a file
+
+inputs:
+  query:
+    type: string
+    default: "What is Model Context Protocol?"
+    description: "What to research"
+
+steps:
+  ensure_search_engine:
+    adapter: searx
+    method: ensure_server
+    inputs: {}
+    
+  perform_search:
+    adapter: searx
+    method: search
+    inputs:
+      query: "${inputs.query}"
+      limit: 3
+    
+  analyze_results:
+    adapter: python
+    inputs:
+      code: |
+        print(f"Found {len(previous['results'])} results for '${inputs.query}'")
+        for res in previous['results']:
+            print(f"- {res['title']}: {res['url']}")
+        
+        # Select top URL
+        top_url = previous['results'][0]['url'] if previous['results'] else None
+        return {"top_url": top_url}
+
+  browse_top_result:
+    adapter: browser
+    method: extract_text
+    inputs:
+      url: "${analyze_results.top_url}"
+    if: "${analyze_results.top_url}"
+
+  save_report:
+    adapter: file
+    method: write
+    inputs:
+      path: "output/research_report.md"
+      content: |
+        # Research Report: ${inputs.query}
+        
+        ## Source
+        URL: ${analyze_results.top_url}
+        
+        ## Content
+        ${browse_top_result.text}
+    if: "${analyze_results.top_url}"
+
+  show_result:
+    adapter: system
+    method: run_command
+    inputs:
+      command: "type output\\research_report.md" # Windows specific
+    if: "${analyze_results.top_url}"

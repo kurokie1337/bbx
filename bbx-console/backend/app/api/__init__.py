@@ -1,7 +1,7 @@
 # API module
 from fastapi import APIRouter
 
-from .routes import workflows, executions, agents, memory, ring, tasks, a2a, mcp, logs, workspaces, kernel, chat
+from .routes import workflows, executions, agents, memory, ring, tasks, a2a, mcp, logs, workspaces, kernel, chat, research
 
 api_router = APIRouter()
 
@@ -18,5 +18,6 @@ api_router.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
 api_router.include_router(logs.router)
 api_router.include_router(workspaces.router)
 api_router.include_router(kernel.router)  # BBX Kernel IDE
+api_router.include_router(research.router, prefix="/research", tags=["research"])
 
 __all__ = ["api_router"]

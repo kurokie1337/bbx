@@ -23,7 +23,14 @@ class Settings(BaseSettings):
     port: int = 8000
 
     # CORS
-    cors_origins: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """Parse CORS origins as list"""
+        if isinstance(self.cors_origins, str):
+            return [origin.strip() for origin in self.cors_origins.split(",")]
+        return self.cors_origins
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./data/bbx_console.db"

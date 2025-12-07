@@ -64,6 +64,8 @@ CORE_ADAPTERS = {
 OPTIONAL_ADAPTERS = {
     "database": "SQL migrations and database operations",
     "storage": "Key-value storage and file caching",
+    "searx": "Sovereign search engine (SearXNG) running locally",
+    "browser": "Headless browser for web scraping (Dockerized)",
 }
 
 # Deprecated adapters - recommend MCP alternatives
@@ -251,6 +253,24 @@ class MCPRegistry:
             lambda: self._import_adapter(
                 "blackbox.core.adapters.storage",
                 "StorageAdapter",
+            ),
+        )
+
+        # SearXNG - Sovereign Search
+        self.register_lazy(
+            ["bbx.searx", "searx", "search"],
+            lambda: self._import_adapter(
+                "blackbox.core.adapters.searx",
+                "SearxAdapter",
+            ),
+        )
+
+        # Headless Browser
+        self.register_lazy(
+            ["bbx.browser", "browser", "scrape"],
+            lambda: self._import_adapter(
+                "blackbox.core.adapters.browser",
+                "BrowserAdapter",
             ),
         )
 

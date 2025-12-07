@@ -7,8 +7,8 @@
 [![Python](https://img.shields.io/badge/Python-3.9+-green.svg)](https://python.org)
 [![Architecture](https://img.shields.io/badge/Architecture-SIRE%20Kernel-purple.svg)](#-sire-kernel-architecture)
 [![Status](https://img.shields.io/badge/Status-Active%20Development-yellow.svg)](#-current-status)
-[![Tests](https://img.shields.io/badge/Tests-53%2F53%20Pass-brightgreen.svg)](#-test-results)
-[![MCP](https://img.shields.io/badge/MCP%20Tools-40+-brightgreen.svg)](#-mcp-server-integration)
+[![Tests](https://img.shields.io/badge/Tests-55%2F55%20Pass-brightgreen.svg)](#-test-results)
+[![MCP](https://img.shields.io/badge/MCP%20Tools-42+-brightgreen.svg)](#-mcp-server-integration)
 [![A2A](https://img.shields.io/badge/A2A-v0.3-blue.svg)](#-agent-to-agent-protocol-a2a)
 
 ```
@@ -30,13 +30,14 @@ First Release: November 26, 2025
 | Component | Status | Details |
 |-----------|--------|---------|
 | **SIRE Kernel** | Working | Full runtime with DAG execution |
+| **Sovereign Search** | **NEW!** | Free, privacy-focused meta-search & scraping |
 | **LLM Integration** | Working | Ollama with local models |
 | **VectorDB** | Working | ChromaDB with semantic search |
 | **Memory/RAG** | Working | ContextTiering (HOT/WARM/COOL/COLD) |
-| **AgentRing** | Working | 4 workers, batch operations |
+| **AgentRing** | Working | 4 workers, batch operations, io_uring style |
 | **API Server** | Working | FastAPI + WebSocket on port 8000 |
-| **Web Console** | Working | React UI on port 3000 |
-| **Workflows** | Working | 17+ example workflows |
+| **Web Console** | Working | React UI + Virtual Desktop on port 3000 |
+| **Workflows** | Working | 18+ example workflows |
 | **A2A Protocol** | Working | Agent-to-agent communication |
 
 ### Test Results (December 2025)
@@ -47,9 +48,9 @@ First Release: November 26, 2025
 | Stress Tests | 6/6 | Concurrent agents, RAG quality, snapshots |
 | API Tests | 16/16 | All REST endpoints verified |
 | Advanced Tests | 6/6 | A2A, E2E workflows, WebSocket |
-| Integration Tests | 6/6 | Full pipeline, cross-component |
+| Integration Tests | 8/8 | Full pipeline, search, browser, docker |
 | Constructor Tests | 14/14 | Block-by-block connectivity |
-| **TOTAL** | **53/53** | **All tests pass** |
+| **TOTAL** | **55/55** | **All tests pass** |
 
 ### Current Implementation Stack
 
@@ -57,6 +58,8 @@ First Release: November 26, 2025
 |-------|------------|-------|
 | **LLM** | Ollama (qwen2.5:0.5b) | Local, ~400-600ms latency |
 | **VectorDB** | ChromaDB | Automatic embeddings |
+| **Search** | **SearXNG** (Docker) | Self-hosted meta-search engine |
+| **Browser** | **Headless Chrome** | Dockerized scraping & rendering |
 | **Backend** | FastAPI + uvicorn | Port 8000 |
 | **Frontend** | React + Vite + TypeScript | Port 3000 |
 | **Database** | SQLite | Local storage |
@@ -80,6 +83,21 @@ Linux gave humans:
 *   **AgentRing** for high-performance batch operations
 *   **ContextTiering** for infinite memory management
 *   **A2A Protocol** for multi-agent collaboration
+*   **Sovereign Research** for autonomous web surfing
+
+---
+
+## 🔍 NEW: Sovereign Search
+
+BBX now features a fully self-hosted, simplified "Perplexity-like" research cluster. This allows agents to:
+1.  **Search the Web**: Using a local **SearXNG** instance (aggregates Google, Bing, DDG) without API keys or tracking.
+2.  **Read Content**: Using a Dockerized **Headless Browser** (Chromium) to visit pages, render JavaScript, and extract clean text.
+3.  **Synthesize**: Feed this "fresh" knowledge into the local LLM to answer current questions.
+
+**Why?**
+*   **Privacy**: No data leaves your machine.
+*   **Cost**: $0. No paid Search APIs.
+*   **Reliability**: "Docker First" architecture ensures 100% reproducibility.
 
 ---
 
@@ -116,97 +134,35 @@ This is **not code** — it's a **data structure**. BBX safely executes it throu
 4.  **Human-Readable**: YAML format is easy to read, debug, and version-control.
 5.  **Reproducible**: Same workflow = same result, every time.
 
-### BBX Workflow Anatomy
-```yaml
-# Metadata
-id: my_workflow
-name: "Descriptive Name"
-version: 1.0.0
-description: "What this workflow does"
-
-# Inputs (optional)
-inputs:
-  api_key:
-    type: string
-    required: true
-  max_results:
-    type: integer
-    default: 10
-
-# Steps (the core)
-steps:
-  fetch_data:
-    use: http.get
-    args:
-      url: "https://api.example.com/data"
-      headers:
-        Authorization: "Bearer ${inputs.api_key}"
-    
-  process:
-    use: python.run
-    args:
-      code: |
-        data = steps.fetch_data.output.json()
-        return [item['title'] for item in data[:${inputs.max_results}]]
-    depends_on: [fetch_data]
-    
-  save:
-    use: file.write
-    args:
-      path: "results.txt"
-      content: "${steps.process.output}"
-    depends_on: [process]
-```
-
-**Key Features:**
-*   **Variable Interpolation**: `${inputs.api_key}`, `${steps.fetch_data.output}`
-*   **Dependencies**: `depends_on` creates a DAG (Directed Acyclic Graph).
-*   **Type Safety**: Inputs have types, defaults, and validation.
-*   **Adapters**: `http.get`, `python.run`, `file.write` — all sandboxed.
-
 ---
 
 ## BBX Console (Web UI)
 
 BBX includes a full-featured web console for visual management and monitoring.
 
-### Quick Start
+### Quick Start (Windows/Docker)
 
-```bash
-# Start backend (port 8000)
-cd bbx-console/backend
-pip install -r requirements.txt
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+We now provide a "One-Click" startup script that handles building and running the entire Docker cluster (Backend + Frontend + DB + Redis + Search + Browser).
 
-# Start frontend (port 3000)
-cd bbx-console/frontend
-npm install
-npm run dev
-
-# Open browser
-http://localhost:3000
+```cmd
+# Just run this script!
+start_console.bat
 ```
+
+This will:
+1.  Build the Docker images.
+2.  Start the containers in detached mode.
+3.  Launch **SearXNG** and **Headless Browser**.
+4.  Tell you when it's ready at `http://localhost:3000`.
 
 ### Features
 
 | View Mode | Description |
 |-----------|-------------|
 | **Console** | Command input, agent management, live output |
-| **Sandbox** | BBX OS panels with system controls |
 | **Desktop** | BBX Kernel visualization with boot animation |
-
-### API Endpoints
-
-```
-GET  /api/health          - Health check
-GET  /api/memory/stats    - ContextTiering stats
-GET  /api/ring/stats      - AgentRing statistics
-GET  /api/workflows/      - List workflows
-GET  /api/kernel/syscalls - Syscall reference
-GET  /api/agents/         - List agents
-POST /api/agents/         - Spawn agent
-WS   /ws                  - Real-time updates
-```
+| **Research** | **NEW!** Search UI & Content Reader (Perplexity-style) |
+| **Sandbox** | BBX OS panels with system controls |
 
 ---
 
@@ -224,10 +180,12 @@ The core Python engine (`blackbox.core`) that executes code, manages threads, an
 *   **State Isolation**: Each execution has its own context.
 
 ### Level 2: BBX Base (Standard Library)
-A rich set of **15+ Adapters** that provide standardized interfaces for agents. Instead of writing raw code, agents use these safe, atomic tools:
+A rich set of **17+ Adapters** that provide standardized interfaces for agents. Instead of writing raw code, agents use these safe, atomic tools:
 *   `http`: Network requests (GET, POST, PUT, DELETE).
 *   `file`: Safe filesystem access (read, write, append, list).
 *   `docker`: Container management (run, exec, pull, build).
+*   `searx`: **(New)** Sovereign search integration.
+*   `browser`: **(New)** Headless web browsing.
 *   `system`: OS command execution (with timeout, sandboxing).
 *   `state`: Persistent memory (get, set, delete, increment, append).
 *   `process`: Background process control (spawn, monitor, kill).
@@ -292,18 +250,6 @@ BBX now includes a **bare-metal operating system kernel** written in Rust, desig
 | **Syscalls** | Agent-specific: `agent_call`, `workflow_run`, `state_get/set` |
 | **Drivers** | Serial (UART 16550), Timer (PIT), Keyboard (PS/2) |
 
-### Building the Kernel
-```bash
-cd kernel
-cargo build --release
-cargo bootimage --release
-
-# Run in QEMU
-qemu-system-x86_64 -drive format=raw,file=target/x86_64-unknown-none/release/bootimage-bbx-kernel.bin -serial stdio
-```
-
-📖 **[Full Kernel Documentation](kernel/README.md)**
-
 ---
 
 ## 🚀 Key Innovations (The "Secret Sauce")
@@ -336,7 +282,7 @@ BBX 2.0 introduces revolutionary concepts adapted from modern Linux kernel devel
 
 ---
 
-## � Ecosystem & Connectivity
+## 🏗 Ecosystem & Connectivity
 
 ### MCP Server Integration
 BBX exposes **40+ MCP tools** for AI agents (like Claude Code, Cursor, Windsurf).
@@ -366,18 +312,18 @@ git clone https://github.com/kurokie1337/bbx.git
 cd bbx
 pip install -r requirements.txt
 
-# 2. Create a Workspace (Your Project Home)
+# 2. Start the Console (Docker Cluster)
+start_console.bat
+
+# 3. Create a Workspace (Your Project Home)
 python cli.py workspace create my-project
 python cli.py workspace set ~/.bbx/workspaces/my_project
 
-# 3. Generate a Workflow with AI
-python cli.py generate "Scrape hacker news and save top 5 titles to a file"
+# 4. Generate a Workflow with AI
+python cli.py generate "Find the latest news about AI Agents"
 
-# 4. Run it
+# 5. Run it
 python cli.py run generated.bbx
-
-# 5. Check system
-python cli.py system
 ```
 
 ---
@@ -397,18 +343,12 @@ python cli.py system
 | **[Workflow Format](docs/reference/WORKFLOW_FORMAT.md)** | Complete `.bbx` file specification |
 | **[BBX Console](bbx-console/README.md)** | Web UI documentation |
 
-### Architecture & Research
+### Architecture
 | Document | Purpose |
 |----------|---------|
 | **[Manifesto](docs/research/MANIFESTO.md)** | BBX 2.0 vision - Linux concepts for AI agents |
 | **[Roadmap](docs/research/ROADMAP.md)** | Implementation timeline |
-| **[Architecture Report](docs/research/ARCHITECTURE_REPORT.md)** | Current implementation status (PRODUCTION READY) |
-
-### SDKs
-| SDK | Language |
-|-----|----------|
-| **[Python SDK](sdks/python/bbx-sdk/README.md)** | Python 3.9+ |
-| **[Node.js SDK](sdks/nodejs/README.md)** | TypeScript/JavaScript |
+| **[Architecture](docs/research/ARCHITECTURE_REPORT.md)** | Current implementation status |
 
 ---
 

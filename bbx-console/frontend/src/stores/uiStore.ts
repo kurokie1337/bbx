@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 export type PopupType = 'memory' | 'agents' | 'ring' | 'history' | 'settings' | 'logs' | 'state' | null
-export type ViewMode = 'console' | 'desktop' | 'sandbox'
+export type ViewMode = 'console' | 'desktop' | 'sandbox' | 'research'
 
 interface UIState {
   // View Mode

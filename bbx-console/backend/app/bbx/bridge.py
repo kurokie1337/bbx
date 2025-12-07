@@ -53,37 +53,73 @@ class BBXBridge:
             return
 
         try:
-            # Import BBX modules
-            from blackbox.core.events import EventBus
-            from blackbox.core.registry import get_registry
-            from blackbox.core.v2.context_tiering import ContextTiering
-            from blackbox.core.v2.ring import AgentRing
+            # Import BBX modules - EACH in separate try block for better error handling
+            event_bus_available = False
+            registry_available = False
+            context_tiering_available = False
+            agent_ring_available = False
 
-            # Initialize components
-            self._event_bus = EventBus()
-            self._registry = get_registry()
-            self._context_tiering = ContextTiering()
-            self._agent_ring = AgentRing()
+            try:
+                from blackbox.core.events import EventBus
+                self._event_bus = EventBus()
+                event_bus_available = True
+                logger.info("EventBus loaded")
+            except Exception as e:
+                logger.warning(f"EventBus not available: {e}")
 
-            # Start background tasks
-            await self._context_tiering.start()
+            try:
+                from blackbox.core.registry import get_registry
+                self._registry = get_registry()
+                registry_available = True
+                logger.info("Registry loaded")
+            except Exception as e:
+                logger.warning(f"Registry not available: {e}")
 
-            # Get adapters from registry
-            adapters = {}
-            for name in self._registry.list_adapters():
-                try:
-                    adapters[name] = self._registry.get_adapter(name)
-                except Exception:
-                    pass
+            try:
+                from blackbox.core.v2.context_tiering import ContextTiering
+                self._context_tiering = ContextTiering()
+                await self._context_tiering.start()
+                context_tiering_available = True
+                logger.info("ContextTiering loaded")
+            except Exception as e:
+                logger.warning(f"ContextTiering not available: {e}")
 
-            await self._agent_ring.start(adapters)
+            try:
+                from blackbox.core.v2.ring import AgentRing
+                self._agent_ring = AgentRing()
+                
+                # Get adapters from registry if available
+                adapters = {}
+                if registry_available and self._registry:
+                    for name in self._registry.list_adapters():
+                        try:
+                            adapters[name] = self._registry.get_adapter(name)
+                        except Exception:
+                            pass
+
+                await self._agent_ring.start(adapters)
+                agent_ring_available = True
+                logger.info("AgentRing loaded")
+            except Exception as e:
+                logger.warning(f"AgentRing not available: {e}")
 
             self._initialized = True
-            logger.info("BBX Bridge initialized")
+            
+            # Log what's available
+            components = []
+            if event_bus_available: components.append("EventBus")
+            if registry_available: components.append("Registry")
+            if context_tiering_available: components.append("ContextTiering")
+            if agent_ring_available: components.append("AgentRing")
+            
+            if components:
+                logger.info(f"BBX Bridge initialized with: {', '.join(components)}")
+            else:
+                logger.warning("BBX Bridge initialized in MOCK MODE - no core components available")
 
-        except ImportError as e:
-            logger.error(f"Failed to import BBX modules: {e}")
-            logger.warning("Running in mock mode - BBX Core not available")
+        except Exception as e:
+            logger.error(f"Failed to initialize BBX Bridge: {e}")
+            logger.warning("Running in mock mode")
             self._initialized = True  # Allow running in mock mode
 
     async def shutdown(self):
@@ -132,7 +168,16 @@ class BBXBridge:
         """Get workflow details"""
         try:
             import yaml
-            from blackbox.core.dag import WorkflowDAG, should_use_dag
+            
+            # Try to import DAG support, fall back to simple parsing if not available
+            try:
+                from blackbox.core.dag import WorkflowDAG, should_use_dag
+                dag_support = True
+            except ImportError:
+                logger.warning("DAG support not available - using simple workflow parsing")
+                dag_support = False
+                WorkflowDAG = None
+                should_use_dag = lambda steps: False
 
             path = Path(file_path)
             content = path.read_text(encoding="utf-8")
@@ -247,8 +292,12 @@ class BBXBridge:
             inputs: Workflow inputs
             ws_callback: Optional callback for WebSocket updates
         """
-        from blackbox.core.runtime import run_file
-        from blackbox.core.events import EventBus, EventType
+        try:
+            from blackbox.core.runtime import run_file
+            from blackbox.core.events import EventBus, EventType
+        except ImportError as e:
+            logger.error(f"Cannot run workflow - BBX Core not available: {e}")
+            raise RuntimeError("Workflow execution requires BBX Core to be installed")
 
         execution_id = str(uuid.uuid4())
 

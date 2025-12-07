@@ -70,7 +70,7 @@ export function VirtualDesktop() {
   const [executions, setExecutions] = useState<Execution[]>([])
   const [syscalls, setSyscalls] = useState<Syscall[]>([])
   const [logs, setLogs] = useState<string[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [logs, setLogs] = useState<string[]>([])
 
   const logsRef = useRef<HTMLDivElement>(null)
 
@@ -119,8 +119,8 @@ export function VirtualDesktop() {
     // Fetch memory stats
     const fetchMemory = async () => {
       try {
-        const data = await api.get<MemoryStats>('/memory/stats')
-        setMemoryStats(data)
+        const response = await api.get<MemoryStats>('/memory/stats')
+        setMemoryStats(response.data)
         addLog('[MEM] Stats updated')
       } catch (e) {
         addLog('[MEM] Fetch failed')
@@ -130,8 +130,8 @@ export function VirtualDesktop() {
     // Fetch ring stats
     const fetchRing = async () => {
       try {
-        const data = await api.get<RingStats>('/ring/stats')
-        setRingStats(data)
+        const response = await api.get<RingStats>('/ring/stats')
+        setRingStats(response.data)
         addLog('[RING] Stats updated')
       } catch (e) {
         addLog('[RING] Fetch failed')
@@ -141,10 +141,10 @@ export function VirtualDesktop() {
     // Fetch executions (tasks)
     const fetchExecutions = async () => {
       try {
-        const data = await api.get<Execution[]>('/executions/')
-        setExecutions(data)
-        if (data.length > 0) {
-          addLog(`[SCHED] ${data.length} active tasks`)
+        const response = await api.get<Execution[]>('/executions/')
+        setExecutions(response.data)
+        if (response.data.length > 0) {
+          addLog(`[SCHED] ${response.data.length} active tasks`)
         }
       } catch (e) {
         addLog('[SCHED] Fetch failed')
@@ -154,9 +154,9 @@ export function VirtualDesktop() {
     // Fetch syscalls reference
     const fetchSyscalls = async () => {
       try {
-        const data = await api.get<{ syscalls: Syscall[] }>('/kernel/syscalls')
-        setSyscalls(data.syscalls)
-        addLog(`[SYS] ${data.syscalls.length} syscalls loaded`)
+        const response = await api.get<{ syscalls: Syscall[] }>('/kernel/syscalls')
+        setSyscalls(response.data.syscalls || [])
+        addLog(`[SYS] ${response.data.syscalls?.length || 0} syscalls loaded`)
       } catch (e) {
         addLog('[SYS] Syscalls fetch failed')
       }
@@ -275,7 +275,7 @@ export function VirtualDesktop() {
               {memoryStats && <span>Hit Rate: {(memoryStats.hit_rate * 100).toFixed(1)}%</span>}
             </div>
             <div style={{ flex: 1, padding: 10, display: 'flex', gap: 16, alignItems: 'center' }}>
-              {memoryStats?.generations.map(tier => (
+              {memoryStats?.generations?.map(tier => (
                 <div key={tier.tier} style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span style={{ color: tierColor[tier.tier] || '#888' }}>{tier.tier}</span>
@@ -293,8 +293,8 @@ export function VirtualDesktop() {
                   <div style={{ color: '#555', fontSize: 9, marginTop: 2 }}>{fmtBytes(tier.size_bytes)}</div>
                 </div>
               )) || (
-                <div style={{ color: '#444' }}>Loading memory stats...</div>
-              )}
+                  <div style={{ color: '#444' }}>Loading memory stats...</div>
+                )}
             </div>
           </div>
         </div>
@@ -351,7 +351,7 @@ export function VirtualDesktop() {
               SYSCALLS ({syscalls.length})
             </div>
             <div style={{ flex: 1, padding: 8, overflow: 'auto' }}>
-              {syscalls.slice(0, 15).map(sc => (
+              {(syscalls || []).slice(0, 15).map(sc => (
                 <div key={sc.num} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
                   <span style={{ color: '#666', fontSize: 9 }}>{sc.num}</span>
                   <span style={{ color: '#888', fontSize: 10, flex: 1, marginLeft: 8 }}>{sc.name}</span>

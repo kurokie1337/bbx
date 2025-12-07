@@ -10,6 +10,7 @@ import { AgentsPanel } from '@/components/core/AgentsPanel'
 import { LiveOutput } from '@/components/core/LiveOutput'
 import { LeftPanel } from '@/components/core/LeftPanel'
 import { SidePanel } from '@/components/core/SidePanel'
+import { ResearchPanel } from '@/components/core/ResearchPanel'
 
 // Sandbox components
 import { VirtualDesktop } from '@/components/sandbox/VirtualDesktop'
@@ -113,18 +114,18 @@ function App() {
   // Mode selector component
   const renderModeSelector = () => (
     <div className="flex items-center gap-1 px-2">
-      {(['console', 'sandbox', 'desktop'] as ViewMode[]).map((mode) => (
+      {(['console', 'research', 'sandbox', 'desktop'] as ViewMode[]).map((mode) => (
         <button
           key={mode}
           onClick={() => setViewMode(mode)}
-          className={`px-3 py-1 text-[10px] rounded-lg cursor-pointer transition-fast ${
-            viewMode === mode ? 'glass-button-accent' : 'glass-hover'
-          }`}
+          className={`px-3 py-1 text-[10px] rounded-lg cursor-pointer transition-fast ${viewMode === mode ? 'glass-button-accent' : 'glass-hover'
+            }`}
           style={{
             color: viewMode === mode ? 'var(--accent-light)' : 'var(--text-muted)',
           }}
         >
           {mode === 'console' && '⌨️'}
+          {mode === 'research' && '🔍'}
           {mode === 'sandbox' && '🔀'}
           {mode === 'desktop' && '🖥️'}
           <span className="ml-1.5 capitalize">{mode}</span>
@@ -138,6 +139,9 @@ function App() {
     switch (viewMode) {
       case 'desktop':
         return <VirtualDesktop />
+
+      case 'research':
+        return <ResearchPanel />
 
       case 'sandbox':
         // BBX OS - симуляция рабочей среды
